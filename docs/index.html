@@ -1,1 +1,16 @@
 Muspad Study
+<!doctype html>
+<meta charset="utf-8">
+<title>Muspad Study</title>
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+<h1 style="text-align:center;">Muspad Study</h1>
+
+<div id="chart1" style="max-width:1000px;height:600px;margin:20px auto;"></div>
+
+<script>
+  fetch("education.json")
+    .then(r => r.json())
+    .then(fig => Plotly.newPlot("chart1", fig.data, fig.layout));
+</script>
+
