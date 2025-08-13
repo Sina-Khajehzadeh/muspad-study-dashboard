@@ -3,54 +3,92 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Muspad Study</title>
 
-<!-- Libraries (load once, at the top) -->
+<!-- Core libraries -->
 <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
-<!-- PivotTable.js + deps -->
+<!-- jQuery & PivotTable.js dependencies -->
 <script src="https://unpkg.com/jquery@3.7.1/dist/jquery.min.js"></script>
 <link  rel="stylesheet" href="https://unpkg.com/jquery-ui-dist@1.13.2/jquery-ui.min.css">
 <script src="https://unpkg.com/jquery-ui-dist@1.13.2/jquery-ui.min.js"></script>
 
+<!-- PivotTable.js -->
 <link  rel="stylesheet" href="https://unpkg.com/pivottable@2.23.0/dist/pivot.css">
 <script src="https://unpkg.com/pivottable@2.23.0/dist/pivot.min.js"></script>
-<!-- optional Plotly renderers inside the pivot (since you already use Plotly) -->
 <script src="https://unpkg.com/pivottable@2.23.0/dist/plotly_renderers.min.js"></script>
 
+<!-- Tabulator (interactive grid) -->
+<link  rel="stylesheet" href="https://unpkg.com/tabulator-tables@5.6.0/dist/css/tabulator.min.css">
+<script src="https://unpkg.com/tabulator-tables@5.6.0/dist/js/tabulator.min.js"></script>
+
 <style>
-  :root{ --page-max: 1900px; --gap: 6px; }
+  :root{
+    --page-max: 1900px;
+    --gap: 6px;
+    --card-bg:#fff;
+    --card-br:#e6e9ef;
+  }
   *{ box-sizing:border-box }
   body{ font-family:system-ui, Arial, sans-serif; background:#f6f7fb; margin:0 }
   h1{ text-align:center; padding:12px 4px; margin:0; font-weight:700 }
 
+  /* Page layout */
+  #page{
+    max-width:var(--page-max);
+    width:min(99vw, var(--page-max));
+    margin:6px auto 16px;
+    padding:0 4px;
+  }
+
   .grid{
     display:grid;
-    grid-template-columns: 1.4fr 1.6fr 1.4fr; /* left | middle | right */
+    grid-template-columns: 1.4fr 1.6fr 1.4fr;
     gap:var(--gap);
-    max-width:var(--page-max);
-    width: min(99vw, var(--page-max));
-    margin:3px auto 12px;
-    padding:0 4px;
     align-items:stretch;
   }
-  @media (max-width:1200px){ .grid{ grid-template-columns:1fr } #bottom{ grid-column:auto } }
+  @media (max-width:1200px){
+    .grid{ grid-template-columns:1fr }
+    #bottom{ grid-column:auto }
+  }
 
   .card{
-    background:#fff; border:1px solid #e6e9ef; border-radius:10px;
+    background:var(--card-bg);
+    border:1px solid var(--card-br);
+    border-radius:10px;
     box-shadow:0 1px 3px rgba(0,0,0,.04);
-    padding:10px; display:flex; flex-direction:column; min-height:0;
+    padding:10px;
+    display:flex;
+    flex-direction:column;
+    min-height:0;
   }
-  #bottom{ grid-column:1 / -1 }
+  .card-header{
+    margin-bottom:6px;
+  }
+  .card-title{
+    margin:0;
+    font-size:15px;
+    font-weight:650;
+  }
 
   .chart{ width:100%; height:clamp(320px, 46vh, 640px) }
-  .placeholder{ color:#667; font-size:13px }
 
-  table{ border-collapse:collapse; width:100%; font-size:12.5px }
-  th,td{ border:1px solid #e5e8ef; padding:6px 8px; text-align:left }
-  th{ background:#f2f5fb; position:sticky; top:0; z-index:1 }
-  .scroll{ max-height:clamp(200px, 40vh, 480px); overflow:auto }
+  /* Tabulator wrap fills its card */
+  #table-top-wrap{
+    display:flex;
+    flex-direction:column;
+    min-height:0;
+    height:clamp(240px, 42vh, 440px);
+  }
+  #table-top{ flex:1 1 auto; min-height:0 }
 
-  /* pivot UI tweaks so it fits nicely */
+  /* Divider for resizing pivot area */
+  #divider{
+    height:10px; margin:10px 0; cursor:row-resize;
+    background:linear-gradient(#e9eef7,#dfe7f5);
+    border:1px solid #d5dcef; border-radius:8px;
+  }
+
+  /* Pivot area */
   #pivot{ height:clamp(420px, 60vh, 800px); overflow:auto; }
   #pivot .pvtUi{ font-size:12px; }
   #pivot .pvtUi select, #pivot .pvtUi button{ font-size:12px; }
@@ -58,38 +96,50 @@
 
 <h1>Muspad Study — Descriptive Overview</h1>
 
-<div class="grid">
-  <!-- TOP LEFT: preview table -->
-  <div class="card">
-    <div class="placeholder"><b>Dataset (top-left)</b><br>Small preview of df3.</div>
-    <div id="debug-top" style="color:#666; font-size:12px; padding:4px 0 6px;"></div>
-    <div id="table-top" class="scroll"></div>
+<div id="page">
+  <!-- Top row -->
+  <div class="grid" id="top-row">
+    <!-- Left: interactive data set -->
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">Muspad data set</h2>
+      </div>
+      <div id="table-top-wrap">
+        <div id="table-top"></div>
+      </div>
+    </div>
+
+    <!-- Middle: chart 1 -->
+    <div class="card"><div id="chart1" class="chart"></div></div>
+
+    <!-- Right: chart 2 -->
+    <div class="card"><div id="chart2" class="chart"></div></div>
   </div>
 
-  <!-- TOP MIDDLE/RIGHT: charts -->
-  <div class="card"><div id="chart1" class="chart"></div></div>
-  <div class="card"><div id="chart2" class="chart"></div></div>
+  <!-- Divider -->
+  <div id="divider" title="Drag to resize pivot area"></div>
 
-  <!-- BOTTOM: full pivot -->
-  <div id="bottom" class="card">
-    <div id="debug-pivot" style="color:#666; font-size:12px; padding:0 0 6px;"></div>
+  <!-- Bottom: pivot table -->
+  <div class="card" id="pivot-card">
+    <div class="card-header">
+      <h2 class="card-title">Pivot table</h2>
+    </div>
     <div id="pivot"></div>
   </div>
 </div>
 
 <script>
-  /* ---------- Consistent Plotly styling ---------- */
+  /* Plotly styling */
   const BASE_WIDTH = 1400;
   const FONT_FAMILY = "Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
   const SIZES = { title: 18, axisTitle: 12, tick: 11, legend: 10.5, hover: 12 };
   const RIGHT_MARGIN = 84;
 
-  const scale = (px, el) => {
+  function scale(px, el){
     const w = (el?.clientWidth || BASE_WIDTH);
     const s = Math.min(1.15, Math.max(0.9, w / BASE_WIDTH));
     return Math.round(px * s);
-  };
-
+  }
   function maybeRotateX(fig){
     try{
       const xs = (fig.data?.[0]?.x || []).map(String);
@@ -99,24 +149,18 @@
       }
     }catch(e){}
   }
-
   function normalize(fig, el){
     fig.layout = fig.layout || {};
     delete fig.layout.width; delete fig.layout.height;
-
     fig.layout.template = "plotly_white";
     fig.layout.paper_bgcolor = "#ffffff";
     fig.layout.plot_bgcolor  = "#ffffff";
-
     const m = fig.layout.margin || {};
-    fig.layout.margin = { l: 54, r: Math.max(RIGHT_MARGIN, m.r||0), t: 50, b: 46 };
-
-    fig.layout.font = { family: FONT_FAMILY, size: scale(12.5, el), color:"#213547" };
-
+    fig.layout.margin = {l: 54, r: Math.max(RIGHT_MARGIN, m.r||0), t: 50, b: 46};
+    fig.layout.font = {family: FONT_FAMILY, size: scale(12.5, el), color:"#213547"};
     fig.layout.title = fig.layout.title || {};
     fig.layout.title.x = (fig.layout.title.x ?? 0.02);
-    fig.layout.title.font = { size: scale(SIZES.title, el), family: FONT_FAMILY };
-
+    fig.layout.title.font = {size: scale(SIZES.title, el), family: FONT_FAMILY};
     fig.layout.legend = Object.assign({
       orientation: "v",
       x: 1.003, xanchor: "left",
@@ -126,7 +170,6 @@
       borderwidth: 0,
       font: { size: scale(SIZES.legend, el), family: FONT_FAMILY }
     }, fig.layout.legend || {});
-
     for (const k of Object.keys(fig.layout)) {
       if (/^[xy]axis(\d+)?$/.test(k)) {
         const ax = fig.layout[k] = Object.assign({
@@ -140,7 +183,6 @@
         ax.title.standoff = 4;
       }
     }
-
     if (fig.layout.coloraxis){
       fig.layout.coloraxis.colorbar = Object.assign({
         thickness: 10, outlinewidth: 0,
@@ -148,11 +190,9 @@
         title:    { font: { size: scale(SIZES.tick, el), family: FONT_FAMILY } }
       }, fig.layout.coloraxis.colorbar || {});
     }
-
     maybeRotateX(fig);
     return fig;
   }
-
   function renderChart(id, raw){
     const el = document.getElementById(id);
     const fig = normalize(
@@ -164,8 +204,6 @@
     window.addEventListener("resize", resize);
     if ("ResizeObserver" in window) new ResizeObserver(resize).observe(el);
   }
-
-  /* ---------- Load charts ---------- */
   Promise.all([
     fetch("education.json").then(r => r.json()),
     fetch("employment.json").then(r => r.json())
@@ -174,16 +212,14 @@
     renderChart("chart2", fig2);
   });
 
-  /* ---------- CSV helpers (workers OFF + auto delimiter) ---------- */
+  /* CSV loader with auto delimiter */
   function loadCSVWithAutoDelimiter(url, done){
     const baseOpts = { download:true, header:true, skipEmptyLines:true, dynamicTyping:false, worker:false };
     Papa.parse(url, {
       ...baseOpts,
       complete: (res) => {
-        // if more than 1 column parsed, accept
         if (res.data && res.data.length && Object.keys(res.data[0]||{}).length > 1) return done(null, res);
-        // else retry with semicolon delimiter
-        Papa.parse(url, { ...baseOpts, delimiter: ";",
+        Papa.parse(url, { ...baseOpts, delimiter:";",
           complete: (res2) => done(null, res2),
           error: (err2) => done(err2)
         });
@@ -192,62 +228,79 @@
     });
   }
 
-  /* ---------- Top-left preview table (small/fast) ---------- */
-  const topDebug = (msg) => { const el = document.getElementById("debug-top"); if (el) el.textContent = msg; };
+  /* Build Tabulator grid and Pivot */
+  const DATA_URL = "data/df3_full_for_pivot.csv?v=3";
+  loadCSVWithAutoDelimiter(DATA_URL, (err, res) => {
+    if (err){ console.error(err); return; }
+    const rows   = (res.data || []).filter(r => Object.keys(r).length);
+    const fields = res.meta?.fields || (rows[0] ? Object.keys(rows[0]) : []);
 
-  function renderTable(targetId, rows, opts = {}) {
-    const el = document.getElementById(targetId);
-    if (!rows || rows.length === 0) { el.textContent = "No rows"; return; }
+    /* Tabulator grid (full dataset) */
+    const cols = fields.map(f => ({
+      title: f,
+      field: f,
+      headerFilter:"input",
+      headerFilterPlaceholder:"filter…",
+      hozAlign:"left",
+    }));
+    const table = new Tabulator("#table-top", {
+      data: rows,
+      columns: cols,
+      height: "100%",
+      layout: "fitDataStretch",
+      movableColumns: true,
+      resizableColumns: true,
+      selectable: false,
+      pagination: false,
+      reactiveData: false,
+      virtualDom: true,
+    });
 
-    const cols  = opts.columns || Object.keys(rows[0]);
-    const limit = Number.isFinite(opts.limit) ? opts.limit : rows.length;
-
-    const esc = (v) => String(v == null ? "" : v)
-      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-
-    let html = "<table><thead><tr>";
-    for (const c of cols) html += `<th>${esc(c)}</th>`;
-    html += "</tr></thead><tbody>";
-
-    for (let i = 0; i < Math.min(limit, rows.length); i++) {
-      html += "<tr>";
-      for (const c of cols) html += `<td>${esc(rows[i][c])}</td>`;
-      html += "</tr>";
-    }
-    html += "</tbody></table>";
-    el.innerHTML = html;
-  }
-
-  topDebug("Loading preview…");
-  loadCSVWithAutoDelimiter("data/df3_preview.csv?v=2", (err, res) => {
-    if (err) return topDebug("Preview load error: " + (err?.message || "unknown"));
-    const rows = (res.data || []).filter(r => Object.keys(r).length);
-    const cols = res.meta?.fields || (rows[0] ? Object.keys(rows[0]) : []);
-    renderTable("table-top", rows, { limit: 8, columns: cols.slice(0, 6) });
-    topDebug(`Preview loaded: ${rows.length} rows, ${cols.length} columns`);
-  });
-
-  /* ---------- Bottom: PivotTable.js over the FULL CSV ---------- */
-  const pivotDebug = (msg) => { const el = document.getElementById("debug-pivot"); if (el) el.textContent = msg; };
-
-  pivotDebug("Loading full dataset into pivot…");
-  loadCSVWithAutoDelimiter("data/df3_full_for_pivot.csv?v=2", (err, res) => {
-    if (err) return pivotDebug("Pivot load error: " + (err?.message || "unknown"));
-
-    const rows = (res.data || []).filter(r => Object.keys(r).length);
-    const utils = $.pivotUtilities;
+    /* Pivot (full dataset) */
+    const utils     = $.pivotUtilities;
     const renderers = $.extend({}, utils.renderers, utils.plotly_renderers || {});
-
     $("#pivot").pivotUI(
       rows,
       {
         rendererName: "Table",
         aggregatorName: "Count",
-        rows: [], cols: [],
+        rows: [],
+        cols: [],
         renderers: renderers
       },
       true
     );
-    pivotDebug(`Pivot loaded: ${rows.length} rows`);
   });
+
+  /* Horizontal divider drag logic */
+  (function(){
+    const divider = document.getElementById("divider");
+    const pivot   = document.getElementById("pivot");
+    let dragging  = false, startY = 0, startH = 0;
+
+    const onDown = (e)=>{
+      dragging=true;
+      startY = e.clientY || e.touches?.[0]?.clientY || 0;
+      startH = pivot.getBoundingClientRect().height;
+      document.body.style.userSelect="none";
+    };
+    const onMove = (e)=>{
+      if(!dragging) return;
+      const y = e.clientY || e.touches?.[0]?.clientY || 0;
+      const dh = y - startY;
+      const newH = Math.max(240, startH + dh);
+      pivot.style.height = newH + "px";
+      window.dispatchEvent(new Event("resize"));
+    };
+    const onUp = ()=>{
+      dragging=false;
+      document.body.style.userSelect="";
+    };
+    divider.addEventListener("mousedown", onDown);
+    divider.addEventListener("touchstart", onDown, {passive:true});
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("touchmove", onMove, {passive:false});
+    window.addEventListener("mouseup", onUp);
+    window.addEventListener("touchend", onUp);
+  })();
 </script>
