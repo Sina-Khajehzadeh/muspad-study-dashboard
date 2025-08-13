@@ -1,72 +1,66 @@
 <!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <title>Muspad Study — Descriptive Overview</title>
-  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Muspad Study</title>
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 
-  <style>
-    :root { --gap:16px; }
-    body { margin:0; background:#f6f7fb; font-family: system-ui, Arial, sans-serif; }
-    h1 { text-align:center; margin: 20px 0; }
+<style>
+  body { font-family: system-ui, Arial, sans-serif; background:#f6f7fb; margin:0; }
+  h1 { text-align:center; padding:16px 12px; margin:0; }
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;   /* left, middle, right */
+    gap: 16px;
+    max-width: 1400px;
+    margin: 12px auto 40px;
+    padding: 0 12px;
+  }
+  .card {
+    background: #fff; border: 1px solid #e9ecf2; border-radius: 10px;
+    box-shadow: 0 2px 6px rgba(0,0,0,.05); padding: 12px;
+  }
+  #bottom { grid-column: 1 / -1; }       /* bottom spans all 3 columns */
+  .chart { height: 380px; }
+  .placeholder { color:#667; font-size:14px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { border: 1px solid #e5e8ef; padding: 6px 8px; text-align: left; }
+  th { background: #f2f5fb; position: sticky; top: 0; }
+  .scroll { max-height: 340px; overflow:auto; }
+</style>
 
-    /* page width + padding */
-    .container { max-width:1280px; margin:0 auto; padding:0 20px 24px; }
+<h1>Muspad Study — Descriptive Overview</h1>
 
-    /* 3 equal columns on desktop, stack on small screens */
-    .grid3 { display:grid; grid-template-columns: repeat(3, 1fr); gap: var(--gap); }
-
-    /* card look */
-    .card {
-      background:#fff; border:1px solid #e7e9ef; border-radius:12px;
-      padding:12px; box-shadow:0 1px 3px rgba(16,24,40,.06);
-    }
-
-    /* equal heights for all boxes; inner div fills it */
-    .box { height:520px; display:flex; align-items:stretch; }
-    .box > div { width:100%; height:100%; }
-
-    .bottom { margin-top: var(--gap); }
-
-    /* responsive */
-    @media (max-width: 1100px){
-      .grid3 { grid-template-columns: 1fr; }
-      .box { height:420px; }
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h1>Muspad Study — Descriptive Overview</h1>
-
-    <!-- TOP: left = table placeholder, middle = chart1, right = chart2 -->
-    <div class="grid3">
-      <div class="card box" id="table-mini">Loading table…</div>
-      <div class="card box"><div id="chart1"></div></div>
-      <div class="card box"><div id="chart2"></div></div>
-    </div>
-
-    <!-- BOTTOM: wide table placeholder -->
-    <div class="bottom">
-      <div class="card box" id="table-wide">Loading table…</div>
-    </div>
+<div class="grid">
+  <!-- TOP LEFT: table (placeholder for now) -->
+  <div class="card">
+    <div class="placeholder"><b>Dataset (top-left)</b><br>We’ll wire this to your CSV next.</div>
+    <div id="table-top" class="scroll"></div>
   </div>
 
-  <script>
-    // helper to draw a Plotly figure from a JSON file
-    function draw(id, url){
-      fetch(url)
-        .then(r => r.json())
-        .then(fig => Plotly.newPlot(id, fig.data, fig.layout, {responsive: true}))
-        .catch(err => {
-          document.getElementById(id).innerHTML = "Could not load " + url;
-          console.error(err);
-        });
-    }
+  <!-- TOP MIDDLE: chart 1 -->
+  <div class="card">
+    <div id="chart1" class="chart"></div>
+  </div>
 
-    // your two charts (add more later)
-    draw("chart1", "education.json");
-    draw("chart2", "employment.json");
-  </script>
-</body>
-</html>
+  <!-- TOP RIGHT: chart 2 -->
+  <div class="card">
+    <div id="chart2" class="chart"></div>
+  </div>
+
+  <!-- BOTTOM: big table area -->
+  <div id="bottom" class="card">
+    <div class="placeholder"><b>Full table (bottom)</b><br>We’ll populate this after we add the CSV.</div>
+    <div id="table-bottom" class="scroll" style="max-height:500px;"></div>
+  </div>
+</div>
+
+<script>
+  // Load your two plots we just added to /docs
+  Promise.all([
+    fetch("education.json").then(r => r.json()),
+    fetch("employment.json").then(r => r.json())
+  ]).then(([fig1, fig2]) => {
+    Plotly.newPlot("chart1", fig1.data, fig1.layout);
+    Plotly.newPlot("chart2", fig2.data, fig2.layout);
+  });
+</script>
