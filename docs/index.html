@@ -20,27 +20,17 @@
   :root{
     --page-max: 1900px;
     --gap: 8px;
-
-    /* keep your top card heights aligned */
-    --top-card-h: clamp(340px, 46vh, 640px);
-
-    /* initial preview size for the table (around 12 rows x 10 cols) */
-    --preview-rows: 12;
-    --preview-row-h: 26px;
-    --preview-header-h: 30px;
-
-    /* bottom area (optional if you add anything later) */
-    --bottom-h: 58vh;
+    --top-card-h: clamp(340px, 46vh, 640px);  /* unified height for the three top cards */
   }
 
   *{ box-sizing:border-box }
   body{ font-family:system-ui, Arial, sans-serif; background:#f6f7fb; margin:0 }
   h1{ text-align:center; padding:12px 4px; margin:0; font-weight:700 }
 
-  /* 3-column grid kept exactly as requested */
+  /* 3-column grid (unchanged) */
   .grid{
     display:grid;
-    grid-template-columns: 1.4fr 1.6fr 1.4fr;
+    grid-template-columns: 1.4fr 1.6fr 1.4fr;   /* left | middle | right */
     gap:var(--gap);
     max-width:var(--page-max);
     width:min(99vw, var(--page-max));
@@ -48,176 +38,141 @@
     padding:0 6px;
     align-items:stretch;
   }
-  @media (max-width:1200px){ .grid{ grid-template-columns:1fr } .span-all{ grid-column:1 / -1 } }
+  @media (max-width:1200px){
+    .grid{ grid-template-columns:1fr }
+  }
 
   .card{
     background:#fff; border:1px solid #e6e9ef; border-radius:10px;
     box-shadow:0 1px 3px rgba(0,0,0,.04);
     padding:10px; display:flex; flex-direction:column; min-height:0;
   }
-
   .top-card{ height:var(--top-card-h); }
 
-  /* ===== Left: dataset card ===== */
+  /* Left card: table */
   .card h2{ font-size:16px; margin:0 0 8px 0; }
+  .fill-scroll{ flex:1 1 auto; min-height:0; }
 
-  /* Preview box: fixed height, both scrollbars */
-  #preview-box{
-    border:1px solid #eef2f9; border-radius:8px; padding:6px;
-    max-height: calc(var(--preview-header-h) + var(--preview-rows) * var(--preview-row-h));
-    overflow:auto;
-    font-size:12px;
+  /* DataTables tweaks */
+  table.dataTable.compact thead th,
+  table.dataTable.compact tbody td{
+    padding: 6px 8px;            /* tighter */
+    white-space: nowrap;         /* enable horizontal scroll for many columns */
+    font-size: 12px;             /* small so the table stays neat */
   }
-  #preview-box table{ width:100%; border-collapse:collapse; white-space:nowrap }
-  #preview-box th, #preview-box td{
-    border:1px solid #e5e8ef; padding:4px 6px; text-align:left;
-    height:var(--preview-row-h);
-    line-height:calc(var(--preview-row-h) - 6px);
-  }
-  #preview-box th{
-    position:sticky; top:0; background:#f2f5fb; height:var(--preview-header-h);
-    line-height:calc(var(--preview-header-h) - 6px);
+  div.dataTables_wrapper{
+    width:100%;
   }
 
-  .row-actions{ margin-top:8px; display:flex; gap:8px; align-items:center }
-  .btn{
-    display:inline-block; padding:6px 10px; border-radius:8px; border:1px solid #d6ddea;
-    background:#f7f9ff; cursor:pointer; font-size:12px;
-  }
-  .btn:hover{ background:#eef2ff }
-
-  /* Full table wrapper replaces the preview area after click */
-  #table-wrap{ display:none; min-height:0; flex:1 1 auto; }
-  #bigTable{ width:100%; font-size:12px; }
-
-  /* enable horizontal scroll for many columns */
-  div.dataTables_wrapper {
-    width: 100%;
-  }
-
-  /* ===== Middle / Right: charts via iframes ===== */
+  /* Middle/Right charts via iframes (interactive Plotly HTMLs) */
   .chart-frame{
-    width:100%; height: calc(var(--top-card-h) - 10px);
-    border: none; border-radius:8px; background:#fff;
+    width:100%;
+    height:calc(var(--top-card-h) - 6px);
+    border:none;
+    border-radius:8px;
+    background:#fff;
   }
-
-  /* ===== Optional bottom section (if you add more later) ===== */
-  .span-all{ grid-column:1 / -1; }
-  .bottom{ height:var(--bottom-h); }
 </style>
 
 <h1>Muspad Study — Descriptive Overview</h1>
 
 <div class="grid">
-
-  <!-- LEFT: Dataset -->
+  <!-- LEFT: Dataset (virtual scrolling table) -->
   <div class="card top-card">
     <h2>Muspad data set</h2>
-
-    <!-- Small preview first (fast) -->
-    <div id="preview-box"></div>
-
-    <div class="row-actions">
-      <button class="btn" id="load-full">Load full data (virtual scroll)</button>
-      <span id="load-note" style="color:#667;font-size:12px"></span>
-    </div>
-
-    <!-- Full DataTables grid (appears after button click) -->
-    <div id="table-wrap">
-      <table id="bigTable" class="display nowrap"></table>
+    <div class="fill-scroll">
+      <table id="dataset" class="display compact nowrap" style="width:100%">
+        <thead></thead>
+        <tbody></tbody>
+      </table>
     </div>
   </div>
 
-  <!-- MIDDLE: Chart 1 -->
+  <!-- MIDDLE: Chart 1 (exported Plotly HTML) -->
   <div class="card top-card">
-    <!-- point src to your exported Plotly HTML -->
     <iframe class="chart-frame" src="plots/education.html" loading="lazy"></iframe>
   </div>
 
-  <!-- RIGHT: Chart 2 -->
+  <!-- RIGHT: Chart 2 (exported Plotly HTML) -->
   <div class="card top-card">
     <iframe class="chart-frame" src="plots/employment.html" loading="lazy"></iframe>
   </div>
-
-  <!-- (Optional) bottom area for anything else later -->
-  <!-- <div class="card span-all bottom"></div> -->
 </div>
 
 <script>
-  /* ---------- CONFIG ---------- */
-  const CSV_URL = "data/df3_full.csv";           // your big dataset
-  const PREVIEW_ROWS = 12;                        // ~12 rows
-  const PREVIEW_COLS = 10;                        // ~10 columns visible in preview
+  /* ========= Data loader (robust to comma/semicolon CSV) ========= */
+  const CSV_PREVIEW = "data/df3_preview.csv"; // fast-loading preview slice
+  // To switch to your full dataset later:
+  // const CSV_PREVIEW = "data/df3_full_for_pivot.csv";
 
-  /* ---------- Build preview (cheap & instant) ---------- */
-  function renderPreview(rows, cols){
-    const el = document.getElementById("preview-box");
-    const subsetCols = cols.slice(0, PREVIEW_COLS);
-    const subsetRows = rows.slice(0, PREVIEW_ROWS);
-
-    const esc = s => String(s==null? "":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-
-    let html = "<table><thead><tr>";
-    for (const c of subsetCols) html += `<th>${esc(c)}</th>`;
-    html += "</tr></thead><tbody>";
-
-    for (const r of subsetRows){
-      html += "<tr>";
-      for (const c of subsetCols) html += `<td>${esc(r[c])}</td>`;
-      html += "</tr>";
-    }
-    html += "</tbody></table>";
-    el.innerHTML = html;
+  function loadCSVAuto(url, done){
+    const base = { download:true, header:true, skipEmptyLines:true, worker:true };
+    Papa.parse(url, {
+      ...base,
+      complete: (res) => {
+        if (res.data && res.data.length && Object.keys(res.data[0]||{}).length > 1) return done(null, res);
+        Papa.parse(url, { ...base, delimiter:";", complete:(r2)=>done(null,r2), error:(e)=>done(e) });
+      },
+      error: (err) => done(err)
+    });
   }
 
-  /* ---------- Load CSV (Papa) then init preview ---------- */
-  let cachedRows = null, cachedCols = null;
+  function colsFromFields(fields){
+    return fields.map(name => ({ title: name, data: name }));
+  }
 
-  Papa.parse(CSV_URL, {
-    download: true,
-    header: true,
-    worker: true,
-    skipEmptyLines: true,
-    complete: (res) => {
-      const rows = res.data.filter(r => Object.keys(r).length);
-      const cols = res.meta.fields || (rows[0] ? Object.keys(rows[0]) : []);
-      cachedRows = rows; cachedCols = cols;
-      renderPreview(rows, cols);
-      document.getElementById("load-note").textContent = `(${rows.length.toLocaleString()} rows, ${cols.length} columns)`;
-    },
-    error: (err) => {
-      document.getElementById("preview-box").textContent = "Failed to load CSV.";
-      console.error(err);
+  function initDataTable(rows, fields){
+    // If re-initialized, destroy previous instance
+    if ($.fn.dataTable.isDataTable('#dataset')){
+      $('#dataset').DataTable().clear().destroy();
+      $('#dataset thead').empty();
     }
-  });
 
-  /* ---------- Button: swap preview → full DataTables (virtual scroll) ---------- */
-  document.getElementById("load-full").addEventListener("click", () => {
-    if (!cachedRows || !cachedCols) return;
+    // Build header
+    const thead = document.querySelector('#dataset thead');
+    const tr = document.createElement('tr');
+    (fields || Object.keys(rows[0]||{})).forEach(col=>{
+      const th = document.createElement('th');
+      th.textContent = col;
+      tr.appendChild(th);
+    });
+    thead.appendChild(tr);
 
-    // Hide preview, show full table wrapper
-    document.getElementById("preview-box").style.display = "none";
-    document.getElementById("table-wrap").style.display = "block";
-
-    // Map columns for DataTables (object data source)
-    const dtCols = cachedCols.map(c => ({ title: c, data: c }));
-
-    // Init DataTable with Scroller + horizontal/vertical scroll
-    $('#bigTable').DataTable({
-      data: cachedRows,
-      columns: dtCols,
-
-      deferRender: true,          // build rows only as needed
-      scrollY:  (window.innerHeight * 0.40) + "px", // ~40% viewport height
-      scrollX:  true,
-      scroller: true,             // virtual scrolling
+    // Initialize DataTables with Scroller + horizontal scroll
+    $('#dataset').DataTable({
+      data: rows,
+      columns: colsFromFields(fields),
+      deferRender: true,                 // render only visible rows
+      scroller: true,                    // virtual scrolling
+      scrollY: 'calc(var(--top-card-h) - 70px)',  // stay inside card
+      scrollX: true,                     // horizontal scroll for many columns
       scrollCollapse: true,
-      paging: false,              // no pagination, continuous scroll
-      searching: true,            // built-in clientside search (optional)
-      ordering: true,             // sort columns (optional)
-      info: true,                 // "Showing x of y" (optional)
-      stateSave: false,           // set true if you want to persist table state
+      paging: false,                     // continuous scroll (no pagination)
+      searching: true,                   // user can search
+      ordering: true,                    // column sorting
+      info: false,
       autoWidth: false
     });
+  }
+
+  // Load CSV and build the table
+  loadCSVAuto(CSV_PREVIEW, (err, res) => {
+    if (err){
+      console.error(err);
+      document.querySelector('#dataset').outerHTML =
+        '<div style="color:#b00; padding:8px;">Failed to load dataset.</div>';
+      return;
+    }
+    const rows = (res.data || []).filter(r => Object.keys(r).length);
+    const fields = res.meta?.fields || (rows[0] ? Object.keys(rows[0]) : []);
+    initDataTable(rows, fields);
+  });
+
+  // Resize handler so the table keeps fitting the card height
+  window.addEventListener('resize', () => {
+    const dt = $('#dataset').DataTable();
+    if (dt){
+      dt.columns.adjust().draw(false);
+    }
   });
 </script>
