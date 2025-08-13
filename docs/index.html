@@ -1,57 +1,72 @@
 <!doctype html>
-<meta charset="utf-8" />
-<title>Muspad Study</title>
-<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Muspad Study — Descriptive Overview</title>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 
-<style>
-  :root { --gap:16px; }
-  body { margin:0; background:#f6f7fb; font-family: system-ui, Arial, sans-serif; }
-  h1 { text-align:center; margin: 20px 0; }
+  <style>
+    :root { --gap:16px; }
+    body { margin:0; background:#f6f7fb; font-family: system-ui, Arial, sans-serif; }
+    h1 { text-align:center; margin: 20px 0; }
 
-  /* page width + padding */
-  .container { max-width:1280px; margin:0 auto; padding: 0 20px 24px; }
+    /* page width + padding */
+    .container { max-width:1280px; margin:0 auto; padding:0 20px 24px; }
 
-  /* 3 equal columns on desktop, stack on small screens */
-  .grid3 { display:grid; grid-template-columns: repeat(3, 1fr); gap: var(--gap); }
+    /* 3 equal columns on desktop, stack on small screens */
+    .grid3 { display:grid; grid-template-columns: repeat(3, 1fr); gap: var(--gap); }
 
-  /* card look */
-  .card {
-    background:#fff; border:1px solid #e7e9ef; border-radius:12px;
-    padding:12px; box-shadow:0 1px 3px rgba(16,24,40,.06);
-  }
+    /* card look */
+    .card {
+      background:#fff; border:1px solid #e7e9ef; border-radius:12px;
+      padding:12px; box-shadow:0 1px 3px rgba(16,24,40,.06);
+    }
 
-  /* make all boxes the same height and ensure inner div fills it */
-  .box { height:520px; display:flex; align-items:stretch; }
-  .box > div { width:100%; height:100%; }
+    /* equal heights for all boxes; inner div fills it */
+    .box { height:520px; display:flex; align-items:stretch; }
+    .box > div { width:100%; height:100%; }
 
-  .bottom { margin-top: var(--gap); }
+    .bottom { margin-top: var(--gap); }
 
-  /* responsive: stack the three columns on tablets/phones */
-  @media (max-width: 1100px){
-    .grid3 { grid-template-columns: 1fr; }
-    .box { height:420px; }
-  }
-</style>
+    /* responsive */
+    @media (max-width: 1100px){
+      .grid3 { grid-template-columns: 1fr; }
+      .box { height:420px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Muspad Study — Descriptive Overview</h1>
 
-<h1>Muspad Study — Descriptive Overview</h1>
+    <!-- TOP: left = table placeholder, middle = chart1, right = chart2 -->
+    <div class="grid3">
+      <div class="card box" id="table-mini">Loading table…</div>
+      <div class="card box"><div id="chart1"></div></div>
+      <div class="card box"><div id="chart2"></div></div>
+    </div>
 
-<!-- TOP: left = small table, middle = chart1, right = chart2 -->
-<div class="grid3">
-  <div class="card box" id="table-mini">Loading table…</div>
-  <div class="card box"><div id="chart1" style="width:100%;height:100%"></div></div>
-  <div class="card box"><div id="chart2" style="width:100%;height:100%"></div></div>
-</div>
+    <!-- BOTTOM: wide table placeholder -->
+    <div class="bottom">
+      <div class="card box" id="table-wide">Loading table…</div>
+    </div>
+  </div>
 
-<!-- BOTTOM: wide big table -->
-<div class="bottom">
-  <div class="card box" id="table-wide">Loading table…</div>
-</div>
+  <script>
+    // helper to draw a Plotly figure from a JSON file
+    function draw(id, url){
+      fetch(url)
+        .then(r => r.json())
+        .then(fig => Plotly.newPlot(id, fig.data, fig.layout, {responsive: true}))
+        .catch(err => {
+          document.getElementById(id).innerHTML = "Could not load " + url;
+          console.error(err);
+        });
+    }
 
-<script>
-  // draw the two charts you uploaded
-  fetch("education.json").then(r => r.json())
-    .then(fig => Plotly.newPlot("chart1", fig.data, fig.layout));
-
-  fetch("employment.json").then(r => r.json())
-    .then(fig => Plotly.newPlot("chart2", fig.data, fig.layout));
-</script>
+    // your two charts (add more later)
+    draw("chart1", "education.json");
+    draw("chart2", "employment.json");
+  </script>
+</body>
+</html>
