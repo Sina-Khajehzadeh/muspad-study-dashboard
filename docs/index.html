@@ -6,8 +6,8 @@
 
 <style>
   :root{
-    --page-max: 1760px;   /* wider page */
-    --gap: 12px;          /* small gaps between cards */
+    --page-max: 1900px;   /* wider page */
+    --gap: 6px;          /* small gaps between cards */
   }
   *{ box-sizing:border-box }
   body{ font-family:system-ui, Arial, sans-serif; background:#f6f7fb; margin:0 }
@@ -19,9 +19,9 @@
     grid-template-columns: 0.9fr 1.4fr 1.4fr; /* left (narrow) | middle | right */
     gap:var(--gap);
     max-width:var(--page-max);
-    width: min(98vw, var(--page-max)); /* shrink side margins */
-    margin:6px auto 24px;
-    padding:0 6px;                     /* tiny page padding */
+    width: min(99vw, var(--page-max)); /* shrink side margins */
+    margin:3px auto 12px;
+    padding:0 4px;                     /* tiny page padding */
     align-items:stretch;
   }
   @media (max-width:1200px){
