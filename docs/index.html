@@ -3,53 +3,52 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Muspad Study</title>
 
-<!-- Libraries -->
-<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<!-- ============ CDNs ============ -->
+<!-- jQuery (needed by DataTables) -->
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+<!-- PapaParse: CSV -> JS (runs in a Web Worker) -->
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
-<!-- PivotTable.js + deps -->
-<script src="https://unpkg.com/jquery@3.7.1/dist/jquery.min.js"></script>
-<link  rel="stylesheet" href="https://unpkg.com/jquery-ui-dist@1.13.2/jquery-ui.min.css">
-<script src="https://unpkg.com/jquery-ui-dist@1.13.2/jquery-ui.min.js"></script>
-<link  rel="stylesheet" href="https://unpkg.com/pivottable@2.23.0/dist/pivot.css">
-<script src="https://unpkg.com/pivottable@2.23.0/dist/pivot.min.js"></script>
-<script src="https://unpkg.com/pivottable@2.23.0/dist/plotly_renderers.min.js"></script>
+<!-- DataTables + Scroller (virtual scrolling) -->
+<link  href="https://cdn.datatables.net/1.13.8/css/jquery.dataTables.min.css" rel="stylesheet">
+<link  href="https://cdn.datatables.net/scroller/2.4.1/css/scroller.dataTables.min.css" rel="stylesheet">
+<script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/scroller/2.4.1/js/dataTables.scroller.min.js"></script>
 
 <style>
   :root{
     --page-max: 1900px;
-    --gap: 6px;
+    --gap: 8px;
 
-    /* Dataset top-left table: visible cap */
-    --table-visible-cols: 8;      /* ~8 columns visible */
-    --table-visible-rows: 12;     /* ~12 body rows visible */
-    --table-col-width: 128px;     /* a bit tighter */
-    --table-row-h: 24px;          /* smaller row height */
-    --table-header-h: 28px;       /* smaller header */
+    /* keep your top card heights aligned */
+    --top-card-h: clamp(340px, 46vh, 640px);
 
-    /* Charts / top cards consistent height */
-    --top-card-h: clamp(320px, 46vh, 640px);
+    /* initial preview size for the table (around 12 rows x 10 cols) */
+    --preview-rows: 12;
+    --preview-row-h: 26px;
+    --preview-header-h: 30px;
 
-    /* Bottom pivot pane default height (drag to change) */
-    --pivot-height: 58vh;
+    /* bottom area (optional if you add anything later) */
+    --bottom-h: 58vh;
   }
 
   *{ box-sizing:border-box }
   body{ font-family:system-ui, Arial, sans-serif; background:#f6f7fb; margin:0 }
   h1{ text-align:center; padding:12px 4px; margin:0; font-weight:700 }
 
-  /* ======= GRID (unchanged columns) ======= */
+  /* 3-column grid kept exactly as requested */
   .grid{
     display:grid;
-    grid-template-columns: 1.4fr 1.6fr 1.4fr;  /* left | middle | right (unchanged) */
+    grid-template-columns: 1.4fr 1.6fr 1.4fr;
     gap:var(--gap);
     max-width:var(--page-max);
-    width: min(99vw, var(--page-max));
-    margin:3px auto 12px;
-    padding:0 4px;
+    width:min(99vw, var(--page-max));
+    margin:8px auto 18px;
+    padding:0 6px;
     align-items:stretch;
   }
-  @media (max-width:1200px){ .grid{ grid-template-columns:1fr } #bottom{ grid-column:auto } }
+  @media (max-width:1200px){ .grid{ grid-template-columns:1fr } .span-all{ grid-column:1 / -1 } }
 
   .card{
     background:#fff; border:1px solid #e6e9ef; border-radius:10px;
@@ -57,316 +56,168 @@
     padding:10px; display:flex; flex-direction:column; min-height:0;
   }
 
-  /* All top row cards have the same height so the row stays aligned */
-  .top-card{ height: var(--top-card-h); }
+  .top-card{ height:var(--top-card-h); }
 
-  /* Bottom pane spans all 3 columns */
-  #bottom{ grid-column:1 / -1; height: var(--pivot-height); }
+  /* ===== Left: dataset card ===== */
+  .card h2{ font-size:16px; margin:0 0 8px 0; }
 
-  /* Charts (unchanged) */
-  .chart{ width:100%; height: calc(var(--top-card-h) - 20px) } /* minus padding a bit */
-
-  /* ======= DATASET TABLE (top-left) ======= */
-  .dataset-title{ font-weight:700; margin:0 0 6px 0; }
-  /* Do NOT let the table flex-grow; keep it at its own max-height */
-  #table-top{
-    flex: 0 0 auto;                /* critical: stops row stretching */
-    max-height: calc(var(--table-header-h) + var(--table-row-h) * var(--table-visible-rows));
-    overflow:auto;                 /* both scrollbars as needed */
-    border: 1px solid #eef2f9;     /* subtle inner frame */
-    border-radius: 8px;
-  }
-
-  /* Force a fixed inner width to yield a horizontal scrollbar (~N cols) */
-  #table-top .table-wrap{
-    width: calc(var(--table-col-width) * var(--table-visible-cols));
-  }
-
-  /* Table appearance (smaller font so it doesn't hog space) */
-  table{ border-collapse:collapse; width:100%; font-size:10.5px }
-  th,td{
-    border:1px solid #e5e8ef;
-    padding:3px 6px; text-align:left;
-    white-space:nowrap;
-    min-width: var(--table-col-width);
-    height: var(--table-row-h);
-    line-height: calc(var(--table-row-h) - 6px);
-  }
-  th{
-    background:#f2f5fb; position:sticky; top:0; z-index:1;
-    height: var(--table-header-h);
-    line-height: calc(var(--table-header-h) - 6px);
-  }
-
-  /* ======= Horizontal draggable divider (split-pane) ======= */
-  #divider{
-    grid-column: 1 / -1;
-    height: 12px;
-    margin: 6px 0;
-    cursor: row-resize;
-    background: linear-gradient(#e9eef7,#dfe7f5);
-    border: 1px solid #d5dcef;
-    border-radius: 10px;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.8);
-  }
-
-  /* ======= Pivot UI compactness ======= */
-  #pivot{ height: 100%; overflow:auto; }
-  #pivot .pvtUi{ font-size:11px; }
-  #pivot .pvtUi select, #pivot .pvtUi button{ font-size:11px; }
-
-  /* Narrow the axis/fields areas so the output region gets more space */
-  #pivot .pvtUi .pvtAxisContainer,
-  #pivot .pvtUi .pvtVals{
-    width: 140px !important;
-    max-width: 140px !important;
-  }
-  /* Make the “unused fields” box scrollable and compact */
-  #pivot .pvtUi .pvtUnused{
-    max-height: 160px;
+  /* Preview box: fixed height, both scrollbars */
+  #preview-box{
+    border:1px solid #eef2f9; border-radius:8px; padding:6px;
+    max-height: calc(var(--preview-header-h) + var(--preview-rows) * var(--preview-row-h));
     overflow:auto;
+    font-size:12px;
   }
-  /* Ensure the UI table stretches nicely */
-  #pivot .pvtUi table{ width:100%; table-layout:auto; }
+  #preview-box table{ width:100%; border-collapse:collapse; white-space:nowrap }
+  #preview-box th, #preview-box td{
+    border:1px solid #e5e8ef; padding:4px 6px; text-align:left;
+    height:var(--preview-row-h);
+    line-height:calc(var(--preview-row-h) - 6px);
+  }
+  #preview-box th{
+    position:sticky; top:0; background:#f2f5fb; height:var(--preview-header-h);
+    line-height:calc(var(--preview-header-h) - 6px);
+  }
+
+  .row-actions{ margin-top:8px; display:flex; gap:8px; align-items:center }
+  .btn{
+    display:inline-block; padding:6px 10px; border-radius:8px; border:1px solid #d6ddea;
+    background:#f7f9ff; cursor:pointer; font-size:12px;
+  }
+  .btn:hover{ background:#eef2ff }
+
+  /* Full table wrapper replaces the preview area after click */
+  #table-wrap{ display:none; min-height:0; flex:1 1 auto; }
+  #bigTable{ width:100%; font-size:12px; }
+
+  /* enable horizontal scroll for many columns */
+  div.dataTables_wrapper {
+    width: 100%;
+  }
+
+  /* ===== Middle / Right: charts via iframes ===== */
+  .chart-frame{
+    width:100%; height: calc(var(--top-card-h) - 10px);
+    border: none; border-radius:8px; background:#fff;
+  }
+
+  /* ===== Optional bottom section (if you add more later) ===== */
+  .span-all{ grid-column:1 / -1; }
+  .bottom{ height:var(--bottom-h); }
 </style>
 
 <h1>Muspad Study — Descriptive Overview</h1>
 
-<div class="grid" id="grid-root">
+<div class="grid">
 
-  <!-- TOP LEFT: full dataset (scrollable; shows ~8 x 12 in viewport) -->
+  <!-- LEFT: Dataset -->
   <div class="card top-card">
-    <p class="dataset-title">Muspad data set</p>
-    <div id="table-top"></div>
+    <h2>Muspad data set</h2>
+
+    <!-- Small preview first (fast) -->
+    <div id="preview-box"></div>
+
+    <div class="row-actions">
+      <button class="btn" id="load-full">Load full data (virtual scroll)</button>
+      <span id="load-note" style="color:#667;font-size:12px"></span>
+    </div>
+
+    <!-- Full DataTables grid (appears after button click) -->
+    <div id="table-wrap">
+      <table id="bigTable" class="display nowrap"></table>
+    </div>
   </div>
 
-  <!-- TOP MIDDLE / RIGHT: charts (unchanged, but same card height) -->
-  <div class="card top-card"><div id="chart1" class="chart"></div></div>
-  <div class="card top-card"><div id="chart2" class="chart"></div></div>
-
-  <!-- Divider to resize the bottom pivot pane -->
-  <div id="divider" title="Drag to resize the pivot area"></div>
-
-  <!-- BOTTOM: Pivot (resizable by the divider) -->
-  <div id="bottom" class="card">
-    <div id="pivot"></div>
+  <!-- MIDDLE: Chart 1 -->
+  <div class="card top-card">
+    <!-- point src to your exported Plotly HTML -->
+    <iframe class="chart-frame" src="plots/education.html" loading="lazy"></iframe>
   </div>
+
+  <!-- RIGHT: Chart 2 -->
+  <div class="card top-card">
+    <iframe class="chart-frame" src="plots/employment.html" loading="lazy"></iframe>
+  </div>
+
+  <!-- (Optional) bottom area for anything else later -->
+  <!-- <div class="card span-all bottom"></div> -->
 </div>
 
 <script>
-  /* ------------ Plotly layout normalization ------------ */
-  const BASE_WIDTH = 1400;
-  const FONT_FAMILY = "Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
-  const SIZES = { title: 18, axisTitle: 12, tick: 11, legend: 10.5, hover: 12 };
-  const RIGHT_MARGIN = 84;
+  /* ---------- CONFIG ---------- */
+  const CSV_URL = "data/df3_full.csv";           // your big dataset
+  const PREVIEW_ROWS = 12;                        // ~12 rows
+  const PREVIEW_COLS = 10;                        // ~10 columns visible in preview
 
-  const scale = (px, el) => {
-    const w = (el?.clientWidth || BASE_WIDTH);
-    const s = Math.min(1.15, Math.max(0.9, w / BASE_WIDTH));
-    return Math.round(px * s);
-  };
+  /* ---------- Build preview (cheap & instant) ---------- */
+  function renderPreview(rows, cols){
+    const el = document.getElementById("preview-box");
+    const subsetCols = cols.slice(0, PREVIEW_COLS);
+    const subsetRows = rows.slice(0, PREVIEW_ROWS);
 
-  function maybeRotateX(fig){
-    try{
-      const xs = (fig.data?.[0]?.x || []).map(String);
-      if (xs.some(v => v.length > 14)) {
-        fig.layout.xaxis = fig.layout.xaxis || {};
-        fig.layout.xaxis.tickangle = -30;
-      }
-    }catch(e){}
-  }
+    const esc = s => String(s==null? "":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 
-  function normalize(fig, el){
-    fig.layout = fig.layout || {};
-    delete fig.layout.width; delete fig.layout.height;
-    fig.layout.template = "plotly_white";
-    fig.layout.paper_bgcolor = "#ffffff";
-    fig.layout.plot_bgcolor  = "#ffffff";
-    const m = fig.layout.margin || {};
-    fig.layout.margin = { l: 54, r: Math.max(RIGHT_MARGIN, m.r||0), t: 50, b: 46 };
-    fig.layout.font = { family: FONT_FAMILY, size: scale(12.5, el), color:"#213547" };
-    fig.layout.title = fig.layout.title || {};
-    fig.layout.title.x = (fig.layout.title.x ?? 0.02);
-    fig.layout.title.font = { size: scale(SIZES.title, el), family: FONT_FAMILY };
-    fig.layout.legend = Object.assign({
-      orientation: "v",
-      x: 1.003, xanchor: "left",
-      y: 1,    yanchor: "top",
-      itemsizing: "constant",
-      bgcolor: "rgba(255,255,255,0.85)",
-      borderwidth: 0,
-      font: { size: scale(SIZES.legend, el), family: FONT_FAMILY }
-    }, fig.layout.legend || {});
-    for (const k of Object.keys(fig.layout)) {
-      if (/^[xy]axis(\d+)?$/.test(k)) {
-        const ax = fig.layout[k] = Object.assign({
-          automargin:true, zeroline:false, showline:true, mirror:true,
-          linecolor:"#cfd6e4", linewidth:1,
-          gridcolor:"#ecf0f6", ticks:"outside", tickcolor:"#cfd6e4", ticklen:3
-        }, fig.layout[k] || {});
-        ax.title = ax.title || {};
-        ax.title.font = { size: scale(SIZES.axisTitle, el), family: FONT_FAMILY };
-        ax.tickfont  = { size: scale(SIZES.tick, el), family: FONT_FAMILY };
-        ax.title.standoff = 4;
-      }
+    let html = "<table><thead><tr>";
+    for (const c of subsetCols) html += `<th>${esc(c)}</th>`;
+    html += "</tr></thead><tbody>";
+
+    for (const r of subsetRows){
+      html += "<tr>";
+      for (const c of subsetCols) html += `<td>${esc(r[c])}</td>`;
+      html += "</tr>";
     }
-    if (fig.layout.coloraxis){
-      fig.layout.coloraxis.colorbar = Object.assign({
-        thickness: 10, outlinewidth: 0,
-        tickfont: { size: scale(SIZES.tick, el), family: FONT_FAMILY },
-        title:    { font: { size: scale(SIZES.tick, el), family: FONT_FAMILY } }
-      }, fig.layout.coloraxis.colorbar || {});
+    html += "</tbody></table>";
+    el.innerHTML = html;
+  }
+
+  /* ---------- Load CSV (Papa) then init preview ---------- */
+  let cachedRows = null, cachedCols = null;
+
+  Papa.parse(CSV_URL, {
+    download: true,
+    header: true,
+    worker: true,
+    skipEmptyLines: true,
+    complete: (res) => {
+      const rows = res.data.filter(r => Object.keys(r).length);
+      const cols = res.meta.fields || (rows[0] ? Object.keys(rows[0]) : []);
+      cachedRows = rows; cachedCols = cols;
+      renderPreview(rows, cols);
+      document.getElementById("load-note").textContent = `(${rows.length.toLocaleString()} rows, ${cols.length} columns)`;
+    },
+    error: (err) => {
+      document.getElementById("preview-box").textContent = "Failed to load CSV.";
+      console.error(err);
     }
-    maybeRotateX(fig);
-    return fig;
-  }
-
-  function renderChart(id, raw){
-    const el = document.getElementById(id);
-    const fig = normalize(
-      window.structuredClone ? structuredClone(raw) : JSON.parse(JSON.stringify(raw)),
-      el
-    );
-    Plotly.newPlot(id, fig.data, fig.layout, {responsive:true});
-    const resize = () => Plotly.Plots.resize(el);
-    window.addEventListener("resize", resize);
-    if ("ResizeObserver" in window) new ResizeObserver(resize).observe(el);
-  }
-
-  Promise.all([
-    fetch("education.json").then(r => r.json()),
-    fetch("employment.json").then(r => r.json())
-  ]).then(([fig1, fig2]) => {
-    renderChart("chart1", fig1);
-    renderChart("chart2", fig2);
   });
 
-  /* ------------ Robust CSV loader (auto delimiter, no web worker) ------------ */
-  function loadCSVWithAutoDelimiter(url, done){
-    const baseOpts = { download:true, header:true, skipEmptyLines:true, dynamicTyping:false, worker:false };
-    Papa.parse(url, {
-      ...baseOpts,
-      complete: (res) => {
-        if (res.data && res.data.length && Object.keys(res.data[0]||{}).length > 1) return done(null, res);
-        Papa.parse(url, { ...baseOpts, delimiter: ";",
-          complete: (res2) => done(null, res2),
-          error: (err2) => done(err2)
-        });
-      },
-      error: (err) => done(err)
+  /* ---------- Button: swap preview → full DataTables (virtual scroll) ---------- */
+  document.getElementById("load-full").addEventListener("click", () => {
+    if (!cachedRows || !cachedCols) return;
+
+    // Hide preview, show full table wrapper
+    document.getElementById("preview-box").style.display = "none";
+    document.getElementById("table-wrap").style.display = "block";
+
+    // Map columns for DataTables (object data source)
+    const dtCols = cachedCols.map(c => ({ title: c, data: c }));
+
+    // Init DataTable with Scroller + horizontal/vertical scroll
+    $('#bigTable').DataTable({
+      data: cachedRows,
+      columns: dtCols,
+
+      deferRender: true,          // build rows only as needed
+      scrollY:  (window.innerHeight * 0.40) + "px", // ~40% viewport height
+      scrollX:  true,
+      scroller: true,             // virtual scrolling
+      scrollCollapse: true,
+      paging: false,              // no pagination, continuous scroll
+      searching: true,            // built-in clientside search (optional)
+      ordering: true,             // sort columns (optional)
+      info: true,                 // "Showing x of y" (optional)
+      stateSave: false,           // set true if you want to persist table state
+      autoWidth: false
     });
-  }
-
-  /* ------------ Render full dataset table (viewport shows ~8x12) ------------ */
-  const DATASET_URL = "data/df3_full_for_pivot.csv?v=9";
-
-  function renderBigTable(containerId, rows, fields){
-    const host = document.getElementById(containerId);
-    if (!host) return;
-    host.innerHTML = "";
-
-    const wrap = document.createElement("div");
-    wrap.className = "table-wrap";               /* fixed inner width → horizontal scroll */
-    host.appendChild(wrap);
-
-    const table = document.createElement("table");
-    const thead = document.createElement("thead");
-    const trh = document.createElement("tr");
-    (fields||Object.keys(rows[0]||{})).forEach(col=>{
-      const th = document.createElement("th");
-      th.textContent = col;
-      trh.appendChild(th);
-    });
-    thead.appendChild(trh);
-    table.appendChild(thead);
-
-    const tbody = document.createElement("tbody");
-    table.appendChild(tbody);
-    wrap.appendChild(table);
-
-    /* chunked append for performance */
-    const CHUNK = 800;
-    let i = 0;
-    function appendChunk(){
-      const frag = document.createDocumentFragment();
-      for (let k=0; k<CHUNK && i<rows.length; k++, i++){
-        const r = rows[i];
-        const tr = document.createElement("tr");
-        (fields||Object.keys(r)).forEach(c=>{
-          const td = document.createElement("td");
-          td.textContent = r[c] == null ? "" : r[c];
-          tr.appendChild(td);
-        });
-        frag.appendChild(tr);
-      }
-      tbody.appendChild(frag);
-      if (i < rows.length) requestAnimationFrame(appendChunk);
-    }
-    appendChunk();
-  }
-
-  loadCSVWithAutoDelimiter(DATASET_URL, (err, res)=>{
-    if (err){ document.getElementById("table-top").textContent="Failed to load data."; return; }
-    const rows = (res.data||[]).filter(r=>Object.keys(r).length);
-    const fields = res.meta?.fields || (rows[0] ? Object.keys(rows[0]) : []);
-    renderBigTable("table-top", rows, fields);
   });
-
-  /* ------------ Pivot over full CSV (compact UI) ------------ */
-  loadCSVWithAutoDelimiter("data/df3_full_for_pivot.csv?v=9", (err, res) => {
-    if (err){ document.getElementById("pivot").textContent="Failed to load pivot data."; return; }
-    const rows = (res.data || []).filter(r => Object.keys(r).length);
-    const utils = $.pivotUtilities;
-    const renderers = $.extend({}, utils.renderers, utils.plotly_renderers || {});
-    $("#pivot").pivotUI(
-      rows,
-      { rendererName:"Table", aggregatorName:"Count", rows:[], cols:[], renderers },
-      true
-    );
-  });
-
-  /* ------------ Horizontal draggable divider for bottom pane ------------ */
-  (function(){
-    const divider = document.getElementById("divider");
-    const root = document.documentElement; // we'll update --pivot-height
-
-    let dragging=false, startY=0, startH=0;
-
-    const getNum = (v)=> Number(String(v).replace(/[^\d.]/g,"")) || 0;
-    const currentPxHeight = ()=> {
-      const vh = window.innerHeight || 800;
-      const val = getComputedStyle(root).getPropertyValue('--pivot-height').trim();
-      if (val.endsWith('vh')) return (vh * getNum(val)) / 100;
-      return getNum(val);
-    };
-
-    const onDown = (e)=>{
-      dragging = true;
-      startY = (e.touches?.[0]?.clientY) ?? e.clientY ?? 0;
-      startH = currentPxHeight();
-      document.body.style.userSelect="none";
-    };
-
-    const onMove = (e)=>{
-      if(!dragging) return;
-      const y = (e.touches?.[0]?.clientY) ?? e.clientY ?? 0;
-      const dh = y - startY;            // drag down => dh positive => smaller bottom
-      const newH = Math.max(240, startH - dh);
-      root.style.setProperty('--pivot-height', newH + 'px');
-      window.dispatchEvent(new Event("resize")); // reflow pivot/chart if needed
-      e.preventDefault?.();
-    };
-
-    const onUp = ()=>{
-      dragging=false;
-      document.body.style.userSelect="";
-    };
-
-    divider.addEventListener("mousedown", onDown);
-    divider.addEventListener("touchstart", onDown, {passive:true});
-    window.addEventListener("mousemove", onMove, {passive:false});
-    window.addEventListener("touchmove", onMove, {passive:false});
-    window.addEventListener("mouseup", onUp);
-    window.addEventListener("touchend", onUp);
-  })();
 </script>
