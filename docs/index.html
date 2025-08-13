@@ -2,31 +2,30 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Muspad Study</title>
+
+<!-- Libraries (load once, at the top) -->
 <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<link rel="stylesheet" href="https://cdn.webdatarocks.com/latest/webdatarocks.min.css">
+<script src="https://cdn.webdatarocks.com/latest/webdatarocks.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
 <style>
-  :root{
-    --page-max: 1900px;   /* wider page */
-    --gap: 6px;          /* small gaps between cards */
-  }
+  :root{ --page-max: 1900px; --gap: 6px; }
   *{ box-sizing:border-box }
   body{ font-family:system-ui, Arial, sans-serif; background:#f6f7fb; margin:0 }
   h1{ text-align:center; padding:12px 4px; margin:0; font-weight:700 }
 
-  /* use almost full width, tiny side padding, and make charts wider than the table */
   .grid{
     display:grid;
-    grid-template-columns: 1.4fr 1.6fr 1.4fr; /* left (narrow) | middle | right */
+    grid-template-columns: 1.4fr 1.6fr 1.4fr; /* left | middle | right */
     gap:var(--gap);
     max-width:var(--page-max);
-    width: min(99vw, var(--page-max)); /* shrink side margins */
+    width: min(99vw, var(--page-max));
     margin:3px auto 12px;
-    padding:0 4px;                     /* tiny page padding */
+    padding:0 4px;
     align-items:stretch;
   }
-  @media (max-width:1200px){
-    .grid{ grid-template-columns:1fr } #bottom{ grid-column:auto }
-  }
+  @media (max-width:1200px){ .grid{ grid-template-columns:1fr } #bottom{ grid-column:auto } }
 
   .card{
     background:#fff; border:1px solid #e6e9ef; border-radius:10px;
@@ -35,10 +34,9 @@
   }
   #bottom{ grid-column:1 / -1 }
 
-  /* give charts more vertical room; width is 100% of the card */
   .chart{ width:100%; height:clamp(320px, 46vh, 640px) }
-
   .placeholder{ color:#667; font-size:13px }
+
   table{ border-collapse:collapse; width:100%; font-size:12.5px }
   th,td{ border:1px solid #e5e8ef; padding:6px 8px; text-align:left }
   th{ background:#f2f5fb; position:sticky; top:0; z-index:1 }
@@ -48,26 +46,28 @@
 <h1>Muspad Study — Descriptive Overview</h1>
 
 <div class="grid">
+  <!-- TOP LEFT: preview table -->
   <div class="card">
-    <div class="placeholder"><b>Dataset (top-left)</b><br>We’ll wire this to your CSV next.</div>
+    <div class="placeholder"><b>Dataset (top-left)</b><br>Small preview of df3.</div>
     <div id="table-top" class="scroll"></div>
   </div>
 
+  <!-- TOP MIDDLE/RIGHT: charts -->
   <div class="card"><div id="chart1" class="chart"></div></div>
   <div class="card"><div id="chart2" class="chart"></div></div>
 
+  <!-- BOTTOM: full pivot -->
   <div id="bottom" class="card">
-    <div class="placeholder"><b>Full table (bottom)</b><br>We’ll populate this after we add the CSV.</div>
-    <div id="table-bottom" class="scroll"></div>
+    <div id="pivot" style="height: clamp(420px, 60vh, 800px);"></div>
   </div>
 </div>
 
 <script>
-  /* compact, right-side legends + consistent fonts */
+  /* ---------- Consistent Plotly styling ---------- */
   const BASE_WIDTH = 1400;
   const FONT_FAMILY = "Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
   const SIZES = { title: 18, axisTitle: 12, tick: 11, legend: 10.5, hover: 12 };
-  const RIGHT_MARGIN = 84;  // small reserved space for legend
+  const RIGHT_MARGIN = 84;
 
   const scale = (px, el) => {
     const w = (el?.clientWidth || BASE_WIDTH);
@@ -138,7 +138,7 @@
     return fig;
   }
 
-  function render(id, raw){
+  function renderChart(id, raw){
     const el = document.getElementById(id);
     const fig = normalize(
       window.structuredClone ? structuredClone(raw) : JSON.parse(JSON.stringify(raw)),
@@ -150,18 +150,27 @@
     if ("ResizeObserver" in window) new ResizeObserver(resize).observe(el);
   }
 
+  /* ---------- Load charts ---------- */
   Promise.all([
     fetch("education.json").then(r => r.json()),
     fetch("employment.json").then(r => r.json())
   ]).then(([fig1, fig2]) => {
-    render("chart1", fig1);
-    render("chart2", fig2);
+    renderChart("chart1", fig1);
+    renderChart("chart2", fig2);
   });
-</script>
 
-<!-- CSV → tables -->
-<script>
-  // Render a simple HTML table into a target element
+  /* ---------- Full Pivot (entire df3) ---------- */
+  new WebDataRocks({
+    container: "#pivot",
+    toolbar: true,
+    height: "100%",
+    report: {
+      dataSource: { filename: "data/df3_full_for_pivot.csv" }
+      // We can add a default slice later if you want.
+    }
+  });
+
+  /* ---------- Top-left preview table (small/fast) ---------- */
   function renderTable(targetId, rows, opts = {}) {
     const el = document.getElementById(targetId);
     if (!rows || rows.length === 0) { el.textContent = "No rows"; return; }
@@ -185,25 +194,12 @@
     el.innerHTML = html;
   }
 
-  // Load your CSV from /docs/data/
-  fetch("data/df3_publish.csv")
-    .then(r => r.text())
-    .then(csv => {
-      const parsed = Papa.parse(csv, { header: true, skipEmptyLines: true });
-      const rows   = parsed.data;
-      const cols   = parsed.meta.fields || (rows[0] ? Object.keys(rows[0]) : []);
-
-      // TOP-LEFT: small preview (first 8 rows × first 6 columns)
+  Papa.parse("data/df3_preview.csv", {
+    download: true, header: true, worker: true, skipEmptyLines: true,
+    complete: (res) => {
+      const rows = res.data.filter(r => Object.keys(r).length);
+      const cols = res.meta.fields || (rows[0] ? Object.keys(rows[0]) : []);
       renderTable("table-top", rows, { limit: 8, columns: cols.slice(0, 6) });
-
-      // BOTTOM: larger table (up to 400 rows, all columns)
-      renderTable("table-bottom", rows, { limit: 400, columns: cols });
-    })
-    .catch(err => {
-      document.getElementById("table-top").textContent = "Error loading CSV";
-      document.getElementById("table-bottom").textContent = String(err);
-    });
+    }
+  });
 </script>
-
-<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-
