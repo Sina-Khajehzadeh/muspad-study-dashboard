@@ -20,12 +20,15 @@
     --page-max: 1900px;
     --gap: 6px;
 
-    /* Dataset top-left table: visible cap (you can tweak these) */
-    --table-visible-cols: 8;      /* show ~8 columns in viewport */
-    --table-visible-rows: 12;     /* show ~12 body rows in viewport */
-    --table-col-width: 132px;     /* column width (slightly smaller) */
-    --table-row-h: 26px;          /* body row height (smaller) */
-    --table-header-h: 30px;       /* sticky header height (smaller) */
+    /* Dataset top-left table: visible cap */
+    --table-visible-cols: 8;      /* ~8 columns visible */
+    --table-visible-rows: 12;     /* ~12 body rows visible */
+    --table-col-width: 128px;     /* a bit tighter */
+    --table-row-h: 24px;          /* smaller row height */
+    --table-header-h: 28px;       /* smaller header */
+
+    /* Charts / top cards consistent height */
+    --top-card-h: clamp(320px, 46vh, 640px);
 
     /* Bottom pivot pane default height (drag to change) */
     --pivot-height: 58vh;
@@ -38,7 +41,7 @@
   /* ======= GRID (unchanged columns) ======= */
   .grid{
     display:grid;
-    grid-template-columns: 1.4fr 1.6fr 1.4fr;  /* left | middle | right (DO NOT CHANGE) */
+    grid-template-columns: 1.4fr 1.6fr 1.4fr;  /* left | middle | right (unchanged) */
     gap:var(--gap);
     max-width:var(--page-max);
     width: min(99vw, var(--page-max));
@@ -54,20 +57,24 @@
     padding:10px; display:flex; flex-direction:column; min-height:0;
   }
 
+  /* All top row cards have the same height so the row stays aligned */
+  .top-card{ height: var(--top-card-h); }
+
   /* Bottom pane spans all 3 columns */
   #bottom{ grid-column:1 / -1; height: var(--pivot-height); }
 
   /* Charts (unchanged) */
-  .chart{ width:100%; height:clamp(320px, 46vh, 640px) }
+  .chart{ width:100%; height: calc(var(--top-card-h) - 20px) } /* minus padding a bit */
 
   /* ======= DATASET TABLE (top-left) ======= */
   .dataset-title{ font-weight:700; margin:0 0 6px 0; }
-  .fill-scroll{ flex:1 1 auto; min-height:0; overflow:auto; }
-
-  /* Cap the viewport: header + N rows */
+  /* Do NOT let the table flex-grow; keep it at its own max-height */
   #table-top{
+    flex: 0 0 auto;                /* critical: stops row stretching */
     max-height: calc(var(--table-header-h) + var(--table-row-h) * var(--table-visible-rows));
-    overflow:auto; /* both scrollbars as needed */
+    overflow:auto;                 /* both scrollbars as needed */
+    border: 1px solid #eef2f9;     /* subtle inner frame */
+    border-radius: 8px;
   }
 
   /* Force a fixed inner width to yield a horizontal scrollbar (~N cols) */
@@ -76,10 +83,10 @@
   }
 
   /* Table appearance (smaller font so it doesn't hog space) */
-  table{ border-collapse:collapse; width:100%; font-size:11px }
+  table{ border-collapse:collapse; width:100%; font-size:10.5px }
   th,td{
     border:1px solid #e5e8ef;
-    padding:4px 6px; text-align:left;
+    padding:3px 6px; text-align:left;
     white-space:nowrap;
     min-width: var(--table-col-width);
     height: var(--table-row-h);
@@ -128,14 +135,14 @@
 <div class="grid" id="grid-root">
 
   <!-- TOP LEFT: full dataset (scrollable; shows ~8 x 12 in viewport) -->
-  <div class="card">
+  <div class="card top-card">
     <p class="dataset-title">Muspad data set</p>
-    <div id="table-top" class="fill-scroll"></div>
+    <div id="table-top"></div>
   </div>
 
-  <!-- TOP MIDDLE / RIGHT: charts (unchanged) -->
-  <div class="card"><div id="chart1" class="chart"></div></div>
-  <div class="card"><div id="chart2" class="chart"></div></div>
+  <!-- TOP MIDDLE / RIGHT: charts (unchanged, but same card height) -->
+  <div class="card top-card"><div id="chart1" class="chart"></div></div>
+  <div class="card top-card"><div id="chart2" class="chart"></div></div>
 
   <!-- Divider to resize the bottom pivot pane -->
   <div id="divider" title="Drag to resize the pivot area"></div>
@@ -147,7 +154,7 @@
 </div>
 
 <script>
-  /* ------------ Plotly layout normalization (unchanged) ------------ */
+  /* ------------ Plotly layout normalization ------------ */
   const BASE_WIDTH = 1400;
   const FONT_FAMILY = "Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
   const SIZES = { title: 18, axisTitle: 12, tick: 11, legend: 10.5, hover: 12 };
@@ -251,7 +258,7 @@
   }
 
   /* ------------ Render full dataset table (viewport shows ~8x12) ------------ */
-  const DATASET_URL = "data/df3_full_for_pivot.csv?v=7";
+  const DATASET_URL = "data/df3_full_for_pivot.csv?v=9";
 
   function renderBigTable(containerId, rows, fields){
     const host = document.getElementById(containerId);
@@ -277,7 +284,7 @@
     table.appendChild(tbody);
     wrap.appendChild(table);
 
-    // chunked append (better perf for large CSV)
+    /* chunked append for performance */
     const CHUNK = 800;
     let i = 0;
     function appendChunk(){
@@ -305,8 +312,8 @@
     renderBigTable("table-top", rows, fields);
   });
 
-  /* ------------ Pivot over full CSV (respects narrower controls) ------------ */
-  loadCSVWithAutoDelimiter("data/df3_full_for_pivot.csv?v=7", (err, res) => {
+  /* ------------ Pivot over full CSV (compact UI) ------------ */
+  loadCSVWithAutoDelimiter("data/df3_full_for_pivot.csv?v=9", (err, res) => {
     if (err){ document.getElementById("pivot").textContent="Failed to load pivot data."; return; }
     const rows = (res.data || []).filter(r => Object.keys(r).length);
     const utils = $.pivotUtilities;
@@ -327,13 +334,10 @@
 
     const getNum = (v)=> Number(String(v).replace(/[^\d.]/g,"")) || 0;
     const currentPxHeight = ()=> {
-      // convert current vh variable to pixels against viewport
       const vh = window.innerHeight || 800;
-      const vhVal = getNum(getComputedStyle(root).getPropertyValue('--pivot-height'));
-      if (String(getComputedStyle(root).getPropertyValue('--pivot-height')).includes('vh'))
-        return (vh * vhVal) / 100;
-      const pxVal = getNum(getComputedStyle(root).getPropertyValue('--pivot-height'));
-      return pxVal;
+      const val = getComputedStyle(root).getPropertyValue('--pivot-height').trim();
+      if (val.endsWith('vh')) return (vh * getNum(val)) / 100;
+      return getNum(val);
     };
 
     const onDown = (e)=>{
@@ -350,6 +354,7 @@
       const newH = Math.max(240, startH - dh);
       root.style.setProperty('--pivot-height', newH + 'px');
       window.dispatchEvent(new Event("resize")); // reflow pivot/chart if needed
+      e.preventDefault?.();
     };
 
     const onUp = ()=>{
@@ -359,7 +364,7 @@
 
     divider.addEventListener("mousedown", onDown);
     divider.addEventListener("touchstart", onDown, {passive:true});
-    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mousemove", onMove, {passive:false});
     window.addEventListener("touchmove", onMove, {passive:false});
     window.addEventListener("mouseup", onUp);
     window.addEventListener("touchend", onUp);
