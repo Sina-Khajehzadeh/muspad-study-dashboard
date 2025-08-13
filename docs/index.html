@@ -5,22 +5,29 @@
 <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 
 <style>
-  :root{ --page-max: 1400px; --gap: 16px; }
+  :root{ --page-max: 1600px; --gap: 16px; }
   *{ box-sizing:border-box }
   body{ font-family: system-ui, Arial, sans-serif; background:#f6f7fb; margin:0 }
   h1{ text-align:center; padding:18px 12px; margin:0; font-weight:700; }
+
   .grid{
     display:grid; grid-template-columns:1fr 1fr 1fr; gap:var(--gap);
     max-width:var(--page-max); margin:12px auto 40px; padding:0 12px; align-items:stretch;
   }
   @media (max-width:1100px){ .grid{ grid-template-columns:1fr } #bottom{ grid-column:auto } }
+
   .card{
     background:#fff; border:1px solid #e9ecf2; border-radius:12px;
-    box-shadow:0 2px 6px rgba(0,0,0,.05); padding:12px; display:flex; flex-direction:column; min-height:0;
+    box-shadow:0 2px 6px rgba(0,0,0,.05); padding:12px;
+    display:flex; flex-direction:column; min-height:0;
   }
+
   #bottom{ grid-column:1 / -1; }
-  .chart{ width:100%; height:clamp(320px, 42vh, 560px); }
+
+  /* Shared chart sizing: same height, responsive width */
+  .chart{ width:100%; height:clamp(340px, 44vh, 620px); }
   .placeholder{ color:#667; font-size:14px }
+
   table{ border-collapse:collapse; width:100%; font-size:13px }
   th,td{ border:1px solid #e5e8ef; padding:6px 8px; text-align:left }
   th{ background:#f2f5fb; position:sticky; top:0; z-index:1 }
@@ -45,84 +52,110 @@
 </div>
 
 <script>
-  // ---- Style knobs (tweak here if you want different sizes) ----
-  const BASE_WIDTH = 1200; // reference width to scale fonts
-  const SIZES = { title: 20, axisTitle: 14, tick: 12, legend: 12, hover: 12 };
+  // ---------- Consistent, readable styling ----------
+  const BASE_WIDTH = 1200;               // reference width for scaling fonts
   const FONT_FAMILY = "Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
+  const SIZES = { title: 20, axisTitle: 14, tick: 12, legend: 12, hover: 12 };
+  const RIGHT_MARGIN = 160;              // space for right-side legend
 
-  function scaled(n, container){
-    const w = (container?.clientWidth || BASE_WIDTH);
+  function scaled(px, el){
+    const w = (el?.clientWidth || BASE_WIDTH);
     const s = Math.min(1.25, Math.max(0.85, w / BASE_WIDTH));
-    return Math.round(n * s);
+    return Math.round(px * s);
   }
 
-  // Apply a consistent look to ANY Plotly figure JSON
-  function normalize(fig, container){
+  function maybeRotateX(fig){
+    // If x labels are long, tilt them a bit for readability
+    try{
+      const xs = (fig.data?.[0]?.x || []).map(String);
+      const long = xs.some(v => v.length > 14);
+      if (long){
+        fig.layout.xaxis = fig.layout.xaxis || {};
+        fig.layout.xaxis.tickangle = -30;
+      }
+    }catch(e){}
+  }
+
+  function normalize(fig, el){
     fig.layout = fig.layout || {};
-    // Ignore saved pixel sizes so page controls layout
+
+    // Let CSS control size (ignore saved width/height)
     delete fig.layout.width; delete fig.layout.height;
 
-    // Base theme
+    // Clean theme + margins
     fig.layout.template = "plotly_white";
     fig.layout.paper_bgcolor = "#ffffff";
     fig.layout.plot_bgcolor  = "#ffffff";
-    fig.layout.margin = fig.layout.margin || {l:70, r:20, t:60, b:60};
-    fig.layout.uniformtext = {mode:"hide", minsize:10};
-    fig.layout.font = {family: FONT_FAMILY, size: scaled(13, container), color:"#213547"};
+    const m = fig.layout.margin || {};
+    fig.layout.margin = { l: 70, r: Math.max(RIGHT_MARGIN, m.r || 0), t: 70, b: 60 };
 
-    // Legend: slim & horizontal at top
-    fig.layout.legend = Object.assign({
-      orientation:"h", y: 1.06, yanchor:"bottom", x:0, xanchor:"left",
-      bgcolor:"rgba(255,255,255,0.8)", bordercolor:"#e9ecf2", borderwidth:1,
-      font:{size: scaled(SIZES.legend, container)}
-    }, fig.layout.legend || {});
+    fig.layout.font = {
+      family: FONT_FAMILY,
+      size: scaled(13, el),
+      color: "#213547"
+    };
 
     // Title
-    if (!fig.layout.title) fig.layout.title = {};
+    fig.layout.title = fig.layout.title || {};
     fig.layout.title.x = (fig.layout.title.x ?? 0.03);
-    fig.layout.title.font = {size: scaled(SIZES.title, container), family: FONT_FAMILY};
+    fig.layout.title.font = { size: scaled(SIZES.title, el), family: FONT_FAMILY };
 
-    // Hover label
-    fig.layout.hoverlabel = {font:{size: scaled(SIZES.hover, container), family: FONT_FAMILY}};
+    // Right-side vertical legend (no overlap with title)
+    fig.layout.legend = Object.assign({
+      orientation: "v",
+      x: 1.02, xanchor: "left",
+      y: 1,    yanchor: "top",
+      tracegroupgap: 6,
+      bgcolor: "rgba(255,255,255,0.9)",
+      bordercolor: "#e9ecf2",
+      borderwidth: 1,
+      font: { size: scaled(SIZES.legend, el), family: FONT_FAMILY }
+    }, fig.layout.legend || {});
 
-    // Axes (handles xaxis, xaxis2, yaxis, yaxis3, ...)
+    // Axes styling
     for (const k of Object.keys(fig.layout)) {
       if (/^[xy]axis(\d+)?$/.test(k)) {
         const ax = fig.layout[k] = Object.assign({
           automargin:true, zeroline:false, showline:true, mirror:true,
           linecolor:"#cfd6e4", linewidth:1,
-          gridcolor:"#ecf0f6", griddash:"solid", ticks:"outside", tickcolor:"#cfd6e4", ticklen:4
+          gridcolor:"#ecf0f6", ticks:"outside", tickcolor:"#cfd6e4", ticklen:4
         }, fig.layout[k] || {});
         ax.title = ax.title || {};
-        ax.title.font = {size: scaled(SIZES.axisTitle, container), family: FONT_FAMILY};
-        ax.tickfont = {size: scaled(SIZES.tick, container), family: FONT_FAMILY};
+        ax.title.font = { size: scaled(SIZES.axisTitle, el), family: FONT_FAMILY };
+        ax.tickfont  = { size: scaled(SIZES.tick, el), family: FONT_FAMILY };
+        ax.title.standoff = 6;
       }
     }
 
-    // Color axis (if present)
-    if (fig.layout.coloraxis) {
+    // Colorbar tweaks (if present)
+    if (fig.layout.coloraxis){
       fig.layout.coloraxis.colorbar = Object.assign({
-        thickness:12,
-        outlinewidth:0,
-        tickfont:{size: scaled(SIZES.tick, container), family: FONT_FAMILY},
-        title:{font:{size: scaled(SIZES.tick, container), family: FONT_FAMILY}}
+        thickness: 12,
+        outlinewidth: 0,
+        tickfont: { size: scaled(SIZES.tick, el), family: FONT_FAMILY },
+        title:    { font: { size: scaled(SIZES.tick, el), family: FONT_FAMILY } }
       }, fig.layout.coloraxis.colorbar || {});
     }
+
+    // Rotate x labels if needed
+    maybeRotateX(fig);
 
     return fig;
   }
 
-  // Render helper (responsive + resize on container changes)
-  function render(id, rawFig){
+  function render(id, raw){
     const el = document.getElementById(id);
-    const fig = normalize(structuredClone ? structuredClone(rawFig) : JSON.parse(JSON.stringify(rawFig)), el);
+    const fig = normalize(
+      window.structuredClone ? structuredClone(raw) : JSON.parse(JSON.stringify(raw)),
+      el
+    );
     Plotly.newPlot(id, fig.data, fig.layout, {responsive:true});
     const resize = () => Plotly.Plots.resize(el);
     window.addEventListener("resize", resize);
     if ("ResizeObserver" in window) new ResizeObserver(resize).observe(el);
   }
 
-  // Load and draw (your JSON files)
+  // ---------- Load & draw your charts ----------
   Promise.all([
     fetch("education.json").then(r => r.json()),
     fetch("employment.json").then(r => r.json())
