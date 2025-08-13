@@ -158,3 +158,52 @@
     render("chart2", fig2);
   });
 </script>
+
+<!-- CSV → tables -->
+<script>
+  // Render a simple HTML table into a target element
+  function renderTable(targetId, rows, opts = {}) {
+    const el = document.getElementById(targetId);
+    if (!rows || rows.length === 0) { el.textContent = "No rows"; return; }
+
+    const cols  = opts.columns || Object.keys(rows[0]);
+    const limit = Number.isFinite(opts.limit) ? opts.limit : rows.length;
+
+    const esc = (v) => String(v == null ? "" : v)
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+
+    let html = "<table><thead><tr>";
+    for (const c of cols) html += `<th>${esc(c)}</th>`;
+    html += "</tr></thead><tbody>";
+
+    for (let i = 0; i < Math.min(limit, rows.length); i++) {
+      html += "<tr>";
+      for (const c of cols) html += `<td>${esc(rows[i][c])}</td>`;
+      html += "</tr>";
+    }
+    html += "</tbody></table>";
+    el.innerHTML = html;
+  }
+
+  // Load your CSV from /docs/data/
+  fetch("data/df3_publish.csv")
+    .then(r => r.text())
+    .then(csv => {
+      const parsed = Papa.parse(csv, { header: true, skipEmptyLines: true });
+      const rows   = parsed.data;
+      const cols   = parsed.meta.fields || (rows[0] ? Object.keys(rows[0]) : []);
+
+      // TOP-LEFT: small preview (first 8 rows × first 6 columns)
+      renderTable("table-top", rows, { limit: 8, columns: cols.slice(0, 6) });
+
+      // BOTTOM: larger table (up to 400 rows, all columns)
+      renderTable("table-bottom", rows, { limit: 400, columns: cols });
+    })
+    .catch(err => {
+      document.getElementById("table-top").textContent = "Error loading CSV";
+      document.getElementById("table-bottom").textContent = String(err);
+    });
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
