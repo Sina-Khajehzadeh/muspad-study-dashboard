@@ -42,15 +42,41 @@
   }
   #bottom{ grid-column:1 / -1 }
 
+  /* CHARTS (unchanged) */
   .chart{ width:100%; height:clamp(320px, 46vh, 640px) }
-  .placeholder{ color:#667; font-size:13px }
 
+  /* Title text used for the dataset card */
+  .dataset-title{
+    font-weight:700; margin:0 0 6px 0;
+  }
+
+  /* Scrollable table container INSIDE the card (keeps card size) */
+  .fill-scroll{
+    flex: 1 1 auto;         /* take remaining height inside the card */
+    min-height: 0;          /* allow it to actually shrink/grow */
+    overflow: auto;         /* both vertical & horizontal scrollbars as needed */
+  }
+
+  /* Keep your base table look, but allow horizontal overflow */
   table{ border-collapse:collapse; width:100%; font-size:12.5px }
-  th,td{ border:1px solid #e5e8ef; padding:6px 8px; text-align:left }
+  th,td{ border:1px solid #e5e8ef; padding:6px 8px; text-align:left; white-space:nowrap }
   th{ background:#f2f5fb; position:sticky; top:0; z-index:1 }
-  .scroll{ max-height:clamp(200px, 40vh, 480px); overflow:auto }
 
-  /* pivot UI tweaks so it fits nicely */
+  /* Force wide tables to be scrollable horizontally */
+  #table-top table{ width: max-content; }
+
+  /* -------- Split-pane divider (new), spans full grid width -------- */
+  #divider{
+    grid-column: 1 / -1;
+    height: 10px;
+    margin: 6px 0;
+    cursor: row-resize;
+    background: linear-gradient(#e9eef7,#dfe7f5);
+    border: 1px solid #d5dcef;
+    border-radius: 8px;
+  }
+
+  /* Pivot UI tweaks so it fits nicely */
   #pivot{ height:clamp(420px, 60vh, 800px); overflow:auto; }
   #pivot .pvtUi{ font-size:12px; }
   #pivot .pvtUi select, #pivot .pvtUi button{ font-size:12px; }
@@ -58,25 +84,29 @@
 
 <h1>Muspad Study — Descriptive Overview</h1>
 
-<div class="grid">
-  <!-- TOP LEFT: preview table -->
+<div class="grid" id="grid-root">
+
+  <!-- TOP LEFT: FULL data table (scrollable) -->
   <div class="card">
-    <div class="placeholder"><b>Dataset (top-left)</b><br>Small preview of df3.</div>
-    <div id="table-top" class="scroll"></div>
+    <p class="dataset-title">Muspad data set</p>
+    <div id="table-top" class="fill-scroll"></div>
   </div>
 
-  <!-- TOP MIDDLE/RIGHT: charts -->
+  <!-- TOP MIDDLE/RIGHT: charts (unchanged) -->
   <div class="card"><div id="chart1" class="chart"></div></div>
   <div class="card"><div id="chart2" class="chart"></div></div>
 
-  <!-- BOTTOM: full pivot -->
+  <!-- DIVIDER: drag to resize bottom pane height -->
+  <div id="divider" title="Drag to resize the pivot area"></div>
+
+  <!-- BOTTOM: full pivot (unchanged content) -->
   <div id="bottom" class="card">
     <div id="pivot"></div>
   </div>
 </div>
 
 <script>
-  /* ---------- Consistent Plotly styling ---------- */
+  /* ---------- Consistent Plotly styling (unchanged) ---------- */
   const BASE_WIDTH = 1400;
   const FONT_FAMILY = "Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
   const SIZES = { title: 18, axisTitle: 12, tick: 11, legend: 10.5, hover: 12 };
@@ -163,7 +193,7 @@
     if ("ResizeObserver" in window) new ResizeObserver(resize).observe(el);
   }
 
-  /* ---------- Load charts ---------- */
+  /* ---------- Load charts (unchanged) ---------- */
   Promise.all([
     fetch("education.json").then(r => r.json()),
     fetch("employment.json").then(r => r.json())
@@ -172,64 +202,122 @@
     renderChart("chart2", fig2);
   });
 
-  /* ---------- Top-left preview table (small/fast) ---------- */
-  function renderTable(targetId, rows, opts = {}) {
-    const el = document.getElementById(targetId);
-    if (!rows || rows.length === 0) { el.textContent = "No rows"; return; }
-
-    const cols  = opts.columns || Object.keys(rows[0]);
-    const limit = Number.isFinite(opts.limit) ? opts.limit : rows.length;
-
-    const esc = (v) => String(v == null ? "" : v)
-      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-
-    let html = "<table><thead><tr>";
-    for (const c of cols) html += <th>${esc(c)}</th>;
-    html += "</tr></thead><tbody>";
-
-    for (let i = 0; i < Math.min(limit, rows.length); i++) {
-      html += "<tr>";
-      for (const c of cols) html += <td>${esc(rows[i][c])}</td>;
-      html += "</tr>";
-    }
-    html += "</tbody></table>";
-    el.innerHTML = html;
+  /* ---------- Robust CSV loader (workers OFF + auto delimiter) ---------- */
+  function loadCSVWithAutoDelimiter(url, done){
+    const baseOpts = { download:true, header:true, skipEmptyLines:true, dynamicTyping:false, worker:false };
+    Papa.parse(url, {
+      ...baseOpts,
+      complete: (res) => {
+        if (res.data && res.data.length && Object.keys(res.data[0]||{}).length > 1) return done(null, res);
+        Papa.parse(url, { ...baseOpts, delimiter: ";",
+          complete: (res2) => done(null, res2),
+          error: (err2) => done(err2)
+        });
+      },
+      error: (err) => done(err)
+    });
   }
 
-  Papa.parse("data/df3_preview.csv", {
-    download: true, header: true, worker: true, skipEmptyLines: true,
-    complete: (res) => {
-      const rows = res.data.filter(r => Object.keys(r).length);
-      const cols = res.meta.fields || (rows[0] ? Object.keys(rows[0]) : []);
-      renderTable("table-top", rows, { limit: 8, columns: cols.slice(0, 6) });
+  /* ---------- FULL dataset table (scrollable both ways) ---------- */
+  const DATASET_URL = "data/df3_full_for_pivot.csv?v=4";
+
+  function esc(v){
+    return String(v==null ? "" : v)
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+
+  function renderBigTable(containerId, rows, fields){
+    const host = document.getElementById(containerId);
+    if (!host) return;
+    host.innerHTML = ""; // clear
+
+    // Build the table + header
+    const table = document.createElement("table");
+    const thead = document.createElement("thead");
+    const trh = document.createElement("tr");
+    (fields||Object.keys(rows[0]||{})).forEach(col=>{
+      const th = document.createElement("th");
+      th.textContent = col;
+      trh.appendChild(th);
+    });
+    thead.appendChild(trh);
+    table.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+    table.appendChild(tbody);
+    host.appendChild(table);
+
+    // Chunked append so big files don't freeze the tab
+    const CHUNK = 800;
+    let i = 0;
+    function appendChunk(){
+      const frag = document.createDocumentFragment();
+      for (let k=0; k<CHUNK && i<rows.length; k++, i++){
+        const r = rows[i];
+        const tr = document.createElement("tr");
+        (fields||Object.keys(r)).forEach(c=>{
+          const td = document.createElement("td");
+          td.textContent = r[c] == null ? "" : r[c];
+          tr.appendChild(td);
+        });
+        frag.appendChild(tr);
+      }
+      tbody.appendChild(frag);
+      if (i < rows.length) requestAnimationFrame(appendChunk);
     }
+    appendChunk();
+  }
+
+  loadCSVWithAutoDelimiter(DATASET_URL, (err, res)=>{
+    if (err){ document.getElementById("table-top").textContent="Failed to load data."; return; }
+    const rows = (res.data||[]).filter(r=>Object.keys(r).length);
+    const fields = res.meta?.fields || (rows[0] ? Object.keys(rows[0]) : []);
+    renderBigTable("table-top", rows, fields);
   });
 
-  /* ---------- Bottom: PivotTable.js over the FULL CSV ---------- */
-  Papa.parse("data/df3_full_for_pivot.csv", {
-    download: true,
-    header:   true,
-    worker:   true,
-    skipEmptyLines: true,
-    complete: function(res){
-      const rows = res.data.filter(r => Object.keys(r).length);
-
-      // merge built-in + plotly renderers (so you can choose heatmaps, bars, etc.)
-      const utils = $.pivotUtilities;
-      const renderers = $.extend({}, utils.renderers, utils.plotly_renderers || {});
-
-      $("#pivot").pivotUI(
-        rows,
-        {
-          // Set your default view here (tell me fields you want by default):
-          // rows: ["age_group_22_1"],
-          // cols:  ["X20_21_serostatus"],
-          // aggregatorName: "Count",
-          rendererName: "Table",
-          renderers: renderers
-        },
-        true // overwrite
-      );
-    }
+  /* ---------- Pivot over full CSV (unchanged) ---------- */
+  loadCSVWithAutoDelimiter("data/df3_full_for_pivot.csv?v=4", (err, res) => {
+    if (err){ document.getElementById("pivot").textContent="Failed to load pivot data."; return; }
+    const rows = (res.data || []).filter(r => Object.keys(r).length);
+    const utils = $.pivotUtilities;
+    const renderers = $.extend({}, utils.renderers, utils.plotly_renderers || {});
+    $("#pivot").pivotUI(
+      rows,
+      { rendererName:"Table", aggregatorName:"Count", rows:[], cols:[], renderers },
+      true
+    );
   });
+
+  /* ---------- Horizontal draggable divider (split-pane) ---------- */
+  (function(){
+    const divider = document.getElementById("divider");
+    const pivot   = document.getElementById("pivot");
+    let dragging=false, startY=0, startH=0;
+
+    const onDown = (e)=>{
+      dragging=true;
+      startY = (e.touches?.[0]?.clientY) ?? e.clientY ?? 0;
+      startH = pivot.getBoundingClientRect().height;
+      document.body.style.userSelect="none";
+    };
+    const onMove = (e)=>{
+      if(!dragging) return;
+      const y = (e.touches?.[0]?.clientY) ?? e.clientY ?? 0;
+      const dh = y - startY;
+      const newH = Math.max(240, startH - dh); // drag up → bigger top, smaller bottom
+      pivot.style.height = newH + "px";
+      window.dispatchEvent(new Event("resize")); // reflow pivot
+    };
+    const onUp = ()=>{
+      dragging=false;
+      document.body.style.userSelect="";
+    };
+
+    divider.addEventListener("mousedown", onDown);
+    divider.addEventListener("touchstart", onDown, {passive:true});
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("touchmove", onMove, {passive:false});
+    window.addEventListener("mouseup", onUp);
+    window.addEventListener("touchend", onUp);
+  })();
 </script>
