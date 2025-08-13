@@ -14,11 +14,21 @@
 
 <link  rel="stylesheet" href="https://unpkg.com/pivottable@2.23.0/dist/pivot.css">
 <script src="https://unpkg.com/pivottable@2.23.0/dist/pivot.min.js"></script>
-<!-- optional Plotly renderers inside the pivot (since you already use Plotly) -->
 <script src="https://unpkg.com/pivottable@2.23.0/dist/plotly_renderers.min.js"></script>
 
 <style>
-  :root{ --page-max: 1900px; --gap: 6px; }
+  :root{
+    --page-max: 1900px;
+    --gap: 6px;
+
+    /* ===== table visibility caps (tweak these) ===== */
+    --table-visible-cols: 8;      /* show ~8 columns */
+    --table-visible-rows: 12;     /* show ~12 data rows (header is extra) */
+    --table-col-width: 140px;     /* width per column */
+    --table-row-h: 28px;          /* body row height */
+    --table-header-h: 34px;       /* sticky header height */
+  }
+
   *{ box-sizing:border-box }
   body{ font-family:system-ui, Arial, sans-serif; background:#f6f7fb; margin:0 }
   h1{ text-align:center; padding:12px 4px; margin:0; font-weight:700 }
@@ -45,27 +55,43 @@
   /* CHARTS (unchanged) */
   .chart{ width:100%; height:clamp(320px, 46vh, 640px) }
 
-  /* Title text used for the dataset card */
-  .dataset-title{
-    font-weight:700; margin:0 0 6px 0;
-  }
+  /* Dataset card title */
+  .dataset-title{ font-weight:700; margin:0 0 6px 0; }
 
-  /* Scrollable table container INSIDE the card (keeps card size) */
+  /* Scroll area INSIDE card (keeps card size the same) */
   .fill-scroll{
-    flex: 1 1 auto;         /* take remaining height inside the card */
-    min-height: 0;          /* allow it to actually shrink/grow */
-    overflow: auto;         /* both vertical & horizontal scrollbars as needed */
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto; /* both scrollbars appear as needed */
   }
 
-  /* Keep your base table look, but allow horizontal overflow */
+  /* ===== Make the table show ~8x12 by default, but still scroll the full dataset ===== */
+  #table-top{
+    /* height for header + N rows */
+    max-height: calc(var(--table-header-h) + var(--table-row-h) * var(--table-visible-rows));
+    overflow: auto;
+  }
+  /* inner wrapper width = N columns * column width -> forces horizontal scroll */
+  #table-top .table-wrap{
+    width: calc(var(--table-col-width) * var(--table-visible-cols));
+  }
+
   table{ border-collapse:collapse; width:100%; font-size:12.5px }
-  th,td{ border:1px solid #e5e8ef; padding:6px 8px; text-align:left; white-space:nowrap }
-  th{ background:#f2f5fb; position:sticky; top:0; z-index:1 }
+  th,td{
+    border:1px solid #e5e8ef;
+    padding:6px 8px; text-align:left;
+    white-space:nowrap;
+    min-width: var(--table-col-width);
+    height: var(--table-row-h);
+    line-height: calc(var(--table-row-h) - 6px);
+  }
+  th{
+    background:#f2f5fb; position:sticky; top:0; z-index:1;
+    height: var(--table-header-h);
+    line-height: calc(var(--table-header-h) - 6px);
+  }
 
-  /* Force wide tables to be scrollable horizontally */
-  #table-top table{ width: max-content; }
-
-  /* -------- Split-pane divider (new), spans full grid width -------- */
+  /* -------- Split-pane divider -------- */
   #divider{
     grid-column: 1 / -1;
     height: 10px;
@@ -86,7 +112,7 @@
 
 <div class="grid" id="grid-root">
 
-  <!-- TOP LEFT: FULL data table (scrollable) -->
+  <!-- TOP LEFT: FULL dataset table (scrollable; visually capped to ~8x12) -->
   <div class="card">
     <p class="dataset-title">Muspad data set</p>
     <div id="table-top" class="fill-scroll"></div>
@@ -99,14 +125,14 @@
   <!-- DIVIDER: drag to resize bottom pane height -->
   <div id="divider" title="Drag to resize the pivot area"></div>
 
-  <!-- BOTTOM: full pivot (unchanged content) -->
+  <!-- BOTTOM: full pivot -->
   <div id="bottom" class="card">
     <div id="pivot"></div>
   </div>
 </div>
 
 <script>
-  /* ---------- Consistent Plotly styling (unchanged) ---------- */
+  /* ---------- Plotly styling (unchanged) ---------- */
   const BASE_WIDTH = 1400;
   const FONT_FAMILY = "Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
   const SIZES = { title: 18, axisTitle: 12, tick: 11, legend: 10.5, hover: 12 };
@@ -131,7 +157,6 @@
   function normalize(fig, el){
     fig.layout = fig.layout || {};
     delete fig.layout.width; delete fig.layout.height;
-
     fig.layout.template = "plotly_white";
     fig.layout.paper_bgcolor = "#ffffff";
     fig.layout.plot_bgcolor  = "#ffffff";
@@ -193,7 +218,6 @@
     if ("ResizeObserver" in window) new ResizeObserver(resize).observe(el);
   }
 
-  /* ---------- Load charts (unchanged) ---------- */
   Promise.all([
     fetch("education.json").then(r => r.json()),
     fetch("employment.json").then(r => r.json())
@@ -202,7 +226,7 @@
     renderChart("chart2", fig2);
   });
 
-  /* ---------- Robust CSV loader (workers OFF + auto delimiter) ---------- */
+  /* ---------- Robust CSV loader ---------- */
   function loadCSVWithAutoDelimiter(url, done){
     const baseOpts = { download:true, header:true, skipEmptyLines:true, dynamicTyping:false, worker:false };
     Papa.parse(url, {
@@ -218,20 +242,18 @@
     });
   }
 
-  /* ---------- FULL dataset table (scrollable both ways) ---------- */
-  const DATASET_URL = "data/df3_full_for_pivot.csv?v=4";
-
-  function esc(v){
-    return String(v==null ? "" : v)
-      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-  }
+  /* ---------- Full dataset table: render all rows, but viewport shows ~8x12 ---------- */
+  const DATASET_URL = "data/df3_full_for_pivot.csv?v=5";
 
   function renderBigTable(containerId, rows, fields){
     const host = document.getElementById(containerId);
     if (!host) return;
-    host.innerHTML = ""; // clear
+    host.innerHTML = "";
 
-    // Build the table + header
+    const wrap = document.createElement("div");
+    wrap.className = "table-wrap";           /* gives a fixed inner width (8 cols) */
+    host.appendChild(wrap);
+
     const table = document.createElement("table");
     const thead = document.createElement("thead");
     const trh = document.createElement("tr");
@@ -245,9 +267,9 @@
 
     const tbody = document.createElement("tbody");
     table.appendChild(tbody);
-    host.appendChild(table);
+    wrap.appendChild(table);
 
-    // Chunked append so big files don't freeze the tab
+    // Chunked append for performance on large files
     const CHUNK = 800;
     let i = 0;
     function appendChunk(){
@@ -276,7 +298,7 @@
   });
 
   /* ---------- Pivot over full CSV (unchanged) ---------- */
-  loadCSVWithAutoDelimiter("data/df3_full_for_pivot.csv?v=4", (err, res) => {
+  loadCSVWithAutoDelimiter("data/df3_full_for_pivot.csv?v=5", (err, res) => {
     if (err){ document.getElementById("pivot").textContent="Failed to load pivot data."; return; }
     const rows = (res.data || []).filter(r => Object.keys(r).length);
     const utils = $.pivotUtilities;
