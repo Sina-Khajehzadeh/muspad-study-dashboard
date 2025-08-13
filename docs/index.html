@@ -5,27 +5,56 @@
 <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 
 <style>
-  body { font-family: system-ui, Arial, sans-serif; background:#f6f7fb; margin:0; }
-  h1 { text-align:center; padding:16px 12px; margin:0; }
-  .grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;   /* left, middle, right */
-    gap: 16px;
-    max-width: auto;
-    margin: 12px auto 40px;
-    padding: 0 12px;
+  :root{
+    --page-max: 1400px;
+    --gap: 16px;
   }
-  .card {
-    background: #fff; border: 1px solid #e9ecf2; border-radius: 10px;
-    box-shadow: 0 2px 6px rgba(0,0,0,.05); padding: 12px;
+  *{box-sizing:border-box}
+  body{font-family:system-ui, Arial, sans-serif;background:#f6f7fb;margin:0}
+  h1{ text-align:center; padding:16px 12px; margin:0 }
+
+  /* 3-column grid on desktop, stacks on small screens */
+  .grid{
+    display:grid;
+    grid-template-columns:1fr 1fr 1fr;
+    gap:var(--gap);
+    max-width:var(--page-max);
+    margin:12px auto 40px;
+    padding:0 12px;
+    align-items:stretch;
   }
-  #bottom { grid-column: 1 / -1; }       /* bottom spans all 3 columns */
-  .chart { height: auto; }
-  .placeholder { color:#667; font-size:14px; }
-  table { border-collapse: collapse; width: 100%; font-size: 13px; }
-  th, td { border: 1px solid #e5e8ef; padding: 6px 8px; text-align: left; }
-  th { background: #f2f5fb; position: sticky; top: 0; }
-  .scroll { max-height: auto; overflow:auto; }
+  @media (max-width:1100px){
+    .grid{ grid-template-columns:1fr; }
+    #bottom{ grid-column:auto; }
+  }
+
+  .card{
+    background:#fff;
+    border:1px solid #e9ecf2;
+    border-radius:12px;
+    box-shadow:0 2px 6px rgba(0,0,0,.05);
+    padding:12px;
+    display:flex;
+    flex-direction:column;
+    min-height:0; /* allow flex children to shrink */
+  }
+
+  /* bottom spans all columns on wide screens */
+  #bottom{ grid-column:1 / -1; }
+
+  /* Charts auto-fit height & width; same visual height for all */
+  .chart{
+    width:100%;
+    height:clamp(320px, 42vh, 560px);
+  }
+
+  .placeholder{ color:#667; font-size:14px; }
+
+  /* Scrollable tables */
+  table{ border-collapse:collapse; width:100%; font-size:13px }
+  th,td{ border:1px solid #e5e8ef; padding:6px 8px; text-align:left }
+  th{ background:#f2f5fb; position:sticky; top:0; z-index:1 }
+  .scroll{ max-height:clamp(200px, 40vh, 520px); overflow:auto }
 </style>
 
 <h1>Muspad Study — Descriptive Overview</h1>
@@ -50,17 +79,31 @@
   <!-- BOTTOM: big table area -->
   <div id="bottom" class="card">
     <div class="placeholder"><b>Full table (bottom)</b><br>We’ll populate this after we add the CSV.</div>
-    <div id="table-bottom" class="scroll" style="max-height:500px;"></div>
+    <div id="table-bottom" class="scroll"></div>
   </div>
 </div>
 
 <script>
-  // Load your two plots we just added to /docs
+  // Helper: render a Plotly figure responsively and ignore fixed sizes in JSON
+  const render = (id, fig) => {
+    try { delete fig.layout.height; } catch(e){}
+    try { delete fig.layout.width; }  catch(e){}
+    Plotly.newPlot(id, fig.data, fig.layout, {responsive:true});
+    const el = document.getElementById(id);
+    // Resize on container/window changes
+    const resize = () => Plotly.Plots.resize(el);
+    window.addEventListener('resize', resize);
+    if ('ResizeObserver' in window) {
+      new ResizeObserver(resize).observe(el);
+    }
+  };
+
+  // Load your two plots
   Promise.all([
     fetch("education.json").then(r => r.json()),
     fetch("employment.json").then(r => r.json())
   ]).then(([fig1, fig2]) => {
-    Plotly.newPlot("chart1", fig1.data, fig1.layout);
-    Plotly.newPlot("chart2", fig2.data, fig2.layout);
+    render("chart1", fig1);
+    render("chart2", fig2);
   });
 </script>
