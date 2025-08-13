@@ -5,78 +5,39 @@
 <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 
 <style>
-  :root{
-    --page-max: 1400px;
-    --gap: 16px;
-  }
-  *{box-sizing:border-box}
-  body{font-family:system-ui, Arial, sans-serif;background:#f6f7fb;margin:0}
-  h1{ text-align:center; padding:16px 12px; margin:0 }
-
-  /* 3-column grid on desktop, stacks on small screens */
+  :root{ --page-max: 1400px; --gap: 16px; }
+  *{ box-sizing:border-box }
+  body{ font-family: system-ui, Arial, sans-serif; background:#f6f7fb; margin:0 }
+  h1{ text-align:center; padding:18px 12px; margin:0; font-weight:700; }
   .grid{
-    display:grid;
-    grid-template-columns:1fr 1fr 1fr;
-    gap:var(--gap);
-    max-width:var(--page-max);
-    margin:12px auto 40px;
-    padding:0 12px;
-    align-items:stretch;
+    display:grid; grid-template-columns:1fr 1fr 1fr; gap:var(--gap);
+    max-width:var(--page-max); margin:12px auto 40px; padding:0 12px; align-items:stretch;
   }
-  @media (max-width:1100px){
-    .grid{ grid-template-columns:1fr; }
-    #bottom{ grid-column:auto; }
-  }
-
+  @media (max-width:1100px){ .grid{ grid-template-columns:1fr } #bottom{ grid-column:auto } }
   .card{
-    background:#fff;
-    border:1px solid #e9ecf2;
-    border-radius:12px;
-    box-shadow:0 2px 6px rgba(0,0,0,.05);
-    padding:12px;
-    display:flex;
-    flex-direction:column;
-    min-height:0; /* allow flex children to shrink */
+    background:#fff; border:1px solid #e9ecf2; border-radius:12px;
+    box-shadow:0 2px 6px rgba(0,0,0,.05); padding:12px; display:flex; flex-direction:column; min-height:0;
   }
-
-  /* bottom spans all columns on wide screens */
   #bottom{ grid-column:1 / -1; }
-
-  /* Charts auto-fit height & width; same visual height for all */
-  .chart{
-    width:100%;
-    height:clamp(320px, 42vh, 560px);
-  }
-
-  .placeholder{ color:#667; font-size:14px; }
-
-  /* Scrollable tables */
+  .chart{ width:100%; height:clamp(320px, 42vh, 560px); }
+  .placeholder{ color:#667; font-size:14px }
   table{ border-collapse:collapse; width:100%; font-size:13px }
   th,td{ border:1px solid #e5e8ef; padding:6px 8px; text-align:left }
   th{ background:#f2f5fb; position:sticky; top:0; z-index:1 }
   .scroll{ max-height:clamp(200px, 40vh, 520px); overflow:auto }
 </style>
 
-<h1>Muspad Study</h1>
+<h1>Muspad Study — Descriptive Overview</h1>
 
 <div class="grid">
-  <!-- TOP LEFT: table (placeholder for now) -->
   <div class="card">
     <div class="placeholder"><b>Dataset (top-left)</b><br>We’ll wire this to your CSV next.</div>
     <div id="table-top" class="scroll"></div>
   </div>
 
-  <!-- TOP MIDDLE: chart 1 -->
-  <div class="card">
-    <div id="chart1" class="chart"></div>
-  </div>
+  <div class="card"><div id="chart1" class="chart"></div></div>
+  <div class="card"><div id="chart2" class="chart"></div></div>
 
-  <!-- TOP RIGHT: chart 2 -->
-  <div class="card">
-    <div id="chart2" class="chart"></div>
-  </div>
-
-  <!-- BOTTOM: big table area -->
   <div id="bottom" class="card">
     <div class="placeholder"><b>Full table (bottom)</b><br>We’ll populate this after we add the CSV.</div>
     <div id="table-bottom" class="scroll"></div>
@@ -84,21 +45,84 @@
 </div>
 
 <script>
-  // Helper: render a Plotly figure responsively and ignore fixed sizes in JSON
-  const render = (id, fig) => {
-    try { delete fig.layout.height; } catch(e){}
-    try { delete fig.layout.width; }  catch(e){}
-    Plotly.newPlot(id, fig.data, fig.layout, {responsive:true});
-    const el = document.getElementById(id);
-    // Resize on container/window changes
-    const resize = () => Plotly.Plots.resize(el);
-    window.addEventListener('resize', resize);
-    if ('ResizeObserver' in window) {
-      new ResizeObserver(resize).observe(el);
-    }
-  };
+  // ---- Style knobs (tweak here if you want different sizes) ----
+  const BASE_WIDTH = 1200; // reference width to scale fonts
+  const SIZES = { title: 20, axisTitle: 14, tick: 12, legend: 12, hover: 12 };
+  const FONT_FAMILY = "Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
 
-  // Load your two plots
+  function scaled(n, container){
+    const w = (container?.clientWidth || BASE_WIDTH);
+    const s = Math.min(1.25, Math.max(0.85, w / BASE_WIDTH));
+    return Math.round(n * s);
+  }
+
+  // Apply a consistent look to ANY Plotly figure JSON
+  function normalize(fig, container){
+    fig.layout = fig.layout || {};
+    // Ignore saved pixel sizes so page controls layout
+    delete fig.layout.width; delete fig.layout.height;
+
+    // Base theme
+    fig.layout.template = "plotly_white";
+    fig.layout.paper_bgcolor = "#ffffff";
+    fig.layout.plot_bgcolor  = "#ffffff";
+    fig.layout.margin = fig.layout.margin || {l:70, r:20, t:60, b:60};
+    fig.layout.uniformtext = {mode:"hide", minsize:10};
+    fig.layout.font = {family: FONT_FAMILY, size: scaled(13, container), color:"#213547"};
+
+    // Legend: slim & horizontal at top
+    fig.layout.legend = Object.assign({
+      orientation:"h", y: 1.06, yanchor:"bottom", x:0, xanchor:"left",
+      bgcolor:"rgba(255,255,255,0.8)", bordercolor:"#e9ecf2", borderwidth:1,
+      font:{size: scaled(SIZES.legend, container)}
+    }, fig.layout.legend || {});
+
+    // Title
+    if (!fig.layout.title) fig.layout.title = {};
+    fig.layout.title.x = (fig.layout.title.x ?? 0.03);
+    fig.layout.title.font = {size: scaled(SIZES.title, container), family: FONT_FAMILY};
+
+    // Hover label
+    fig.layout.hoverlabel = {font:{size: scaled(SIZES.hover, container), family: FONT_FAMILY}};
+
+    // Axes (handles xaxis, xaxis2, yaxis, yaxis3, ...)
+    for (const k of Object.keys(fig.layout)) {
+      if (/^[xy]axis(\d+)?$/.test(k)) {
+        const ax = fig.layout[k] = Object.assign({
+          automargin:true, zeroline:false, showline:true, mirror:true,
+          linecolor:"#cfd6e4", linewidth:1,
+          gridcolor:"#ecf0f6", griddash:"solid", ticks:"outside", tickcolor:"#cfd6e4", ticklen:4
+        }, fig.layout[k] || {});
+        ax.title = ax.title || {};
+        ax.title.font = {size: scaled(SIZES.axisTitle, container), family: FONT_FAMILY};
+        ax.tickfont = {size: scaled(SIZES.tick, container), family: FONT_FAMILY};
+      }
+    }
+
+    // Color axis (if present)
+    if (fig.layout.coloraxis) {
+      fig.layout.coloraxis.colorbar = Object.assign({
+        thickness:12,
+        outlinewidth:0,
+        tickfont:{size: scaled(SIZES.tick, container), family: FONT_FAMILY},
+        title:{font:{size: scaled(SIZES.tick, container), family: FONT_FAMILY}}
+      }, fig.layout.coloraxis.colorbar || {});
+    }
+
+    return fig;
+  }
+
+  // Render helper (responsive + resize on container changes)
+  function render(id, rawFig){
+    const el = document.getElementById(id);
+    const fig = normalize(structuredClone ? structuredClone(rawFig) : JSON.parse(JSON.stringify(rawFig)), el);
+    Plotly.newPlot(id, fig.data, fig.layout, {responsive:true});
+    const resize = () => Plotly.Plots.resize(el);
+    window.addEventListener("resize", resize);
+    if ("ResizeObserver" in window) new ResizeObserver(resize).observe(el);
+  }
+
+  // Load and draw (your JSON files)
   Promise.all([
     fetch("education.json").then(r => r.json()),
     fetch("employment.json").then(r => r.json())
