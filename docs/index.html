@@ -52,16 +52,28 @@
 
 <script>
   // ---------- Compact, readable styling ----------
-  const BASE_WIDTH = 1200;                  // ref width for font scaling
+  const BASE_WIDTH = 1200;                        // for font scaling
   const FONT_FAMILY = "Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
-  const SIZES = { title: 18, axisTitle: 12, tick: 11, legend: 11, hover: 12 };
-  const RIGHT_MARGIN = 96;                  // small, fixed space for right legend
+
+  // tweak just these two if you want even smaller legends
+  const LEGEND_FONT = 10;                         // legend text size (tiny but readable)
+  const RIGHT_MARGIN_NARROW = 72;                 // space for right-side legend
+
+  const SIZES = { title: 18, axisTitle: 12, tick: 11, hover: 12 };
 
   const scale = (px, el) => {
     const w = (el?.clientWidth || BASE_WIDTH);
     const s = Math.min(1.2, Math.max(0.9, w / BASE_WIDTH));
     return Math.round(px * s);
   };
+
+  function countLegendItems(fig){
+    let n = 0;
+    for (const tr of (fig.data || [])) {
+      if (tr && tr.showlegend !== false && tr.name != null && String(tr.name).trim() !== "") n++;
+    }
+    return n;
+  }
 
   function maybeRotateX(fig){
     try{
@@ -77,14 +89,14 @@
     fig.layout = fig.layout || {};
     delete fig.layout.width; delete fig.layout.height;           // let CSS control size
 
-    // Tighter margins
+    // Base theme + tighter margins
     fig.layout.template = "plotly_white";
     fig.layout.paper_bgcolor = "#ffffff";
     fig.layout.plot_bgcolor  = "#ffffff";
     const m = fig.layout.margin || {};
-    fig.layout.margin = { l: 56, r: Math.max(RIGHT_MARGIN, m.r||0), t: 56, b: 48 };
+    fig.layout.margin = { l: 56, r: 40, t: 56, b: 48, ...m };
 
-    // Base fonts
+    // Fonts
     fig.layout.font = { family: FONT_FAMILY, size: scale(12.5, el), color:"#213547" };
 
     // Title
@@ -92,26 +104,15 @@
     fig.layout.title.x = (fig.layout.title.x ?? 0.02);
     fig.layout.title.font = { size: scale(SIZES.title, el), family: FONT_FAMILY };
 
-    // Small, right-side legend
-    fig.layout.legend = Object.assign({
-      orientation: "v",
-      x: 1.005, xanchor: "left",
-      y: 1,    yanchor: "top",
-      itemsizing: "constant",         // compact entries
-      tracegroupgap: 4,
-      bgcolor: "rgba(255,255,255,0.85)",
-      borderwidth: 0,
-      font: { size: scale(SIZES.legend, el), family: FONT_FAMILY }
-    }, fig.layout.legend || {});
-
-    // Axes styling
+    // Axes
     for (const k of Object.keys(fig.layout)) {
       if (/^[xy]axis(\d+)?$/.test(k)) {
-        const ax = fig.layout[k] = Object.assign({
+        const ax = fig.layout[k] = {
           automargin:true, zeroline:false, showline:true, mirror:true,
           linecolor:"#cfd6e4", linewidth:1,
-          gridcolor:"#ecf0f6", ticks:"outside", tickcolor:"#cfd6e4", ticklen:3
-        }, fig.layout[k] || {});
+          gridcolor:"#ecf0f6", ticks:"outside", tickcolor:"#cfd6e4", ticklen:3,
+          ...(fig.layout[k] || {})
+        };
         ax.title = ax.title || {};
         ax.title.font = { size: scale(SIZES.axisTitle, el), family: FONT_FAMILY };
         ax.tickfont  = { size: scale(SIZES.tick, el), family: FONT_FAMILY };
@@ -119,14 +120,47 @@
       }
     }
 
-    // Colorbar (if present) — keep it small
+    // Colorbar small
     if (fig.layout.coloraxis){
-      fig.layout.coloraxis.colorbar = Object.assign({
-        thickness: 10,
-        outlinewidth: 0,
+      fig.layout.coloraxis.colorbar = {
+        thickness: 10, outlinewidth: 0,
         tickfont: { size: scale(SIZES.tick, el), family: FONT_FAMILY },
-        title:    { font: { size: scale(SIZES.tick, el), family: FONT_FAMILY } }
-      }, fig.layout.coloraxis.colorbar || {});
+        title:    { font: { size: scale(SIZES.tick, el), family: FONT_FAMILY } },
+        ...(fig.layout.coloraxis.colorbar || {})
+      };
+    }
+
+    // ---- Legend placement: tiny + adaptive ----
+    const many = countLegendItems(fig) > 6;
+    if (many) {
+      // Put legend under the plot (tiny horizontal), keep plot area wide
+      fig.layout.legend = {
+        orientation: "h",
+        x: 0, xanchor: "left",
+        y: -0.22, yanchor: "top",          // move below chart
+        itemsizing: "constant",
+        tracegroupgap: 4,
+        bgcolor: "rgba(255,255,255,0.85)",
+        borderwidth: 0,
+        font: { size: LEGEND_FONT, family: FONT_FAMILY },
+        ...(fig.layout.legend || {})
+      };
+      fig.layout.margin.b = Math.max(fig.layout.margin.b || 0, 74); // space for bottom legend
+      fig.layout.margin.r = Math.min(fig.layout.margin.r || 0, 40); // no big right margin
+    } else {
+      // Few items: tiny vertical legend on the right with narrow margin
+      fig.layout.legend = {
+        orientation: "v",
+        x: 1.005, xanchor: "left",
+        y: 1,    yanchor: "top",
+        itemsizing: "constant",
+        tracegroupgap: 3,
+        bgcolor: "rgba(255,255,255,0.85)",
+        borderwidth: 0,
+        font: { size: LEGEND_FONT, family: FONT_FAMILY },
+        ...(fig.layout.legend || {})
+      };
+      fig.layout.margin.r = Math.max(RIGHT_MARGIN_NARROW, fig.layout.margin.r || 0);
     }
 
     maybeRotateX(fig);
@@ -155,3 +189,4 @@
     render("chart2", fig2);
   });
 </script>
+
