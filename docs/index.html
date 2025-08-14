@@ -233,14 +233,19 @@
     function loadDataset() {
       const statusEl = document.getElementById('status');
       const setStatus = (msg) => { if (statusEl) statusEl.textContent = msg; };
-
+    
+      // Explicitly point to your GitHub Pages CSV first, then fallbacks.
       const urls = [
-        // relative path (works when index.html is in docs/)
+        // Your live Pages URL (same origin for the site)
+        'https://sina-khajehzadeh.github.io/muspad-study-dashboard/data/df3_full_for_pivot.csv',
+        // Relative path (works when testing locally from docs/)
         'data/df3_full_for_pivot.csv',
-        // CDN fallback if needed
+        // Raw GitHub fallback
+        'https://raw.githubusercontent.com/Sina-Khajehzadeh/muspad-study-dashboard/main/docs/data/df3_full_for_pivot.csv',
+        // jsDelivr fallback
         'https://cdn.jsdelivr.net/gh/Sina-Khajehzadeh/muspad-study-dashboard/docs/data/df3_full_for_pivot.csv'
       ];
-
+    
       let i = 0;
       const tryNext = () => {
         if (i >= urls.length) {
@@ -249,39 +254,35 @@
           return;
         }
         const url = urls[i++];
-        setStatus(`Loading data… (${url.includes('cdn.jsdelivr') ? 'CDN' : 'local'})`);
-
+        setStatus(`Loading data… (${url})`);
         Papa.parse(url, {
           download: true,
           header: true,
           skipEmptyLines: true,
           dynamicTyping: true,
           worker: true,
-          // delimiter: ";", // <-- uncomment if your CSV uses semicolons
+          // If your CSV uses semicolons (Excel EU), UNCOMMENT the next line:
+          // delimiter: ";",
           transformHeader: (h) => h.replace(/^\uFEFF/, '').trim(),
-          complete: function (results) {
-            if (!results || !results.data || results.data.length === 0) {
-              console.warn('CSV parsed but no rows. Trying next source…');
-              tryNext();
-              return;
+          complete: function(results) {
+            if (!results || !Array.isArray(results.data) || results.data.length === 0) {
+              console.warn('Parsed but no rows. Trying next source…');
+              tryNext(); return;
             }
             rawData = results.data;
             columns = (results.meta && Array.isArray(results.meta.fields) && results.meta.fields.length)
               ? results.meta.fields
               : Object.keys(rawData[0] || {});
-            if (!columns || columns.length === 0) {
-              console.warn('No columns detected. Trying next source…');
-              tryNext();
-              return;
-            }
+            if (!columns.length) { console.warn('No columns detected. Next source…'); tryNext(); return; }
+    
             initializeFilters();
             initializeChartBuilder();
             applyFiltersAndUpdate();
-            autoAddStarterChart(); // show something immediately
-            setStatus(`Data loaded: ${rawData.length.toLocaleString()} rows, ${columns.length} columns`);
-            console.log('Columns:', columns);
+            autoAddStarterChart(); // show an initial chart
+            setStatus(`Data loaded: ${rawData.length.toLocaleString()} rows • ${columns.length} cols`);
+            console.log('Columns:', columns.slice(0, 30));
           },
-          error: function (err) {
+          error: function(err) {
             console.error('Papa parse error:', err);
             tryNext();
           }
@@ -289,7 +290,6 @@
       };
       tryNext();
     }
-
     // -------------------- Filters --------------------
     function initializeFilters() {
       const ageSelect = document.getElementById('age-select');
