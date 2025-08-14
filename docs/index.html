@@ -62,6 +62,7 @@
   <!-- TOP LEFT: preview table -->
   <div class="card">
     <div class="placeholder"><b>Dataset (top-left)</b><br>Small preview of df3.</div>
+    <div id="debug-top" style="color:#666; font-size:12px; padding:4px 0 6px;"></div>
     <div id="table-top" class="scroll"></div>
   </div>
 
@@ -71,6 +72,7 @@
 
   <!-- BOTTOM: full pivot -->
   <div id="bottom" class="card">
+    <div id="debug-pivot" style="color:#666; font-size:12px; padding:0 0 6px;"></div>
     <div id="pivot"></div>
   </div>
 </div>
@@ -172,7 +174,27 @@
     renderChart("chart2", fig2);
   });
 
+  /* ---------- CSV helpers (workers OFF + auto delimiter) ---------- */
+  function loadCSVWithAutoDelimiter(url, done){
+    const baseOpts = { download:true, header:true, skipEmptyLines:true, dynamicTyping:false, worker:false };
+    Papa.parse(url, {
+      ...baseOpts,
+      complete: (res) => {
+        // if more than 1 column parsed, accept
+        if (res.data && res.data.length && Object.keys(res.data[0]||{}).length > 1) return done(null, res);
+        // else retry with semicolon delimiter
+        Papa.parse(url, { ...baseOpts, delimiter: ";",
+          complete: (res2) => done(null, res2),
+          error: (err2) => done(err2)
+        });
+      },
+      error: (err) => done(err)
+    });
+  }
+
   /* ---------- Top-left preview table (small/fast) ---------- */
+  const topDebug = (msg) => { const el = document.getElementById("debug-top"); if (el) el.textContent = msg; };
+
   function renderTable(targetId, rows, opts = {}) {
     const el = document.getElementById(targetId);
     if (!rows || rows.length === 0) { el.textContent = "No rows"; return; }
@@ -196,40 +218,36 @@
     el.innerHTML = html;
   }
 
-  Papa.parse("data/df3_preview.csv", {
-    download: true, header: true, worker: true, skipEmptyLines: true,
-    complete: (res) => {
-      const rows = res.data.filter(r => Object.keys(r).length);
-      const cols = res.meta.fields || (rows[0] ? Object.keys(rows[0]) : []);
-      renderTable("table-top", rows, { limit: 8, columns: cols.slice(0, 6) });
-    }
+  topDebug("Loading preview…");
+  loadCSVWithAutoDelimiter("data/df3_preview.csv?v=2", (err, res) => {
+    if (err) return topDebug("Preview load error: " + (err?.message || "unknown"));
+    const rows = (res.data || []).filter(r => Object.keys(r).length);
+    const cols = res.meta?.fields || (rows[0] ? Object.keys(rows[0]) : []);
+    renderTable("table-top", rows, { limit: 8, columns: cols.slice(0, 6) });
+    topDebug(`Preview loaded: ${rows.length} rows, ${cols.length} columns`);
   });
 
   /* ---------- Bottom: PivotTable.js over the FULL CSV ---------- */
-  Papa.parse("data/df3_full_for_pivot.csv", {
-    download: true,
-    header:   true,
-    worker:   true,
-    skipEmptyLines: true,
-    complete: function(res){
-      const rows = res.data.filter(r => Object.keys(r).length);
+  const pivotDebug = (msg) => { const el = document.getElementById("debug-pivot"); if (el) el.textContent = msg; };
 
-      // merge built-in + plotly renderers (so you can choose heatmaps, bars, etc.)
-      const utils = $.pivotUtilities;
-      const renderers = $.extend({}, utils.renderers, utils.plotly_renderers || {});
+  pivotDebug("Loading full dataset into pivot…");
+  loadCSVWithAutoDelimiter("data/df3_full_for_pivot.csv?v=2", (err, res) => {
+    if (err) return pivotDebug("Pivot load error: " + (err?.message || "unknown"));
 
-      $("#pivot").pivotUI(
-        rows,
-        {
-          // Set your default view here (tell me fields you want by default):
-          // rows: ["age_group_22_1"],
-          // cols:  ["X20_21_serostatus"],
-          // aggregatorName: "Count",
-          rendererName: "Table",
-          renderers: renderers
-        },
-        true // overwrite
-      );
-    }
+    const rows = (res.data || []).filter(r => Object.keys(r).length);
+    const utils = $.pivotUtilities;
+    const renderers = $.extend({}, utils.renderers, utils.plotly_renderers || {});
+
+    $("#pivot").pivotUI(
+      rows,
+      {
+        rendererName: "Table",
+        aggregatorName: "Count",
+        rows: [], cols: [],
+        renderers: renderers
+      },
+      true
+    );
+    pivotDebug(`Pivot loaded: ${rows.length} rows`);
   });
 </script>
