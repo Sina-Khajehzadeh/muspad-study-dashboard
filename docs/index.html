@@ -1,736 +1,810 @@
-<!--
-  MUSPAD Dynamic Dashboard (GitHub Pages compatible)
-  Place this file at: docs/index.html
-  CSV expected at:    docs/data/df3_full_for_pivot.csv
-
-  Key fixes & polish:
-  - Robust date detection (name hint + parse rate + year range).
-  - Employment column list includes: X20_21_langfragen_employment_type_clean.
-  - No default date filtering (inputs blank by default).
-  - Data panel opens automatically; starter charts added after load.
-  - Multiple CSV fallbacks: relative, Pages absolute, raw GitHub, jsDelivr CDN.
-  - Minor UX: loaded badge, Select all/Clear buttons, inline favicon.
--->
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>MUSPAD Dynamic Dashboard</title>
 
-  <!-- Bootstrap CSS + Icons (no SRI to avoid integrity mismatches) -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
-
-  <!-- Plotly.js for charts + PapaParse for CSV -->
-  <script src="https://cdn.plot.ly/plotly-2.25.2.min.js"></script>
+  <!-- Bootstrap (lightweight layout & utilities) -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <!-- Plotly + PapaParse -->
+  <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
-  <!-- Tiny inline favicon to avoid 404 -->
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Crect width='64' height='64' fill='%23007bff'/%3E%3Ctext x='50%25' y='54%25' font-size='42' text-anchor='middle' fill='white'%3EM%3C/text%3E%3C/svg%3E"/>
+  <!-- Tiny inline favicon -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Crect width='64' height='64' fill='%230d6efd'/%3E%3Ctext x='50%25' y='54%25' font-size='42' text-anchor='middle' fill='white'%3EM%3C/text%3E%3C/svg%3E"/>
 
   <style>
-    :root {
-      --sidebar-w: 50px;
-      --card-min: 400px;
-    }
+    :root { --sidebar-w: 56px; --card-min: 380px; }
     * { box-sizing: border-box; }
-    body { margin: 0; font-family: Arial, Helvetica, sans-serif; overflow: hidden; }
-    #app { display: flex; height: 100vh; overflow: hidden; }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial; overflow:hidden; background:#fff; }
+    #app { display:flex; height:100vh; overflow:hidden; }
 
     /* Sidebar */
     #sidebar {
       width: var(--sidebar-w);
-      background: #f5f5f5;
-      border-right: 1px solid #e1e1e1;
-      display: flex; flex-direction: column; align-items: center; gap: .75rem;
-      padding: .75rem .25rem;
+      background:#f7f7f8; border-right:1px solid #e9ecef;
+      display:flex; flex-direction:column; align-items:center; gap:.5rem; padding:.5rem .25rem;
     }
     #sidebar button {
-      width: 36px; height: 36px; border: 0; background: transparent; border-radius: 8px;
-      display: grid; place-items: center; font-size: 1.25rem; color: #333; cursor: pointer;
+      width:36px; height:36px; border:0; background:transparent; border-radius:8px;
+      display:grid; place-items:center; font-size:1.25rem; color:#334155; cursor:pointer;
     }
-    #sidebar button:hover { background: #e9ecef; color: #0d6efd; }
+    #sidebar button:hover { background:#eceff3; color:#0d6efd; }
+    #sidebar .sep { width:24px; height:1px; background:#e2e8f0; margin:.25rem 0; }
 
-    /* Main column */
-    #main { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
-
-    /* Header */
+    /* Main */
+    #main { flex:1; display:flex; flex-direction:column; min-width:0; overflow:hidden; }
     #header {
-      display: flex; align-items: center; gap: 1rem;
-      padding: .5rem 1rem; border-bottom: 1px solid #e1e1e1; background: #fff;
+      display:flex; align-items:center; gap:.75rem; padding:.5rem 1rem;
+      border-bottom:1px solid #e9ecef; background:#fff;
     }
-    #title { margin: 0; font-size: 1.5rem; font-weight: 600; }
-    #loadedBadge { font-size: .9rem; color: #6c757d; }
-    .header-spacer { flex: 1; }
-    .date-range { display: flex; gap: .5rem; }
+    #title { margin:0; font-weight:600; font-size:1.1rem; }
+    .header-spacer { flex:1; }
+    #status { color:#64748b; font-size:.9rem; }
+    .date-range { display:flex; gap:.5rem; align-items:center; }
 
     /* Panels */
-    .panel { display: none; background: #f8f9fa; border-bottom: 1px solid #e1e1e1; padding: .75rem 1rem; overflow: auto; }
-    .panel.active { display: block; }
-    .panel h5 { margin-bottom: .75rem; }
-
-    .filter-row { display: grid; grid-template-columns: 1fr auto auto; gap: .5rem; align-items: start; }
-    .filter-actions .btn { white-space: nowrap; }
+    .panel { display:none; background:#f8f9fa; border-bottom:1px solid #e9ecef; padding:.75rem 1rem; overflow:auto; }
+    .panel.active { display:block; }
+    .panel h6 { margin-bottom:.5rem; font-weight:600; }
 
     /* Grid */
-    #grid {
-      flex: 1; overflow: auto; padding: 1rem;
-      display: flex; flex-wrap: wrap; gap: 1rem;
-    }
+    #grid { flex:1; overflow:auto; padding:1rem; display:flex; flex-wrap:wrap; gap:1rem; }
     .card-chart {
-      width: calc(50% - .5rem);
-      min-width: var(--card-min);
-      background: #fff; border: 1px solid #e1e1e1; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,.06);
+      width: calc(50% - .5rem); min-width: var(--card-min); background:#fff;
+      border:1px solid #e9ecef; border-radius:10px; box-shadow:0 2px 8px rgba(0,0,0,.03);
     }
     .card-chart .card-header {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: .5rem .75rem; border-bottom: 1px solid #eee;
+      display:flex; align-items:center; justify-content:space-between;
+      padding:.5rem .75rem; border-bottom:1px solid #eef1f4;
     }
-    .card-chart .card-header h6 { margin: 0; font-size: 1rem; font-weight: 600; }
-    .card-chart .remove { border: 0; background: transparent; color: #6c757d; font-size: 1.1rem; }
-    .card-chart .remove:hover { color: #dc3545; }
-    .card-chart .plot { height: 320px; padding: .5rem; }
+    .card-chart .plot { height:320px; padding:.5rem; }
+    .remove { border:0; background:transparent; color:#64748b; }
+    .remove:hover { color:#dc3545; }
 
-    @media (max-width: 800px) {
-      .card-chart { width: 100%; min-width: 100%; }
+    @media (max-width: 900px) {
+      .card-chart { width:100%; min-width:100%; }
     }
 
     /* Modal */
-    #modal {
-      position: fixed; inset: 0; display: none; place-items: center; background: rgba(0,0,0,.45); z-index: 1000;
-      padding: 1rem;
-    }
-    #modal .sheet {
-      width: min(600px, 100%); background: #fff; border-radius: 10px; padding: 1rem 1rem 1.25rem;
-      box-shadow: 0 8px 24px rgba(0,0,0,.2);
-    }
-    #modal .grid { display: grid; gap: .75rem; }
-    #modal .actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: .75rem; }
+    #modal { position:fixed; inset:0; display:none; place-items:center; background:rgba(0,0,0,.45); z-index:1000; padding:1rem; }
+    #modal .sheet { width:min(720px, 100%); background:#fff; border-radius:12px; padding:1rem 1rem 1.25rem; box-shadow:0 10px 30px rgba(0,0,0,.25); }
+    #modal .grid { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:.75rem; }
+    #modal .actions { display:flex; justify-content:flex-end; gap:.5rem; margin-top:.75rem; }
+    @media (max-width: 680px) { #modal .grid { grid-template-columns: 1fr; } }
+
+    .muted { color:#94a3b8; }
+    .chip { display:inline-flex; align-items:center; gap:.25rem; background:#eef2ff; color:#3730a3; border-radius:16px; padding:.125rem .5rem; font-size:.8rem; }
   </style>
 </head>
 <body>
-  <div id="app">
-    <!-- Sidebar -->
-    <aside id="sidebar" aria-label="Toolbar">
-      <button id="btnFilters" title="Filters" aria-label="Filters"><i class="bi bi-funnel-fill"></i></button>
-      <button id="btnData" title="Data table" aria-label="Data"><i class="bi bi-table"></i></button>
-      <button id="btnSettings" title="Settings" aria-label="Settings"><i class="bi bi-gear-fill"></i></button>
-      <button id="btnAdd" title="Add chart" aria-label="Add chart"><i class="bi bi-plus-lg"></i></button>
-    </aside>
+<div id="app">
+  <!-- Sidebar -->
+  <aside id="sidebar" aria-label="Toolbar">
+    <button id="btnAdd" title="Add chart" aria-label="Add chart"><i class="bi bi-plus-lg"></i></button>
+    <button id="btnFilters" title="Filters" aria-label="Filters"><i class="bi bi-funnel-fill"></i></button>
+    <button id="btnData" title="Data table" aria-label="Data"><i class="bi bi-table"></i></button>
+    <div class="sep"></div>
+    <button id="btnSettings" title="Settings" aria-label="Settings"><i class="bi bi-gear-fill"></i></button>
+  </aside>
 
-    <!-- Main -->
-    <main id="main">
-      <header id="header">
-        <h1 id="title">MUSPAD Dynamic Dashboard</h1>
-        <span id="loadedBadge" aria-live="polite"></span>
-        <div class="header-spacer"></div>
-        <div class="date-range">
-          <input type="date" id="startDate" aria-label="Start date">
-          <input type="date" id="endDate" aria-label="End date">
-        </div>
-      </header>
+  <!-- Main -->
+  <main id="main">
+    <!-- Header -->
+    <header id="header">
+      <h1 id="title">MUSPAD Dynamic Dashboard</h1>
+      <span id="status" aria-live="polite" class="ms-1"></span>
+      <div class="header-spacer"></div>
 
-      <!-- Filters -->
-      <section id="panelFilters" class="panel" aria-label="Filters">
-        <h5 class="mb-3">Filters</h5>
+      <!-- File upload (optional) -->
+      <label class="btn btn-outline-secondary btn-sm mb-0">
+        <i class="bi bi-upload"></i> Upload CSV
+        <input id="fileInput" type="file" accept=".csv" hidden>
+      </label>
 
-        <div class="mb-3">
-          <label class="form-label">Age groups</label>
-          <div class="filter-row">
-            <select id="selAge" class="form-select" multiple size="6" aria-label="Age groups"></select>
-            <div class="filter-actions">
-              <button id="ageSelectAll" class="btn btn-outline-secondary btn-sm">Select all</button>
-              <button id="ageClear" class="btn btn-outline-secondary btn-sm">Clear</button>
-            </div>
-          </div>
-        </div>
+      <!-- Date range -->
+      <div class="date-range">
+        <span class="muted">Date:</span>
+        <input type="date" id="startDate" aria-label="Start date">
+        <input type="date" id="endDate" aria-label="End date">
+        <span id="activeRange" class="chip" title="Active date range"></span>
+      </div>
+    </header>
 
-        <div class="mb-2">
-          <label class="form-label">Employment types</label>
-          <div class="filter-row">
-            <select id="selEmp" class="form-select" multiple size="6" aria-label="Employment types"></select>
-            <div class="filter-actions">
-              <button id="empSelectAll" class="btn btn-outline-secondary btn-sm">Select all</button>
-              <button id="empClear" class="btn btn-outline-secondary btn-sm">Clear</button>
-            </div>
-          </div>
-        </div>
-      </section>
+    <!-- Filter panel -->
+    <section id="panelFilters" class="panel" aria-label="Filters">
+      <h6>Filters</h6>
+      <p class="text-muted mb-2">Columns are auto-classified into <strong>categorical</strong>, <strong>numeric</strong>, and <strong>date</strong>. Adjust to filter charts globally.</p>
 
-      <!-- Data table -->
-      <section id="panelData" class="panel" aria-label="Data preview">
-        <h5 class="mb-2">Data Preview</h5>
-        <div class="table-responsive" id="tableWrap"></div>
-      </section>
+      <div id="filtersRoot" class="row g-3">
+        <!-- Dynamic filter controls injected here -->
+      </div>
+    </section>
 
-      <!-- Settings -->
-      <section id="panelSettings" class="panel" aria-label="Settings">
-        <h5>Settings</h5>
-        <p class="text-muted mb-0">Add theme/layout options here as needed.</p>
-      </section>
+    <!-- Data panel -->
+    <section id="panelData" class="panel active" aria-label="Data preview">
+      <div class="d-flex align-items-center justify-content-between">
+        <h6 class="mb-2">Data Preview</h6>
+        <div class="muted" id="shapeBadge"></div>
+      </div>
+      <div class="table-responsive" id="tableWrap"></div>
+    </section>
 
-      <!-- Chart grid -->
-      <section id="grid" aria-label="Charts"></section>
-    </main>
-  </div>
-
-  <!-- Chart Builder Modal -->
-  <div id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-    <div class="sheet">
-      <h5 id="modalTitle" class="mb-3">Create chart</h5>
-      <div class="grid">
-        <div>
-          <label class="form-label">Chart type</label>
-          <select id="fldType" class="form-select">
-            <option value="bar">Bar</option>
-            <option value="pie">Pie</option>
-            <option value="line">Line</option>
-            <option value="scatter">Scatter</option>
+    <!-- Settings panel -->
+    <section id="panelSettings" class="panel" aria-label="Settings">
+      <h6>Settings</h6>
+      <div class="row g-3">
+        <div class="col-sm-6">
+          <label class="form-label">Theme</label>
+          <select id="themeSelect" class="form-select form-select-sm">
+            <option value="light" selected>Light</option>
+            <option value="dark">Dark</option>
           </select>
         </div>
-        <div>
-          <label class="form-label">X / Category</label>
-          <select id="fldX" class="form-select"></select>
-        </div>
-        <div>
-          <label class="form-label">Y (numeric)</label>
-          <select id="fldY" class="form-select"></select>
-        </div>
-        <div>
-          <label class="form-label">Color / Group (optional)</label>
-          <select id="fldColor" class="form-select"></select>
-        </div>
-        <div>
-          <label class="form-label">Aggregation</label>
-          <select id="fldAgg" class="form-select">
-            <option value="count">Count</option>
-            <option value="sum">Sum</option>
-            <option value="mean">Mean</option>
-          </select>
+        <div class="col-sm-6">
+          <label class="form-label">Chart height (px)</label>
+          <input id="chartHeight" type="number" class="form-control form-control-sm" value="320" min="220" max="800">
         </div>
       </div>
-      <div class="actions">
-        <button id="btnCancel" class="btn btn-outline-secondary">Cancel</button>
-        <button id="btnCreate" class="btn btn-primary">Create</button>
+      <p class="text-muted mt-2 mb-0">More settings can be added here (color palette, font, legend, etc.).</p>
+    </section>
+
+    <!-- Chart grid -->
+    <section id="grid" aria-label="Charts"></section>
+  </main>
+</div>
+
+<!-- Chart Builder Modal -->
+<div id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="sheet">
+    <h5 id="modalTitle" class="mb-3">Create chart</h5>
+    <div class="grid">
+      <div>
+        <label class="form-label">Chart type</label>
+        <select id="fldType" class="form-select">
+          <option value="bar">Column / Bar</option>
+          <option value="barline">Bar + Line</option>
+          <option value="pie">Pie / Donut</option>
+          <option value="line">Time Series / Line</option>
+          <option value="scatter">Scatter</option>
+          <option value="bubble">Bubble</option>
+          <option value="box">Box Plot</option>
+          <option value="heatmap">Heatmap</option>
+          <option value="funnel">Funnel</option>
+          <option value="table">Data Table</option>
+          <option value="pivot">Pivot Table</option>
+          <!-- combo examples -->
+          <option value="box+hist">Box + Histogram</option>
+          <option value="line+hist">Line + Histogram</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label">X / Category</label>
+        <select id="fldX" class="form-select"></select>
+      </div>
+      <div>
+        <label class="form-label">Y (numeric)</label>
+        <select id="fldY" class="form-select"></select>
+      </div>
+      <div>
+        <label class="form-label">Color / Group (optional)</label>
+        <select id="fldColor" class="form-select"></select>
+      </div>
+      <div>
+        <label class="form-label">Aggregation</label>
+        <select id="fldAgg" class="form-select">
+          <option value="count">Count</option>
+          <option value="sum">Sum</option>
+          <option value="mean" selected>Mean</option>
+          <option value="median">Median</option>
+        </select>
+      </div>
+      <div>
+        <label class="form-label">Donut (pie only)</label>
+        <select id="fldDonut" class="form-select">
+          <option value="0">Pie</option>
+          <option value="0.4" selected>Donut</option>
+        </select>
       </div>
     </div>
+    <div class="actions">
+      <button id="btnCancel" class="btn btn-outline-secondary">Cancel</button>
+      <button id="btnCreate" class="btn btn-primary">Create</button>
+    </div>
   </div>
+</div>
 
-  <script>
-    // ----------------------------
-    // Global state
-    // ----------------------------
-    let rawData = [];
-    let filtered = [];
-    let columns = [];
-    let charts = [];
-    let dateCol = null;
-    let ageCol = null;
-    let empCol = null;
+<script>
+/* ======================
+   Global state
+====================== */
+let rawData = [];         // all rows
+let filtered = [];        // filtered rows
+let columns = [];         // column names
+let charts = [];          // chart cfgs
+let types = { cat:[], num:[], date:[] };
+let primaryDate = null;
 
-    // ----------------------------
-    // Boot
-    // ----------------------------
-    document.addEventListener('DOMContentLoaded', () => {
-      wireUI();
-      loadCSV();
+const CSV_FALLBACKS = [
+  'data/df3_full_for_pivot.csv',
+  'https://sina-khajehzadeh.github.io/muspad-study-dashboard/data/df3_full_for_pivot.csv',
+  'https://raw.githubusercontent.com/Sina-Khajehzadeh/muspad-study-dashboard/main/docs/data/df3_full_for_pivot.csv',
+  'https://cdn.jsdelivr.net/gh/Sina-Khajehzadeh/muspad-study-dashboard/docs/data/df3_full_for_pivot.csv'
+];
+
+/* ======================
+   Boot
+====================== */
+document.addEventListener('DOMContentLoaded', () => {
+  wireUI();
+  loadCSV();
+});
+
+function wireUI(){
+  // Sidebar
+  on('btnAdd','click', openModal);
+  on('btnFilters','click', () => togglePanel('panelFilters'));
+  on('btnData','click', () => togglePanel('panelData'));
+  on('btnSettings','click', () => togglePanel('panelSettings'));
+
+  // Header inputs
+  on('startDate','change', applyFilters);
+  on('endDate','change', applyFilters);
+
+  // Modal
+  on('btnCancel','click', closeModal);
+  on('btnCreate','click', () => { addChartFromModal(); closeModal(); });
+  byId('modal').addEventListener('click', (e)=>{ if(e.target===byId('modal')) closeModal(); });
+
+  // Upload
+  on('fileInput','change', (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    parseCSVFile(file);
+  });
+
+  // Theme / settings
+  on('themeSelect','change', applyTheme);
+  on('chartHeight','input', () => { charts.forEach(drawChart); });
+
+  applyTheme();
+}
+
+/* ======================
+   CSV loading
+====================== */
+function loadCSV(){
+  let i=0;
+  const next = () => {
+    if (i>=CSV_FALLBACKS.length) { setStatus('Failed to load CSV'); alert('Failed to load CSV from all sources.'); return; }
+    const url = CSV_FALLBACKS[i++];
+    parseCSVUrl(url, next);
+  };
+  next();
+}
+
+function parseCSVUrl(url, onFail){
+  setStatus(`Loading: ${url}`);
+  Papa.parse(url, {
+    download: true, header: true, skipEmptyLines: true, dynamicTyping: true,
+    transformHeader: (h)=>(h||'').replace(/^\uFEFF/,'').trim(),
+    complete: (res)=>{
+      if (!res?.data?.length) { onFail?.(); return; }
+      ingest(res.data, res.meta?.fields);
+    },
+    error: (err)=>{ console.warn('Papa error:', err); onFail?.(); }
+  });
+}
+
+function parseCSVFile(file){
+  setStatus(`Parsing: ${file.name}`);
+  Papa.parse(file, {
+    header: true, skipEmptyLines: true, dynamicTyping: true,
+    transformHeader: (h)=>(h||'').replace(/^\uFEFF/,'').trim(),
+    complete: (res)=>{
+      if (!res?.data?.length) { alert('Empty CSV file.'); return; }
+      ingest(res.data, res.meta?.fields);
+    },
+    error: (err)=>{ alert('Parse error: ' + err?.message); }
+  });
+}
+
+function ingest(rows, fields){
+  rawData = rows;
+  columns = fields?.length ? fields : Object.keys(rows[0]||{});
+  setStatus(`Loaded ${rows.length.toLocaleString()} rows • ${columns.length} cols`);
+  detectTypes();
+  buildFilterPanel();
+  populateBuilderSelects();
+  initDateRangeDefaults();
+  applyFilters();
+  autoStarterCharts();
+  updateTable();
+}
+
+/* ======================
+   Type detection
+====================== */
+function detectTypes(){
+  const isMostlyNums = (col)=>{
+    const vals = sample(col, 300);
+    let c=0; for (const v of vals) if (typeof v==='number' && !Number.isNaN(v)) c++;
+    return vals.length ? (c/vals.length)>=0.7 : false;
+  };
+  const isDateCol = (col)=>{
+    const vals = sample(col, 300);
+    let parsed=0, inRange=0;
+    for (const v of vals){
+      const d = new Date(v);
+      if (!isNaN(d)){ parsed++; const y=d.getUTCFullYear(); if (y>=1990 && y<=2100) inRange++; }
+    }
+    const rate = vals.length ? parsed/vals.length : 0;
+    return rate>=0.7 && (inRange/Math.max(1,vals.length))>=0.6;
+  };
+
+  const cat=[], num=[], date=[];
+  for (const c of columns){
+    if (isDateCol(c)) date.push(c);
+    else if (isMostlyNums(c)) num.push(c);
+    else cat.push(c);
+  }
+  types = { cat, num, date };
+  // choose primary date if available, prefer names with 'date' or 'time'
+  primaryDate = date.sort((a,b)=>{
+    const sa = /(date|time|timestamp)/i.test(a) ? 1 : 0;
+    const sb = /(date|time|timestamp)/i.test(b) ? 1 : 0;
+    return sb - sa;
+  })[0] || null;
+}
+
+/* ======================
+   Filters UI
+====================== */
+function buildFilterPanel(){
+  const root = byId('filtersRoot');
+  root.innerHTML = '';
+
+  // Categorical
+  const colCat = el('div',{class:'col-md-6'});
+  colCat.append(el('label',{class:'form-label fw-semibold'},'Categorical'));
+  const catWrap = el('div',{class:'vstack gap-2'});
+  for (const c of types.cat.slice(0,30)){   // cap to prevent huge UI
+    const values = uniqNonEmpty(rawData.map(r=>r[c]));
+    const sel = el('select',{class:'form-select form-select-sm', multiple:true, size: Math.min(6, Math.max(3, values.length))});
+    sel.dataset.type='cat'; sel.dataset.col=c;
+    values.forEach(v=> sel.append(el('option',{value:String(v)}, String(v))));
+    const row = el('div',{class:'d-flex align-items-start gap-2'},
+      el('div',{class:'small fw-semibold', style:'width: 38%'}, c),
+      el('div',{class:'flex-grow-1'}, sel),
+      el('div',{class:'d-flex flex-column gap-1'},
+        button('Select all','btn btn-outline-secondary btn-sm', ()=>{ for (const o of sel.options) o.selected=true; applyFilters(); }),
+        button('Clear','btn btn-outline-secondary btn-sm', ()=>{ for (const o of sel.options) o.selected=false; applyFilters(); })
+      )
+    );
+    catWrap.append(row);
+  }
+  colCat.append(catWrap);
+  root.append(colCat);
+
+  // Numeric
+  const colNum = el('div',{class:'col-md-6'});
+  colNum.append(el('label',{class:'form-label fw-semibold'},'Numeric'));
+  const numWrap = el('div',{class:'vstack gap-2'});
+  for (const c of types.num.slice(0,30)){
+    const vals = rawData.map(r=>+r[c]).filter(v=>!Number.isNaN(v)).sort((a,b)=>a-b);
+    const min = vals.length ? vals[0] : '';
+    const max = vals.length ? vals[vals.length-1] : '';
+    const minI = el('input',{class:'form-control form-control-sm', type:'number', step:'any', value:min});
+    const maxI = el('input',{class:'form-control form-control-sm', type:'number', step:'any', value:max});
+    for (const x of [minI,maxI]) { x.dataset.type='num'; x.dataset.col=c; x.addEventListener('change', applyFilters); }
+    const row = el('div',{class:'row g-2 align-items-center'},
+      el('div',{class:'col-4 small fw-semibold'}, c),
+      el('div',{class:'col-4'}, minI),
+      el('div',{class:'col-4'}, maxI),
+    );
+    numWrap.append(row);
+  }
+  colNum.append(numWrap);
+  root.append(colNum);
+
+  // Date (header date picker already present; list other date cols for info)
+  if (types.date.length){
+    const info = el('div',{class:'col-12 mt-2 text-muted small'}, `Detected date columns: ${types.date.join(', ')}`);
+    root.append(info);
+  }
+}
+
+function initDateRangeDefaults(){
+  if (!primaryDate) { byId('startDate').value=''; byId('endDate').value=''; byId('activeRange').textContent=''; return; }
+  const ds = rawData.map(r=> new Date(r[primaryDate])).filter(d=>!isNaN(d)).sort((a,b)=>a-b);
+  if (!ds.length) return;
+
+  // default to 2020-01-01 .. 2024-12-31 if within bounds; otherwise use full span
+  const prefStart = new Date('2020-01-01');
+  const prefEnd   = new Date('2024-12-31');
+  const minD = ds[0], maxD = ds[ds.length-1];
+
+  const start = (prefStart>=minD && prefStart<=maxD) ? prefStart : minD;
+  const end   = (prefEnd>=minD && prefEnd<=maxD) ? prefEnd : maxD;
+
+  const minISO = toISO(minD), maxISO = toISO(maxD);
+  byId('startDate').min=minISO; byId('startDate').max=maxISO;
+  byId('endDate').min=minISO;   byId('endDate').max=maxISO;
+
+  byId('startDate').value = toISO(start);
+  byId('endDate').value   = toISO(end);
+  byId('activeRange').textContent = `${toISO(start)} → ${toISO(end)}`;
+}
+
+/* ======================
+   Filtering
+====================== */
+function applyFilters(){
+  // Build filter config from UI
+  const cfg = { cats:{}, nums:{}, date:null };
+
+  // categorical
+  for (const sel of bySelAll('#filtersRoot select[data-type="cat"]')){
+    const col = sel.dataset.col;
+    const values = Array.from(sel.selectedOptions).map(o=>o.value);
+    if (values.length) cfg.cats[col] = new Set(values.map(String));
+  }
+  // numeric min/max
+  for (const inp of bySelAll('#filtersRoot input[data-type="num"]')){
+    const col = inp.dataset.col;
+    const v = inp.value==='' ? null : +inp.value;
+    if (!cfg.nums[col]) cfg.nums[col] = {min:null,max:null};
+    if (inp === inp.parentElement?.parentElement?.querySelector('input[data-type="num"]')) {
+      // left input is min (but simpler to detect via position); handle below together
+    }
+  }
+  // pair mins/maxes properly
+  const rows = bySelAll('#filtersRoot .row.g-2');
+  for (const r of rows){
+    const col = r.querySelector('div.col-4.small.fw-semibold')?.textContent?.trim();
+    if (!col) continue;
+    const [minI, maxI] = r.querySelectorAll('input[data-type="num"]');
+    if (!minI || !maxI) continue;
+    const min = minI.value===''?null:+minI.value;
+    const max = maxI.value===''?null:+maxI.value;
+    cfg.nums[col] = {min, max};
+  }
+
+  // date range
+  if (primaryDate){
+    const sVal = byId('startDate').value;
+    const eVal = byId('endDate').value;
+    cfg.date = {
+      col: primaryDate,
+      start: sVal ? new Date(sVal) : null,
+      end:   eVal ? new Date(eVal) : null
+    };
+    byId('activeRange').textContent = (cfg.date.start && cfg.date.end)
+      ? `${toISO(cfg.date.start)} → ${toISO(cfg.date.end)}`
+      : '';
+  }
+
+  // apply
+  filtered = rawData.filter(r=>{
+    // cats
+    for (const [col,setv] of Object.entries(cfg.cats)){
+      const val = (r[col]===null||r[col]===undefined)? '' : String(r[col]);
+      if (!setv.has(val)) return false;
+    }
+    // nums
+    for (const [col,b] of Object.entries(cfg.nums)){
+      const val = +r[col];
+      if (!Number.isFinite(val)) continue;
+      if (b.min!==null && val < b.min) return false;
+      if (b.max!==null && val > b.max) return false;
+    }
+    // date
+    if (cfg.date && cfg.date.start && cfg.date.end){
+      const d = new Date(r[cfg.date.col]);
+      if (isNaN(d) || d < cfg.date.start || d > cfg.date.end) return false;
+    }
+    return true;
+  });
+
+  updateTable();
+  charts.forEach(drawChart);
+}
+
+/* ======================
+   Data table
+====================== */
+function updateTable(){
+  const wrap = byId('tableWrap');
+  byId('shapeBadge').textContent = `${filtered.length.toLocaleString()} rows × ${columns.length} cols`;
+  wrap.innerHTML = '';
+  if (!filtered.length){ wrap.innerHTML = '<div class="text-muted">No data to display</div>'; return; }
+
+  const table = el('table',{class:'table table-sm table-striped align-middle'});
+  const thead = el('thead',{}, el('tr',{}, ...columns.map(c=>el('th',{}, c))));
+  const tbody = el('tbody');
+  const rows = filtered.slice(0,150);
+  for (const r of rows){
+    tbody.append(el('tr',{}, ...columns.map(c=> el('td',{}, (r[c]??'')+''))));
+  }
+  table.append(thead, tbody);
+  wrap.append(table);
+}
+
+/* ======================
+   Add Charts
+====================== */
+function populateBuilderSelects(){
+  const xSel = byId('fldX'), ySel = byId('fldY'), cSel = byId('fldColor');
+  for (const s of [xSel,ySel,cSel]) s.innerHTML='';
+  // X/categories: prefer categorical + dates; Y: numeric; Color: cats first then numeric
+  [...types.cat, ...types.date, ...types.num].forEach(c=> xSel.append(option(c)));
+  [...types.num, ...types.cat].forEach(c=> ySel.append(option(c)));
+  [...types.cat, ...types.num].forEach(c=> cSel.append(option(c)));
+}
+
+function addChartFromModal(){
+  const cfg = {
+    type: byId('fldType').value,
+    x: byId('fldX').value || null,
+    y: byId('fldY').value || null,
+    color: byId('fldColor').value || null,
+    agg: byId('fldAgg').value || 'mean',
+    donut: parseFloat(byId('fldDonut').value||'0'),
+    height: +byId('chartHeight').value || 320
+  };
+  addChart(cfg);
+}
+
+function addChart(cfg){
+  charts.push(cfg);
+  const card = el('div',{class:'card-chart'});
+  card.innerHTML = `
+    <div class="card-header">
+      <div class="small fw-semibold">${titleFor(cfg)}</div>
+      <button class="remove" title="Remove"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="plot"></div>`;
+  byId('grid').append(card);
+  cfg._el = card.querySelector('.plot');
+  card.querySelector('.remove').addEventListener('click', ()=>{
+    charts = charts.filter(c=>c!==cfg); card.remove();
+  });
+  drawChart(cfg);
+}
+
+function titleFor(cfg){
+  const pretty = {
+    'bar':'Bar','barline':'Bar+Line','pie':'Pie/Donut','line':'Line',
+    'scatter':'Scatter','bubble':'Bubble','box':'Box Plot','heatmap':'Heatmap',
+    'funnel':'Funnel','table':'Data Table','pivot':'Pivot Table','box+hist':'Box+Hist','line+hist':'Line+Hist'
+  }[cfg.type] || cfg.type;
+  const parts=[pretty];
+  if (cfg.x) parts.push(`X: ${cfg.x}`);
+  if (cfg.y && cfg.agg) parts.push(`Y: ${cfg.agg}(${cfg.y})`);
+  if (cfg.color) parts.push(`Color: ${cfg.color}`);
+  return parts.join(' · ');
+}
+
+/* ======================
+   Chart renderers (modular)
+====================== */
+function drawChart(cfg){
+  const el = cfg._el;
+  if (!filtered.length){ el.innerHTML='<div class="text-muted p-2">No data</div>'; return; }
+  const H = cfg.height || 320;
+  let fig = { data:[], layout:{ margin:{l:50,r:20,b:50,t:40}, height:H, hovermode:'closest' } };
+
+  // common utilities
+  const groupBy = (rows, keys)=>{
+    const m=new Map();
+    for (const r of rows){
+      const k = keys.map(k=> String(r[k])).join('¦');
+      if(!m.has(k)) m.set(k, []);
+      m.get(k).push(r);
+    }
+    return { map:m, keys };
+  };
+  const aggregate = (rows, col, mode)=>{
+    if (mode==='count') return rows.length;
+    const vals = rows.map(r=>+r[col]).filter(v=>Number.isFinite(v));
+    if (!vals.length) return 0;
+    if (mode==='sum') return vals.reduce((a,b)=>a+b,0);
+    if (mode==='median'){
+      const s=vals.slice().sort((a,b)=>a-b); const mid=Math.floor(s.length/2);
+      return s.length%2 ? s[mid] : (s[mid-1]+s[mid])/2;
+    }
+    // mean default
+    return vals.reduce((a,b)=>a+b,0)/vals.length;
+  };
+
+  // per type
+  if (cfg.type==='bar' || cfg.type==='barline' || cfg.type==='pie'){
+    // group by X and optional color
+    const useColor = cfg.color && columns.includes(cfg.color);
+    const by = useColor ? [cfg.x, cfg.color] : [cfg.x];
+    const g = groupBy(filtered, by);
+    const xs = Array.from(new Set(Array.from(g.map.keys()).map(k=>k.split('¦')[0])));
+    const colors = useColor ? Array.from(new Set(Array.from(g.map.keys()).map(k=>k.split('¦')[1]))) : [null];
+
+    if (cfg.type==='pie'){
+      const values = xs.map(xv=>{
+        const rows = Array.from(g.map.entries()).filter(([k])=>k.split('¦')[0]===String(xv)).flatMap(([,v])=>v);
+        return aggregate(rows, cfg.y||cfg.x, cfg.agg||'count');
+      });
+      fig.data.push({ labels: xs, values, type:'pie', hole: cfg.donut||0 });
+      fig.layout.title = titleFor(cfg);
+    } else {
+      // bar or bar+line
+      for (const c of colors){
+        const y = xs.map(xv=>{
+          const key = useColor ? [xv,c].join('¦') : String(xv);
+          return aggregate(g.map.get(key)||[], cfg.y, cfg.agg);
+        });
+        fig.data.push({ x: xs, y, type:'bar', name: c ?? 'value' });
+      }
+      fig.layout.barmode='group';
+      fig.layout.xaxis={ title: cfg.x };
+      if (cfg.y) fig.layout.yaxis={ title: `${cfg.agg}(${cfg.y})` };
+
+      if (cfg.type==='barline'){
+        // overlay mean line across bars (simple example)
+        const allY = fig.data.reduce((acc,tr)=>acc.map((v,i)=>v+(tr.y[i]||0)), Array(fig.data[0].y.length).fill(0));
+        const meanY = allY.map(v=> v/fig.data.length);
+        fig.data.push({ x: xs, y: meanY, type:'scatter', mode:'lines+markers', name:'Line' });
+      }
+    }
+  }
+  else if (cfg.type==='line' || cfg.type==='line+hist'){
+    const g = groupBy(filtered, [cfg.x]);
+    const xs = Array.from(g.map.keys()).map(k=>k.split('¦')[0]);
+    const sortedX = xs.slice().sort((a,b)=>{
+      const da = new Date(a), db = new Date(b);
+      if (!isNaN(da) && !isNaN(db)) return da - db;
+      const na=+a, nb=+b; if (Number.isFinite(na)&&Number.isFinite(nb)) return na-nb;
+      return String(a).localeCompare(String(b));
     });
-
-    function wireUI() {
-      // Sidebar toggles
-      id('btnFilters').addEventListener('click', () => toggle('panelFilters'));
-      id('btnData').addEventListener('click', () => toggle('panelData'));
-      id('btnSettings').addEventListener('click', () => toggle('panelSettings'));
-      id('btnAdd').addEventListener('click', openModal);
-
-      // Date change
-      id('startDate').addEventListener('change', applyFilters);
-      id('endDate').addEventListener('change', applyFilters);
-
-      // Modal controls
-      id('btnCancel').addEventListener('click', closeModal);
-      id('btnCreate').addEventListener('click', () => {
-        const cfg = {
-          type: id('fldType').value,
-          x: id('fldX').value,
-          y: id('fldY').value,
-          color: id('fldColor').value || null,
-          agg: id('fldAgg').value
-        };
-        addChart(cfg);
-        closeModal();
-      });
-      // close modal by clicking backdrop
-      id('modal').addEventListener('click', (e) => {
-        if (e.target === id('modal')) closeModal();
-      });
-
-      // Filter helper buttons
-      id('ageSelectAll').addEventListener('click', () => selectAll(id('selAge')));
-      id('ageClear').addEventListener('click', () => clearAll(id('selAge')));
-      id('empSelectAll').addEventListener('click', () => selectAll(id('selEmp')));
-      id('empClear').addEventListener('click', () => clearAll(id('selEmp')));
+    const y = sortedX.map(xv => aggregate(g.map.get(String(xv))||[], cfg.y, cfg.agg));
+    fig.data.push({ x: sortedX, y, type:'scatter', mode:'lines+markers', name:'Line' });
+    fig.layout.xaxis = { title: cfg.x };
+    fig.layout.yaxis = { title: `${cfg.agg}(${cfg.y})` };
+    if (cfg.type==='line+hist'){
+      fig.data.push({ x: y, type:'histogram', opacity:.35, xaxis:'x2', yaxis:'y2', name:'Hist' });
+      fig.layout.grid = { rows:1, columns:2, subplots:[['xy','xy2']], pattern:'independent' };
     }
+  }
+  else if (cfg.type==='scatter' || cfg.type==='bubble'){
+    const x = filtered.map(r=>r[cfg.x]);
+    const y = filtered.map(r=>r[cfg.y]);
+    const color = cfg.color && columns.includes(cfg.color) ? filtered.map(r=>r[cfg.color]) : null;
 
-    // ----------------------------
-    // Data loading (with fallbacks)
-    // ----------------------------
-    function loadCSV() {
-      const urls = [
-        // 1) Relative to GitHub Pages root (docs/ is the site root)
-        'data/df3_full_for_pivot.csv',
-        // 2) Explicit Pages URL
-        'https://sina-khajehzadeh.github.io/muspad-study-dashboard/data/df3_full_for_pivot.csv',
-        // 3) Raw GitHub
-        'https://raw.githubusercontent.com/Sina-Khajehzadeh/muspad-study-dashboard/main/docs/data/df3_full_for_pivot.csv',
-        // 4) jsDelivr (may cache; keep as last resort)
-        'https://cdn.jsdelivr.net/gh/Sina-Khajehzadeh/muspad-study-dashboard/docs/data/df3_full_for_pivot.csv'
-      ];
-
-      let idx = 0;
-      const tryNext = () => {
-        if (idx >= urls.length) {
-          alert('Failed to load CSV from all sources.');
-          return;
+    if (cfg.type==='bubble'){
+      const sizeCol = cfg.y; // simple default: size by Y
+      const size = filtered.map(r=> Math.max(6, Math.min(40, Math.abs(+r[sizeCol]) || 6)));
+      fig.data.push({ x, y, mode:'markers', type:'scatter', marker:{ size, color, showscale: !!color }, name:'Bubble' });
+    } else {
+      if (color && !looksNumericColumn(cfg.color)){
+        const cats = uniqNonEmpty(color).slice(0,15);
+        for (const c of cats){
+          const pts = filtered.filter(r=> String(r[cfg.color])===String(c));
+          fig.data.push({ x: pts.map(r=>r[cfg.x]), y: pts.map(r=>r[cfg.y]), mode:'markers', type:'scatter', name:c });
         }
-        const url = urls[idx++];
-        console.log('Loading data from', url);
-        Papa.parse(url, {
-          download: true,
-          header: true,
-          skipEmptyLines: true,
-          dynamicTyping: true,
-          worker: false,
-          delimiter: "", // auto-detect
-          transformHeader: (h) => (h || '').replace(/^\uFEFF/, '').trim(),
-          complete: (res) => {
-            if (!res || !Array.isArray(res.data) || res.data.length === 0) {
-              console.warn('Parsed but empty. Trying next source…');
-              tryNext();
-              return;
-            }
-            rawData = res.data;
-            columns = (res.meta && res.meta.fields && res.meta.fields.length)
-              ? res.meta.fields
-              : Object.keys(rawData[0] || {});
-            id('loadedBadge').textContent = `Loaded ${rawData.length.toLocaleString()} rows • ${columns.length} columns`;
-
-            detectColumns();
-            populateFilters();
-            populateBuilderSelects();
-            // Start with data visible & some starter charts
-            show('panelData', true);
-            applyFilters();
-            autoStarterCharts();
-          },
-          error: (err) => {
-            console.error('Papa error:', err);
-            tryNext();
-          }
-        });
-      };
-      tryNext();
-    }
-
-    // ----------------------------
-    // Column detection (date/age/employment)
-    // ----------------------------
-    function detectColumns() {
-      // 1) Date column: prefer names that hint date/time and pass parse checks
-      const nameHint = /(date|time|_dt|_time|timestamp)/i;
-      const candidates = columns.filter(c => nameHint.test(c));
-      const ranked = (candidates.length ? candidates : columns).map(c => {
-        const score = scoreDateColumn(c);
-        return { col: c, ...score };
-      }).filter(s => s.valid);
-
-      ranked.sort((a,b) => b.confidence - a.confidence);
-      dateCol = ranked.length ? ranked[0].col : null;
-
-      // 2) Age group columns (list includes dataset-specific names)
-      const ageCandidates = [
-        'age_group','ageGroup','Age_Group',
-        'age_group_22_1','age_group_22_2','age_group_23_1','age_group_23_2'
-      ];
-      ageCol = ageCandidates.find(c => columns.includes(c)) || null;
-
-      // 3) Employment type columns (extended list, includes "langfragen" variant)
-      const empCandidates = [
-        'employment_type','employmentType','Employment_Type',
-        'X20_21_kurzfragen_employment_type_clean','employment_type_clean',
-        'X20_21_langfragen_employment_type_clean'
-      ];
-      empCol = empCandidates.find(c => columns.includes(c)) || null;
-    }
-
-    // Heuristic to validate date-like column
-    function scoreDateColumn(col) {
-      const vals = sampleValues(col, 300);
-      let parsed = 0, withinRange = 0;
-      for (const v of vals) {
-        const d = new Date(v);
-        if (!isNaN(d)) {
-          parsed++;
-          const y = d.getUTCFullYear();
-          if (y >= 1990 && y <= 2100) withinRange++;
-        }
-      }
-      const rate = vals.length ? parsed / vals.length : 0;
-      const rangeRate = vals.length ? withinRange / vals.length : 0;
-      const valid = rate >= 0.7 && rangeRate >= 0.7;
-      const confidence = (rate + rangeRate) / 2 + (/(date|time|timestamp)/i.test(col) ? 0.1 : 0);
-      return { valid, confidence };
-    }
-
-    function sampleValues(col, n=200) {
-      const arr = [];
-      const step = Math.max(1, Math.floor(rawData.length / n));
-      for (let i=0; i<rawData.length; i+=step) {
-        const v = rawData[i]?.[col];
-        if (v !== undefined && v !== null && v !== '') arr.push(v);
-        if (arr.length >= n) break;
-      }
-      return arr;
-    }
-
-    // ----------------------------
-    // Populate filters & builder
-    // ----------------------------
-    function populateFilters() {
-      const $age = id('selAge');
-      const $emp = id('selEmp');
-
-      // Fill age groups
-      if (ageCol) {
-        fillMultiSelect($age, uniqueNonEmpty(rawData.map(r => r[ageCol])));
-        $age.dataset.col = ageCol;
-      }
-
-      // Fill employment types
-      if (empCol) {
-        fillMultiSelect($emp, uniqueNonEmpty(rawData.map(r => r[empCol])));
-        $emp.dataset.col = empCol;
-      }
-
-      // Prepare date inputs (leave blank to avoid default filtering)
-      if (dateCol) {
-        const dates = rawData
-          .map(r => new Date(r[dateCol]))
-          .filter(d => !isNaN(d))
-          .sort((a,b) => a-b);
-        if (dates.length) {
-          const minISO = toISO(dates[0]);
-          const maxISO = toISO(dates[dates.length-1]);
-          id('startDate').min = minISO; id('startDate').max = maxISO;
-          id('endDate').min = minISO;   id('endDate').max = maxISO;
-          id('startDate').dataset.col = dateCol;
-          id('endDate').dataset.col = dateCol;
-        }
-      }
-
-      // Trigger filtering on select changes
-      $age.addEventListener('change', applyFilters);
-      $emp.addEventListener('change', applyFilters);
-    }
-
-    function populateBuilderSelects() {
-      const xSel = id('fldX'), ySel = id('fldY'), cSel = id('fldColor');
-      xSel.innerHTML = ySel.innerHTML = cSel.innerHTML = '';
-      for (const c of columns) {
-        appendOption(xSel, c); appendOption(ySel, c); appendOption(cSel, c);
+      } else {
+        fig.data.push({ x, y, mode:'markers', type:'scatter', marker:{ color, showscale: !!(color && looksNumericColumn(cfg.color)) } });
       }
     }
-
-    // ----------------------------
-    // Filtering + table
-    // ----------------------------
-    function applyFilters() {
-      const s = id('startDate').value ? new Date(id('startDate').value) : null;
-      const e = id('endDate').value ? new Date(id('endDate').value) : null;
-      const ageSel = id('selAge');  const empSel = id('selEmp');
-
-      const chosenAge = (ageSel.options.length && ageSel.dataset.col)
-        ? Array.from(ageSel.selectedOptions).map(o => String(o.value)) : null;
-      const chosenEmp = (empSel.options.length && empSel.dataset.col)
-        ? Array.from(empSel.selectedOptions).map(o => String(o.value)) : null;
-
-      filtered = rawData.filter(r => {
-        // date
-        if (dateCol && (s || e)) {
-          const d = new Date(r[dateCol]);
-          if (isNaN(d)) return false;
-          if (s && d < s) return false;
-          if (e && d > e) return false;
-        }
-        // age
-        if (chosenAge && chosenAge.length) {
-          if (!chosenAge.includes(String(r[ageCol]))) return false;
-        }
-        // employment
-        if (chosenEmp && chosenEmp.length) {
-          if (!chosenEmp.includes(String(r[empCol]))) return false;
-        }
-        return true;
-      });
-
-      updateTable();
-      charts.forEach(drawChart);
+    fig.layout.xaxis={ title: cfg.x }; fig.layout.yaxis={ title: cfg.y };
+  }
+  else if (cfg.type==='box'){
+    const x = cfg.color && columns.includes(cfg.color) ? cfg.color : cfg.x;
+    const g = groupBy(filtered, [x]);
+    for (const key of g.map.keys()){
+      const ys = (g.map.get(key)||[]).map(r=> +r[cfg.y]).filter(Number.isFinite);
+      fig.data.push({ y: ys, name: key.split('¦')[0], type:'box', boxmean:true });
     }
-
-    function updateTable() {
-      const wrap = id('tableWrap');
-      wrap.innerHTML = '';
-      if (!filtered.length) {
-        wrap.innerHTML = '<div class="text-muted">No data to display</div>';
-        return;
-      }
-      const table = document.createElement('table');
-      table.className = 'table table-sm table-striped';
-      const thead = document.createElement('thead');
-      const trh = document.createElement('tr');
-      for (const c of columns) {
-        const th = document.createElement('th'); th.textContent = c; trh.appendChild(th);
-      }
-      thead.appendChild(trh);
-      const tbody = document.createElement('tbody');
-      const rows = filtered.slice(0, 100);
-      for (const r of rows) {
-        const tr = document.createElement('tr');
-        for (const c of columns) {
-          const td = document.createElement('td');
-          const v = r[c]; td.textContent = (v === undefined || v === null) ? '' : v;
-          tr.appendChild(td);
-        }
-        tbody.appendChild(tr);
-      }
-      table.appendChild(thead); table.appendChild(tbody);
-      wrap.appendChild(table);
+    fig.layout.yaxis = { title: cfg.y };
+  }
+  else if (cfg.type==='heatmap'){
+    // Simple 2D count heatmap for X(cat/num) vs Y(cat/num)
+    const xVals = uniqNonEmpty(filtered.map(r=>r[cfg.x]));
+    const yVals = uniqNonEmpty(filtered.map(r=>r[cfg.y]));
+    const z = yVals.map(()=> Array(xVals.length).fill(0));
+    for (const r of filtered){
+      const xi = xVals.indexOf(String(r[cfg.x]));
+      const yi = yVals.indexOf(String(r[cfg.y]));
+      if (xi>=0 && yi>=0) z[yi][xi] += 1;
     }
-
-    // ----------------------------
-    // Starter charts (auto-create)
-    // ----------------------------
-    function autoStarterCharts() {
-      // derive candidates
-      const numericCols = columns.filter(c => looksNumericColumn(c));
-      const catCols = columns.filter(c => looksCategoricalColumn(c));
-
-      // prefer knowns
-      const income = ['X20_21_langfragen_income', 'income'].find(c => columns.includes(c)) || numericCols[0];
-      const age = ageCol || catCols.find(c => /age/i.test(c)) || catCols[0];
-      const emp = empCol || catCols.find(c => /employ|job|work/i.test(c));
-
-      // 1) Pie of employment counts (if available)
-      if (emp) addChart({ type: 'pie', x: emp, y: income || emp, agg: 'count' });
-
-      // 2) Bar: mean income by age group (or first numeric)
-      if (age && income) addChart({ type: 'bar', x: age, y: income, agg: 'mean' });
-
-      // 3) Line over time (if we have a date + numeric)
-      if (dateCol && income) addChart({ type: 'line', x: dateCol, y: income, agg: 'mean' });
+    fig.data.push({ z, x: xVals, y: yVals, type:'heatmap', colorscale:'Blues' });
+    fig.layout.xaxis={ title: cfg.x }; fig.layout.yaxis={ title: cfg.y };
+  }
+  else if (cfg.type==='funnel'){
+    // Expect X as stage (cat) and Y numeric (sum/mean)
+    const g = new Map();
+    for (const r of filtered){
+      const k = String(r[cfg.x]); if (!g.has(k)) g.set(k, []);
+      g.get(k).push(r);
     }
+    const stages = Array.from(g.keys());
+    const vals = stages.map(s => aggregate(g.get(s), cfg.y, cfg.agg));
+    fig.data.push({ type:'funnel', y: stages, x: vals });
+  }
+  else if (cfg.type==='table'){
+    // Just render the first 250 rows of filtered as a Plotly table
+    const head = columns;
+    const colData = columns.map(c => filtered.slice(0,250).map(r => r[c]));
+    fig.data.push({ type:'table', header:{ values: head, align:'left' }, cells:{ values: colData, align:'left' } });
+    fig.layout.margin = {l:10, r:10, b:10, t:30};
+  }
+  else if (cfg.type==='pivot'){
+    el.innerHTML = '<div class="p-3 text-muted">Pivot table: implement with your rules (groupby/agg → table). Placeholder here.</div>';
+    return;
+  }
+  else if (cfg.type==='box+hist'){
+    el.innerHTML = '<div class="p-3 text-muted">Combo plot (Box+Hist) placeholder. Add your preferred composition here.</div>';
+    return;
+  }
+  else {
+    el.innerHTML = '<div class="p-3 text-muted">Chart type not implemented (yet).</div>';
+    return;
+  }
 
-    function looksNumericColumn(col) {
-      const vals = sampleValues(col, 200);
-      if (!vals.length) return false;
-      let nums = 0;
-      for (const v of vals) if (typeof v === 'number' && !Number.isNaN(v)) nums++;
-      // Consider numeric if at least 70% are numbers
-      return nums / vals.length >= 0.7;
-    }
+  Plotly.newPlot(el, fig.data, fig.layout, {responsive:true, displaylogo:false});
+}
 
-    function looksCategoricalColumn(col) {
-      const vals = sampleValues(col, 400);
-      const uniq = new Set(vals.filter(v => v !== '' && v !== null && v !== undefined).map(String));
-      // categorical if distinct values between 2 and 20 and not mostly numbers
-      const mostlyNums = looksNumericColumn(col);
-      return !mostlyNums && uniq.size >= 2 && uniq.size <= 20;
-    }
+/* ======================
+   Starter charts
+====================== */
+function autoStarterCharts(){
+  // Simple heuristics
+  const num = types.num[0], num2 = types.num[1] || types.num[0];
+  const cat = types.cat.find(c=>/age|group/i.test(c)) || types.cat[0];
+  if (cat) addChart({ type:'bar', x:cat, y:num||cat, agg:'mean', height: +byId('chartHeight').value });
+  if (primaryDate && num) addChart({ type:'line', x:primaryDate, y:num, agg:'mean', height:+byId('chartHeight').value });
+  if (types.cat.length) addChart({ type:'pie', x:types.cat[0], y:num||types.cat[0], agg:'count', donut:0.4, height:+byId('chartHeight').value });
+}
 
-    // ----------------------------
-    // Charting
-    // ----------------------------
-    function addChart(cfg) {
-      charts.push(cfg);
-      const card = document.createElement('div');
-      card.className = 'card-chart';
-      card.innerHTML = `
-        <div class="card-header">
-          <h6>${titleFor(cfg)}</h6>
-          <button class="remove" title="Remove"><i class="bi bi-x-lg"></i></button>
-        </div>
-        <div class="plot"></div>
-      `;
-      id('grid').appendChild(card);
-      cfg._el = card.querySelector('.plot');
-      card.querySelector('.remove').addEventListener('click', () => {
-        charts = charts.filter(c => c !== cfg);
-        card.remove();
-      });
-      drawChart(cfg);
-    }
+/* ======================
+   Theme
+====================== */
+function applyTheme(){
+  const t = byId('themeSelect').value;
+  document.documentElement.dataset.theme = t;
+  // Light/dark tweak: invert grid background (simple example)
+  document.body.style.background = (t==='dark') ? '#0b1220' : '#fff';
+}
 
-    function titleFor(cfg) {
-      const t = cfg.type[0].toUpperCase() + cfg.type.slice(1);
-      const parts = [`${t}`];
-      if (cfg.x) parts.push(`X: ${cfg.x}`);
-      if (cfg.y && cfg.agg) parts.push(`Y: ${cfg.agg}(${cfg.y})`);
-      if (cfg.color) parts.push(`Color: ${cfg.color}`);
-      return parts.join(' · ');
-    }
-
-    function drawChart(cfg) {
-      const el = cfg._el;
-      if (!filtered.length) { el.innerHTML = '<div class="text-muted p-2">No data</div>'; return; }
-
-      // Grouping helper
-      const groupBy = (rows, keys) => {
-        const map = new Map();
-        for (const r of rows) {
-          const key = keys.map(k => String(r[k])).join('¦'); // join to single key
-          if (!map.has(key)) map.set(key, []);
-          map.get(key).push(r);
-        }
-        return { map, keys };
-      };
-
-      // Aggregator on Y
-      const agg = (rows) => {
-        if (cfg.agg === 'count') return rows.length;
-        const vals = rows.map(r => +r[cfg.y]).filter(v => !Number.isNaN(v));
-        if (!vals.length) return 0;
-        if (cfg.agg === 'sum') return vals.reduce((a,b)=>a+b,0);
-        if (cfg.agg === 'mean') return vals.reduce((a,b)=>a+b,0) / vals.length;
-        return rows.length;
-      };
-
-      let fig = { data: [], layout: { margin: {l:50,r:20,b:50,t:40}, title: titleFor(cfg) } };
-
-      if (cfg.type === 'bar' || cfg.type === 'pie') {
-        // group by X and optionally Color
-        const by = cfg.color ? [cfg.x, cfg.color] : [cfg.x];
-        const g = groupBy(filtered, by);
-
-        // collect unique X and Color keys
-        const xs = new Set(); const colors = new Set();
-        for (const key of g.map.keys()) {
-          const parts = key.split('¦');
-          xs.add(parts[0]);
-          if (cfg.color) colors.add(parts[1]);
-        }
-        const xArr = Array.from(xs);
-        const colorArr = cfg.color ? Array.from(colors) : [null];
-
-        if (cfg.type === 'bar') {
-          for (const cval of colorArr) {
-            const y = xArr.map(xval => {
-              const key = cfg.color ? [xval, cval].join('¦') : String(xval);
-              const rows = g.map.get(key) || [];
-              return agg(rows);
-            });
-            fig.data.push({ x: xArr, y, type: 'bar', name: cval ?? 'value' });
-          }
-          fig.layout.barmode = 'group';
-          fig.layout.xaxis = { title: cfg.x };
-          if (cfg.y) fig.layout.yaxis = { title: `${cfg.agg}(${cfg.y})` };
-        } else {
-          // pie ignores Color; just totals per X
-          const values = xArr.map(xval => {
-            const rows = Array.from(g.map.entries())
-              .filter(([k]) => k.split('¦')[0] == xval)
-              .flatMap(([,rows]) => rows);
-            return agg(rows);
-          });
-          fig.data.push({ labels: xArr, values, type: 'pie', hole: .35 });
-        }
-
-      } else if (cfg.type === 'line') {
-        // group by X value (date or numeric) and aggregate Y per X
-        const g = groupBy(filtered, [cfg.x]);
-        const xVals = Array.from(g.map.keys()).map(k => k.split('¦')[0]);
-        // sort: dates > numeric > string
-        const sorted = xVals.slice().sort((a,b) => {
-          const da = new Date(a), db = new Date(b);
-          if (!isNaN(da) && !isNaN(db)) return da - db;
-          const na = +a, nb = +b;
-          if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
-          return String(a).localeCompare(String(b));
-        });
-        const yVals = sorted.map(xv => {
-          const rows = g.map.get(String(xv)) || g.map.get(xv) || [];
-          return agg(rows);
-        });
-        fig.data.push({ x: sorted, y: yVals, type: 'scatter', mode: 'lines+markers' });
-        fig.layout.xaxis = { title: cfg.x };
-        if (cfg.y) fig.layout.yaxis = { title: `${cfg.agg}(${cfg.y})` };
-
-      } else if (cfg.type === 'scatter') {
-        const x = filtered.map(r => r[cfg.x]);
-        const y = filtered.map(r => r[cfg.y]);
-
-        if (cfg.color) {
-          // If color is numeric -> single trace with continuous colorscale
-          if (looksNumericColumn(cfg.color)) {
-            fig.data.push({
-              x, y, mode: 'markers', type: 'scatter',
-              marker: { color: filtered.map(r => r[cfg.color]), showscale: true }
-            });
-          } else {
-            // Categorical colors -> multiple traces
-            const cats = uniqueNonEmpty(filtered.map(r => r[cfg.color])).slice(0, 15);
-            for (const c of cats) {
-              const pts = filtered.filter(r => String(r[cfg.color]) === String(c));
-              fig.data.push({
-                x: pts.map(r => r[cfg.x]),
-                y: pts.map(r => r[cfg.y]),
-                mode: 'markers', type: 'scatter', name: c
-              });
-            }
-          }
-        } else {
-          fig.data.push({ x, y, mode: 'markers', type: 'scatter' });
-        }
-        fig.layout.xaxis = { title: cfg.x };
-        fig.layout.yaxis = { title: cfg.y };
-      }
-
-      Plotly.newPlot(el, fig.data, fig.layout, { responsive: true });
-    }
-
-    // ----------------------------
-    // Utilities
-    // ----------------------------
-    const id = (s) => document.getElementById(s);
-    const toISO = (d) => new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().split('T')[0];
-    const uniqueNonEmpty = (arr) => Array.from(new Set(arr.map(v => v===null||v===undefined?'' : String(v)).filter(s => s !== ''))).sort();
-
-    function appendOption(sel, value, label) {
-      const o = document.createElement('option');
-      o.value = value; o.textContent = label ?? value;
-      sel.appendChild(o);
-    }
-    function fillMultiSelect(sel, values) {
-      sel.innerHTML = '';
-      for (const v of values) {
-        const o = document.createElement('option');
-        o.value = v; o.textContent = v; o.selected = true;
-        sel.appendChild(o);
-      }
-    }
-    function selectAll(sel){ for (const o of sel.options) o.selected = true; sel.dispatchEvent(new Event('change')); }
-    function clearAll(sel){ for (const o of sel.options) o.selected = false; sel.dispatchEvent(new Event('change')); }
-
-    function toggle(panelId) {
-      const el = id(panelId);
-      el.classList.toggle('active');
-    }
-    function show(panelId, on=true) {
-      const el = id(panelId);
-      if (on) el.classList.add('active'); else el.classList.remove('active');
-    }
-    function openModal(){ id('modal').style.display = 'grid'; }
-    function closeModal(){ id('modal').style.display = 'none'; }
-  </script>
+/* ======================
+   Utilities
+====================== */
+const byId = (s)=>document.getElementById(s);
+const on = (id,ev,fn)=> byId(id).addEventListener(ev,fn);
+const bySelAll = (q)=> Array.from(document.querySelectorAll(q));
+const el = (tag, attrs={}, ...kids)=>{
+  const n = document.createElement(tag);
+  for (const [k,v] of Object.entries(attrs||{})){ if (k==='class') n.className=v; else n.setAttribute(k,v); }
+  for (const k of kids){ if (k==null) continue; n.append(typeof k==='string'? document.createTextNode(k):k); }
+  return n;
+};
+const button = (txt, cls, onClick)=> { const b=el('button',{class:cls, type:'button'},txt); b.addEventListener('click', onClick); return b; };
+const option = (v, label)=> { const o=document.createElement('option'); o.value=v; o.textContent=label??v; return o; };
+const uniqNonEmpty = (arr)=> Array.from(new Set(arr.map(v => (v==null?'':String(v))).filter(s=>s!==''))).sort();
+const sample = (col, n=200)=>{
+  const out=[]; const step=Math.max(1, Math.floor(rawData.length / n));
+  for (let i=0;i<rawData.length;i+=step){ const v=rawData[i]?.[col]; if (v!==undefined && v!==null && v!=='') out.push(v); if (out.length>=n) break; }
+  return out;
+};
+const looksNumericColumn = (col)=>{
+  const vals = sample(col, 160);
+  if (!vals.length) return false;
+  let nums=0; for (const v of vals) if (typeof v==='number' && !Number.isNaN(v)) nums++;
+  return nums/vals.length >= 0.7;
+};
+const toISO = (d)=> new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().split('T')[0];
+function togglePanel(id){ byId(id).classList.toggle('active'); }
+function openModal(){ byId('modal').style.display='grid'; }
+function closeModal(){ byId('modal').style.display='none'; }
+function setStatus(txt){ byId('status').textContent = txt||''; }
+</script>
 </body>
 </html>
