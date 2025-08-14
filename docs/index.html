@@ -3,11 +3,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Muspad Study</title>
 
-<!-- ============ CDNs ============ -->
-<!-- jQuery (needed by DataTables) -->
+<!-- ======== CDNs (order matters) ======== -->
+<!-- jQuery (DataTables + PivotTable.js depend on this) -->
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 
-<!-- PapaParse: CSV -> JS (runs in a Web Worker) -->
+<!-- jQuery UI (for PivotTable drag/drop) -->
+<link rel="stylesheet" href="https://unpkg.com/jquery-ui-dist@1.13.2/jquery-ui.min.css">
+<script src="https://unpkg.com/jquery-ui-dist@1.13.2/jquery-ui.min.js"></script>
+
+<!-- PapaParse: CSV -> JS (we'll use worker:false for GH Pages) -->
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
 <!-- DataTables + Scroller (virtual scrolling) -->
@@ -16,11 +20,19 @@
 <script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
 <script src="https://cdn.datatables.net/scroller/2.4.1/js/dataTables.scroller.min.js"></script>
 
+<!-- PivotTable.js (with optional Plotly renderers) -->
+<link  rel="stylesheet" href="https://unpkg.com/pivottable@2.23.0/dist/pivot.css">
+<script src="https://unpkg.com/pivottable@2.23.0/dist/pivot.min.js"></script>
+<script src="https://unpkg.com/pivottable@2.23.0/dist/plotly_renderers.min.js"></script>
+
+<!-- Plotly (for PivotTable Plotly renderers; your iframes load their own) -->
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
 <style>
   :root{
     --page-max: 1900px;
     --gap: 8px;
-    --top-card-h: clamp(340px, 46vh, 640px);  /* unified height for the three top cards */
+    --top-card-h: clamp(340px, 46vh, 640px); /* unified height for top row */
   }
 
   *{ box-sizing:border-box }
@@ -49,22 +61,20 @@
   }
   .top-card{ height:var(--top-card-h); }
 
-  /* Left card: table */
-  .card h2{ font-size:16px; margin:0 0 8px 0; }
+  /* Left card: dataset table */
+  .card h2{ font-size:16px; margin:0 0 6px 0; }
   .fill-scroll{ flex:1 1 auto; min-height:0; }
 
-  /* DataTables tweaks */
+  /* DataTables compact look */
   table.dataTable.compact thead th,
   table.dataTable.compact tbody td{
-    padding: 6px 8px;            /* tighter */
-    white-space: nowrap;         /* enable horizontal scroll for many columns */
-    font-size: 12px;             /* small so the table stays neat */
+    padding: 6px 8px;
+    white-space: nowrap;  /* horizontal scroll if many columns */
+    font-size: 12px;
   }
-  div.dataTables_wrapper{
-    width:100%;
-  }
+  div.dataTables_wrapper{ width:100%; }
 
-  /* Middle/Right charts via iframes (interactive Plotly HTMLs) */
+  /* Plotly iframes (charts) */
   .chart-frame{
     width:100%;
     height:calc(var(--top-card-h) - 6px);
@@ -76,10 +86,12 @@
 
 <h1>Muspad Study — Descriptive Overview</h1>
 
+<!-- ======= TOP ROW ======= -->
 <div class="grid">
   <!-- LEFT: Dataset (virtual scrolling table) -->
   <div class="card top-card">
     <h2>Muspad data set</h2>
+    <div id="table-status" style="font-size:12px;color:#667;margin:4px 0 6px;">Loading…</div>
     <div class="fill-scroll">
       <table id="dataset" class="display compact nowrap" style="width:100%">
         <thead></thead>
@@ -99,14 +111,22 @@
   </div>
 </div>
 
-<script>
-  /* ========= Data loader (robust to comma/semicolon CSV) ========= */
-  const CSV_PREVIEW = "data/df3_preview.csv"; // fast-loading preview slice
-  // To switch to your full dataset later:
-  // const CSV_PREVIEW = "data/df3_full_for_pivot.csv";
+<!-- ======= BOTTOM (Pivot) ======= -->
+<div class="grid" style="margin-top:0;">
+  <div class="card" style="grid-column:1 / -1; height:60vh;">
+    <div id="pivot-status" style="font-size:12px;color:#667;margin-bottom:6px;">Loading pivot…</div>
+    <div id="pivot" style="height:calc(100% - 20px); overflow:auto;"></div>
+  </div>
+</div>
 
+<script>
+  /* ========= Config ========= */
+  const CSV_PREVIEW = "data/df3_preview.csv?v=1";            // small/fast table
+  const CSV_FULL    = "data/df3_full_for_pivot.csv?v=1";     // full pivot
+
+  /* ========= CSV loader (robust to delimiter; no web worker) ========= */
   function loadCSVAuto(url, done){
-    const base = { download:true, header:true, skipEmptyLines:true, worker:true };
+    const base = { download:true, header:true, skipEmptyLines:true, worker:false };
     Papa.parse(url, {
       ...base,
       complete: (res) => {
@@ -117,18 +137,18 @@
     });
   }
 
+  /* ========= DataTables helpers ========= */
   function colsFromFields(fields){
     return fields.map(name => ({ title: name, data: name }));
   }
 
   function initDataTable(rows, fields){
-    // If re-initialized, destroy previous instance
+    // Destroy prior instance if any
     if ($.fn.dataTable.isDataTable('#dataset')){
       $('#dataset').DataTable().clear().destroy();
       $('#dataset thead').empty();
     }
-
-    // Build header
+    // Build <thead>
     const thead = document.querySelector('#dataset thead');
     const tr = document.createElement('tr');
     (fields || Object.keys(rows[0]||{})).forEach(col=>{
@@ -138,41 +158,71 @@
     });
     thead.appendChild(tr);
 
-    // Initialize DataTables with Scroller + horizontal scroll
+    // Init DataTable (Scroller + horiz/vert scroll)
     $('#dataset').DataTable({
       data: rows,
       columns: colsFromFields(fields),
-      deferRender: true,                 // render only visible rows
-      scroller: true,                    // virtual scrolling
-      scrollY: 'calc(var(--top-card-h) - 70px)',  // stay inside card
-      scrollX: true,                     // horizontal scroll for many columns
+      deferRender: true,
+      scroller: true,
+      scrollY: '38vh',       // fits inside the top-card
+      scrollX: true,
       scrollCollapse: true,
-      paging: false,                     // continuous scroll (no pagination)
-      searching: true,                   // user can search
-      ordering: true,                    // column sorting
+      paging: false,
+      searching: true,
+      ordering: true,
       info: false,
       autoWidth: false
     });
   }
 
-  // Load CSV and build the table
+  /* ========= Load preview table ========= */
   loadCSVAuto(CSV_PREVIEW, (err, res) => {
+    const status = document.getElementById('table-status');
     if (err){
       console.error(err);
+      if (status) status.textContent = 'Failed to load dataset.';
       document.querySelector('#dataset').outerHTML =
         '<div style="color:#b00; padding:8px;">Failed to load dataset.</div>';
       return;
     }
     const rows = (res.data || []).filter(r => Object.keys(r).length);
     const fields = res.meta?.fields || (rows[0] ? Object.keys(rows[0]) : []);
+    if (status) status.textContent = `Loaded ${rows.length.toLocaleString()} rows, ${fields.length} columns`;
     initDataTable(rows, fields);
   });
 
-  // Resize handler so the table keeps fitting the card height
+  // Keep table sized nicely on resize
   window.addEventListener('resize', () => {
-    const dt = $('#dataset').DataTable();
-    if (dt){
-      dt.columns.adjust().draw(false);
+    if ($.fn.dataTable.isDataTable('#dataset')){
+      $('#dataset').DataTable().columns.adjust().draw(false);
     }
   });
+
+  /* ========= Load Pivot ========= */
+  (function(){
+    const pstat = document.getElementById('pivot-status');
+    loadCSVAuto(CSV_FULL, (err, res) => {
+      if (err){
+        console.error(err);
+        if (pstat) pstat.textContent = 'Failed to load pivot data.';
+        return;
+      }
+      const rows = (res.data || []).filter(r => Object.keys(r).length);
+      if (pstat) pstat.textContent = `Pivot loaded: ${rows.length.toLocaleString()} rows`;
+
+      const utils = $.pivotUtilities;
+      const renderers = $.extend({}, utils.renderers, utils.plotly_renderers || {});
+      $("#pivot").pivotUI(
+        rows,
+        {
+          rendererName: "Table",
+          aggregatorName: "Count",
+          rows: [],
+          cols: [],
+          renderers
+        },
+        true
+      );
+    });
+  })();
 </script>
