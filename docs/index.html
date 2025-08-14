@@ -771,13 +771,13 @@
                   : (sorted[m - 1] + sorted[m]) / 2;
               }
               // Default: sum
-+              return nums.reduce((a, b) => a + b, 0);
+              return nums.reduce((a, b) => a + b, 0);
             });
             traces.push({
               x: xValues,
               y: y1Values,
               type: 'bar',
-+              name: yVar || 'Count',
+              name: yVar || 'Count',
               marker: { color: '#00b894' },
             });
             if (zVar) {
