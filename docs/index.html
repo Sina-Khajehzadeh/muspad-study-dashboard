@@ -5,285 +5,283 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MUSPAD Dynamic Dashboard</title>
 
-  <!-- Bootstrap CSS and Icons -->
+  <!-- Bootstrap CSS + Icons (no SRI to avoid integrity mismatches) -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <!-- Plotly.js for charts -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+
+  <!-- Plotly.js for charts + PapaParse for CSV -->
   <script src="https://cdn.plot.ly/plotly-2.25.2.min.js"></script>
-  <!-- PapaParse for CSV parsing -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
+  <!-- Tiny inline favicon to avoid 404 -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Crect width='64' height='64' fill='%23007bff'/%3E%3Ctext x='50%25' y='54%25' font-size='42' text-anchor='middle' fill='white'%3EM%3C/text%3E%3C/svg%3E"/>
+
   <style>
-    body {
-      margin: 0;
-      font-family: Arial, Helvetica, sans-serif;
-      overflow: hidden;
+    :root {
+      --sidebar-w: 50px;
+      --card-min: 400px;
     }
-    #app-container {
-      display: flex;
-      height: 100vh;
-      overflow: hidden;
-    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, Helvetica, sans-serif; overflow: hidden; }
+    #app { display: flex; height: 100vh; overflow: hidden; }
+
     /* Sidebar */
     #sidebar {
-      width: 50px;
-      background-color: #f5f5f5;
-      border-right: 1px solid #ddd;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding-top: 1rem;
+      width: var(--sidebar-w);
+      background: #f5f5f5;
+      border-right: 1px solid #e1e1e1;
+      display: flex; flex-direction: column; align-items: center; gap: .75rem;
+      padding: .75rem .25rem;
     }
     #sidebar button {
-      background: none;
-      border: none;
-      margin-bottom: 1rem;
-      font-size: 1.5rem;
-      color: #333;
-      cursor: pointer;
+      width: 36px; height: 36px; border: 0; background: transparent; border-radius: 8px;
+      display: grid; place-items: center; font-size: 1.25rem; color: #333; cursor: pointer;
     }
-    #sidebar button:hover {
-      color: #007bff;
-    }
-    /* Main area */
-    #main {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
+    #sidebar button:hover { background: #e9ecef; color: #0d6efd; }
+
+    /* Main column */
+    #main { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+
     /* Header */
     #header {
-      padding: 0.5rem 1rem;
-      display: flex;
-      align-items: center;
-      border-bottom: 1px solid #ddd;
-      background-color: #fff;
+      display: flex; align-items: center; gap: 1rem;
+      padding: .5rem 1rem; border-bottom: 1px solid #e1e1e1; background: #fff;
     }
-    #header h2 {
-      margin: 0;
-      font-size: 1.5rem;
-      flex: 1;
+    #title { margin: 0; font-size: 1.5rem; font-weight: 600; }
+    #loadedBadge { font-size: .9rem; color: #6c757d; }
+    .header-spacer { flex: 1; }
+    .date-range { display: flex; gap: .5rem; }
+
+    /* Panels */
+    .panel { display: none; background: #f8f9fa; border-bottom: 1px solid #e1e1e1; padding: .75rem 1rem; overflow: auto; }
+    .panel.active { display: block; }
+    .panel h5 { margin-bottom: .75rem; }
+
+    .filter-row { display: grid; grid-template-columns: 1fr auto auto; gap: .5rem; align-items: start; }
+    .filter-actions .btn { white-space: nowrap; }
+
+    /* Grid */
+    #grid {
+      flex: 1; overflow: auto; padding: 1rem;
+      display: flex; flex-wrap: wrap; gap: 1rem;
     }
-    #header .date-range {
-      display: flex;
-      gap: 0.5rem;
+    .card-chart {
+      width: calc(50% - .5rem);
+      min-width: var(--card-min);
+      background: #fff; border: 1px solid #e1e1e1; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,.06);
     }
-    #header .date-range input {
-      padding: 0.25rem 0.5rem;
-      border: 1px solid #ccc;
-      border-radius: 4px;
+    .card-chart .card-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: .5rem .75rem; border-bottom: 1px solid #eee;
     }
-    /* Panels (Filters, Data, Settings) */
-    .panel {
-      display: none;
-      background-color: #f9f9f9;
-      border-bottom: 1px solid #ddd;
-      padding: 1rem;
-      overflow-y: auto;
-    }
-    .panel.active {
-      display: block;
-    }
-    /* Chart grid */
-    #chart-container {
-      flex: 1;
-      padding: 1rem;
-      overflow-y: auto;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 1rem;
-    }
-    .chart-card {
-      background: #fff;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-      padding: 0.5rem;
-      width: calc(50% - 0.5rem);
-      min-width: 400px;
-      position: relative;
-    }
-    .chart-card .card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 0.5rem;
-      border-bottom: 1px solid #eee;
-    }
-    .chart-card .card-header h6 {
-      margin: 0;
-      font-size: 1rem;
-    }
-    .chart-card .remove-btn {
-      background: none;
-      border: none;
-      color: #888;
-      cursor: pointer;
-      font-size: 1.2rem;
-    }
-    .chart-card .remove-btn:hover {
-      color: #dc3545;
-    }
-    /* Chart builder modal */
-    #chart-modal {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.5);
-      display: none;
-      justify-content: center;
-      align-items: center;
-      z-index: 1000;
-    }
-    #chart-modal .modal-content {
-      background: #fff;
-      padding: 1.5rem;
-      border-radius: 6px;
-      max-width: 600px;
-      width: 90%;
-    }
-    #chart-modal .form-group {
-      margin-bottom: 1rem;
-    }
-    #chart-modal label {
-      display: block;
-      margin-bottom: 0.5rem;
-      font-weight: bold;
-    }
-    #chart-modal select,
-    #chart-modal input {
-      width: 100%;
-      padding: 0.35rem;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-    }
-    #chart-modal .modal-actions {
-      display: flex;
-      justify-content: flex-end;
-      gap: 1rem;
-    }
+    .card-chart .card-header h6 { margin: 0; font-size: 1rem; font-weight: 600; }
+    .card-chart .remove { border: 0; background: transparent; color: #6c757d; font-size: 1.1rem; }
+    .card-chart .remove:hover { color: #dc3545; }
+    .card-chart .plot { height: 320px; padding: .5rem; }
+
     @media (max-width: 800px) {
-      .chart-card {
-        width: 100%;
-        min-width: 100%;
-      }
+      .card-chart { width: 100%; min-width: 100%; }
     }
+
+    /* Modal */
+    #modal {
+      position: fixed; inset: 0; display: none; place-items: center; background: rgba(0,0,0,.45); z-index: 1000;
+      padding: 1rem;
+    }
+    #modal .sheet {
+      width: min(600px, 100%); background: #fff; border-radius: 10px; padding: 1rem 1rem 1.25rem;
+      box-shadow: 0 8px 24px rgba(0,0,0,.2);
+    }
+    #modal .grid { display: grid; gap: .75rem; }
+    #modal .actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: .75rem; }
   </style>
 </head>
 <body>
-  <div id="app-container">
+  <div id="app">
     <!-- Sidebar -->
-    <div id="sidebar">
-      <button id="btn-toggle-filter" title="Filters"><i class="bi bi-funnel-fill"></i></button>
-      <button id="btn-toggle-data" title="Data Table"><i class="bi bi-table"></i></button>
-      <button id="btn-toggle-settings" title="Settings"><i class="bi bi-gear-fill"></i></button>
-      <button id="btn-add-chart" title="Add Chart"><i class="bi bi-plus-lg"></i></button>
-    </div>
+    <aside id="sidebar" aria-label="Toolbar">
+      <button id="btnFilters" title="Filters" aria-label="Filters"><i class="bi bi-funnel-fill"></i></button>
+      <button id="btnData" title="Data table" aria-label="Data"><i class="bi bi-table"></i></button>
+      <button id="btnSettings" title="Settings" aria-label="Settings"><i class="bi bi-gear-fill"></i></button>
+      <button id="btnAdd" title="Add chart" aria-label="Add chart"><i class="bi bi-plus-lg"></i></button>
+    </aside>
+
     <!-- Main -->
-    <div id="main">
-      <!-- Header -->
-      <div id="header">
-        <h2>MUSPAD Dynamic Dashboard</h2>
+    <main id="main">
+      <header id="header">
+        <h1 id="title">MUSPAD Dynamic Dashboard</h1>
+        <span id="loadedBadge" aria-live="polite"></span>
+        <div class="header-spacer"></div>
         <div class="date-range">
-          <input type="date" id="start-date" />
-          <input type="date" id="end-date" />
+          <input type="date" id="startDate" aria-label="Start date">
+          <input type="date" id="endDate" aria-label="End date">
         </div>
-      </div>
-      <!-- Filter panel -->
-      <div id="filter-panel" class="panel">
-        <h5>Filters</h5>
+      </header>
+
+      <!-- Filters -->
+      <section id="panelFilters" class="panel" aria-label="Filters">
+        <h5 class="mb-3">Filters</h5>
+
         <div class="mb-3">
-          <label for="age-select" class="form-label">Age groups</label>
-          <select multiple id="age-select" class="form-select"></select>
+          <label class="form-label">Age groups</label>
+          <div class="filter-row">
+            <select id="selAge" class="form-select" multiple size="6" aria-label="Age groups"></select>
+            <div class="filter-actions">
+              <button id="ageSelectAll" class="btn btn-outline-secondary btn-sm">Select all</button>
+              <button id="ageClear" class="btn btn-outline-secondary btn-sm">Clear</button>
+            </div>
+          </div>
         </div>
-        <div class="mb-3">
-          <label for="employment-select" class="form-label">Employment types</label>
-          <select multiple id="employment-select" class="form-select"></select>
+
+        <div class="mb-2">
+          <label class="form-label">Employment types</label>
+          <div class="filter-row">
+            <select id="selEmp" class="form-select" multiple size="6" aria-label="Employment types"></select>
+            <div class="filter-actions">
+              <button id="empSelectAll" class="btn btn-outline-secondary btn-sm">Select all</button>
+              <button id="empClear" class="btn btn-outline-secondary btn-sm">Clear</button>
+            </div>
+          </div>
         </div>
-      </div>
-      <!-- Data table panel -->
-      <div id="data-panel" class="panel">
-        <h5>Data Preview</h5>
-        <div id="data-table-container"></div>
-      </div>
-      <!-- Settings panel -->
-      <div id="settings-panel" class="panel">
+      </section>
+
+      <!-- Data table -->
+      <section id="panelData" class="panel" aria-label="Data preview">
+        <h5 class="mb-2">Data Preview</h5>
+        <div class="table-responsive" id="tableWrap"></div>
+      </section>
+
+      <!-- Settings -->
+      <section id="panelSettings" class="panel" aria-label="Settings">
         <h5>Settings</h5>
-        <p>You can extend this panel with custom theme or layout options.</p>
-      </div>
-      <!-- Chart container -->
-      <div id="chart-container"></div>
-    </div>
+        <p class="text-muted mb-0">Add theme/layout options here as needed.</p>
+      </section>
+
+      <!-- Chart grid -->
+      <section id="grid" aria-label="Charts"></section>
+    </main>
   </div>
-  <!-- Chart builder modal -->
-  <div id="chart-modal">
-    <div class="modal-content">
-      <h5 class="mb-3">Create Chart</h5>
-      <div class="form-group">
-        <label for="chart-type">Chart type</label>
-        <select id="chart-type" class="form-select">
-          <option value="bar">Bar</option>
-          <option value="pie">Pie</option>
-          <option value="line">Line</option>
-          <option value="scatter">Scatter</option>
-        </select>
+
+  <!-- Chart Builder Modal -->
+  <div id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="sheet">
+      <h5 id="modalTitle" class="mb-3">Create chart</h5>
+      <div class="grid">
+        <div>
+          <label class="form-label">Chart type</label>
+          <select id="fldType" class="form-select">
+            <option value="bar">Bar</option>
+            <option value="pie">Pie</option>
+            <option value="line">Line</option>
+            <option value="scatter">Scatter</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">X / Category</label>
+          <select id="fldX" class="form-select"></select>
+        </div>
+        <div>
+          <label class="form-label">Y (numeric)</label>
+          <select id="fldY" class="form-select"></select>
+        </div>
+        <div>
+          <label class="form-label">Color / Group (optional)</label>
+          <select id="fldColor" class="form-select"></select>
+        </div>
+        <div>
+          <label class="form-label">Aggregation</label>
+          <select id="fldAgg" class="form-select">
+            <option value="count">Count</option>
+            <option value="sum">Sum</option>
+            <option value="mean">Mean</option>
+          </select>
+        </div>
       </div>
-      <div class="form-group">
-        <label for="x-field">X-axis / Category</label>
-        <select id="x-field" class="form-select"></select>
-      </div>
-      <div class="form-group">
-        <label for="y-field">Y-axis (numeric)</label>
-        <select id="y-field" class="form-select"></select>
-      </div>
-      <div class="form-group">
-        <label for="color-field">Color / Group (optional)</label>
-        <select id="color-field" class="form-select"></select>
-      </div>
-      <div class="form-group">
-        <label for="agg-func">Aggregation</label>
-        <select id="agg-func" class="form-select">
-          <option value="count">Count</option>
-          <option value="sum">Sum</option>
-          <option value="mean">Mean</option>
-        </select>
-      </div>
-      <div class="modal-actions">
-        <button id="btn-cancel-chart" class="btn btn-secondary">Cancel</button>
-        <button id="btn-create-chart" class="btn btn-primary">Create</button>
+      <div class="actions">
+        <button id="btnCancel" class="btn btn-outline-secondary">Cancel</button>
+        <button id="btnCreate" class="btn btn-primary">Create</button>
       </div>
     </div>
   </div>
 
   <script>
+    // ----------------------------
     // Global state
+    // ----------------------------
     let rawData = [];
-    let filteredData = [];
+    let filtered = [];
     let columns = [];
     let charts = [];
+    let dateCol = null;
+    let ageCol = null;
+    let empCol = null;
 
-    // Entry point
+    // ----------------------------
+    // Boot
+    // ----------------------------
     document.addEventListener('DOMContentLoaded', () => {
-      loadData();
-      setupSidebar();
+      wireUI();
+      loadCSV();
     });
 
-    function loadData() {
-      // Define possible CSV locations in order of preference.  Use relative
-      // paths for GitHub Pages.  Do NOT enable Web Worker (worker: false)
+    function wireUI() {
+      // Sidebar toggles
+      id('btnFilters').addEventListener('click', () => toggle('panelFilters'));
+      id('btnData').addEventListener('click', () => toggle('panelData'));
+      id('btnSettings').addEventListener('click', () => toggle('panelSettings'));
+      id('btnAdd').addEventListener('click', openModal);
+
+      // Date change
+      id('startDate').addEventListener('change', applyFilters);
+      id('endDate').addEventListener('change', applyFilters);
+
+      // Modal controls
+      id('btnCancel').addEventListener('click', closeModal);
+      id('btnCreate').addEventListener('click', () => {
+        const cfg = {
+          type: id('fldType').value,
+          x: id('fldX').value,
+          y: id('fldY').value,
+          color: id('fldColor').value || null,
+          agg: id('fldAgg').value
+        };
+        addChart(cfg);
+        closeModal();
+      });
+      // close modal by clicking backdrop
+      id('modal').addEventListener('click', (e) => {
+        if (e.target === id('modal')) closeModal();
+      });
+
+      // Filter helper buttons
+      id('ageSelectAll').addEventListener('click', () => selectAll(id('selAge')));
+      id('ageClear').addEventListener('click', () => clearAll(id('selAge')));
+      id('empSelectAll').addEventListener('click', () => selectAll(id('selEmp')));
+      id('empClear').addEventListener('click', () => clearAll(id('selEmp')));
+    }
+
+    // ----------------------------
+    // Data loading (with fallbacks)
+    // ----------------------------
+    function loadCSV() {
       const urls = [
+        // 1) Relative to GitHub Pages root (docs/ is the site root)
+        'data/df3_full_for_pivot.csv',
+        // 2) Explicit Pages URL
+        'https://sina-khajehzadeh.github.io/muspad-study-dashboard/data/df3_full_for_pivot.csv',
+        // 3) Raw GitHub
+        'https://raw.githubusercontent.com/Sina-Khajehzadeh/muspad-study-dashboard/main/docs/data/df3_full_for_pivot.csv',
+        // 4) jsDelivr (may cache; keep as last resort)
         'https://cdn.jsdelivr.net/gh/Sina-Khajehzadeh/muspad-study-dashboard/docs/data/df3_full_for_pivot.csv'
       ];
 
-      let i = 0;
+      let idx = 0;
       const tryNext = () => {
-        if (i >= urls.length) {
+        if (idx >= urls.length) {
           alert('Failed to load CSV from all sources.');
           return;
         }
-        const url = urls[i++];
+        const url = urls[idx++];
         console.log('Loading data from', url);
         Papa.parse(url, {
           download: true,
@@ -291,24 +289,30 @@
           skipEmptyLines: true,
           dynamicTyping: true,
           worker: false,
-          transformHeader: (h) => h.replace(/^\uFEFF/, '').trim(),
-          complete: function(results) {
-            if (!results || !Array.isArray(results.data) || results.data.length === 0) {
-              console.warn('Parsed but no rows. Trying next source…');
+          delimiter: "", // auto-detect
+          transformHeader: (h) => (h || '').replace(/^\uFEFF/, '').trim(),
+          complete: (res) => {
+            if (!res || !Array.isArray(res.data) || res.data.length === 0) {
+              console.warn('Parsed but empty. Trying next source…');
               tryNext();
               return;
             }
-            rawData = results.data;
-            columns = (results.meta && Array.isArray(results.meta.fields) && results.meta.fields.length)
-              ? results.meta.fields
+            rawData = res.data;
+            columns = (res.meta && res.meta.fields && res.meta.fields.length)
+              ? res.meta.fields
               : Object.keys(rawData[0] || {});
-            console.log('Columns detected:', columns.slice(0, 30));
-            initializeFilters();
-            initializeChartBuilder();
-            applyFiltersAndUpdate();
+            id('loadedBadge').textContent = `Loaded ${rawData.length.toLocaleString()} rows • ${columns.length} columns`;
+
+            detectColumns();
+            populateFilters();
+            populateBuilderSelects();
+            // Start with data visible & some starter charts
+            show('panelData', true);
+            applyFilters();
+            autoStarterCharts();
           },
-          error: function(err) {
-            console.error('Papa parse error:', err);
+          error: (err) => {
+            console.error('Papa error:', err);
             tryNext();
           }
         });
@@ -316,314 +320,404 @@
       tryNext();
     }
 
-    function setupSidebar() {
-      document.getElementById('btn-toggle-filter').addEventListener('click', () => togglePanel('filter-panel'));
-      document.getElementById('btn-toggle-data').addEventListener('click', () => togglePanel('data-panel'));
-      document.getElementById('btn-toggle-settings').addEventListener('click', () => togglePanel('settings-panel'));
-      document.getElementById('btn-add-chart').addEventListener('click', () => openChartModal());
-    }
+    // ----------------------------
+    // Column detection (date/age/employment)
+    // ----------------------------
+    function detectColumns() {
+      // 1) Date column: prefer names that hint date/time and pass parse checks
+      const nameHint = /(date|time|_dt|_time|timestamp)/i;
+      const candidates = columns.filter(c => nameHint.test(c));
+      const ranked = (candidates.length ? candidates : columns).map(c => {
+        const score = scoreDateColumn(c);
+        return { col: c, ...score };
+      }).filter(s => s.valid);
 
-    function togglePanel(id) {
-      const panel = document.getElementById(id);
-      panel.classList.toggle('active');
-    }
+      ranked.sort((a,b) => b.confidence - a.confidence);
+      dateCol = ranked.length ? ranked[0].col : null;
 
-    function initializeFilters() {
-      const ageSelect = document.getElementById('age-select');
-      const employmentSelect = document.getElementById('employment-select');
-      // Column detection lists include dataset specific names as well as generic names
-      const possibleAgeCols = [
+      // 2) Age group columns (list includes dataset-specific names)
+      const ageCandidates = [
         'age_group','ageGroup','Age_Group',
         'age_group_22_1','age_group_22_2','age_group_23_1','age_group_23_2'
       ];
-      const possibleEmpCols = [
+      ageCol = ageCandidates.find(c => columns.includes(c)) || null;
+
+      // 3) Employment type columns (extended list, includes "langfragen" variant)
+      const empCandidates = [
         'employment_type','employmentType','Employment_Type',
-        'X20_21_kurzfragen_employment_type_clean','employment_type_clean'
+        'X20_21_kurzfragen_employment_type_clean','employment_type_clean',
+        'X20_21_langfragen_employment_type_clean'
       ];
-      const ageCol = possibleAgeCols.find(c => columns.includes(c));
-      const empCol = possibleEmpCols.find(c => columns.includes(c));
-      // Populate age filter
+      empCol = empCandidates.find(c => columns.includes(c)) || null;
+    }
+
+    // Heuristic to validate date-like column
+    function scoreDateColumn(col) {
+      const vals = sampleValues(col, 300);
+      let parsed = 0, withinRange = 0;
+      for (const v of vals) {
+        const d = new Date(v);
+        if (!isNaN(d)) {
+          parsed++;
+          const y = d.getUTCFullYear();
+          if (y >= 1990 && y <= 2100) withinRange++;
+        }
+      }
+      const rate = vals.length ? parsed / vals.length : 0;
+      const rangeRate = vals.length ? withinRange / vals.length : 0;
+      const valid = rate >= 0.7 && rangeRate >= 0.7;
+      const confidence = (rate + rangeRate) / 2 + (/(date|time|timestamp)/i.test(col) ? 0.1 : 0);
+      return { valid, confidence };
+    }
+
+    function sampleValues(col, n=200) {
+      const arr = [];
+      const step = Math.max(1, Math.floor(rawData.length / n));
+      for (let i=0; i<rawData.length; i+=step) {
+        const v = rawData[i]?.[col];
+        if (v !== undefined && v !== null && v !== '') arr.push(v);
+        if (arr.length >= n) break;
+      }
+      return arr;
+    }
+
+    // ----------------------------
+    // Populate filters & builder
+    // ----------------------------
+    function populateFilters() {
+      const $age = id('selAge');
+      const $emp = id('selEmp');
+
+      // Fill age groups
       if (ageCol) {
-        const uniqueAges = [...new Set(rawData.map(r => r[ageCol]))]
-          .filter(v => v !== undefined && v !== null && v !== '')
-          .sort();
-        uniqueAges.forEach(val => {
-          const opt = document.createElement('option');
-          opt.value = val;
-          opt.textContent = val;
-          opt.selected = true;
-          ageSelect.appendChild(opt);
-        });
-        ageSelect.dataset.column = ageCol;
+        fillMultiSelect($age, uniqueNonEmpty(rawData.map(r => r[ageCol])));
+        $age.dataset.col = ageCol;
       }
-      // Populate employment filter
+
+      // Fill employment types
       if (empCol) {
-        const uniqueEmps = [...new Set(rawData.map(r => r[empCol]))]
-          .filter(v => v !== undefined && v !== null && v !== '')
-          .sort();
-        uniqueEmps.forEach(val => {
-          const opt = document.createElement('option');
-          opt.value = val;
-          opt.textContent = val;
-          opt.selected = true;
-          employmentSelect.appendChild(opt);
-        });
-        employmentSelect.dataset.column = empCol;
+        fillMultiSelect($emp, uniqueNonEmpty(rawData.map(r => r[empCol])));
+        $emp.dataset.col = empCol;
       }
-      // Date detection: find first column containing parseable dates
-      const dateKeys = columns.filter(col => rawData.some(row => row[col] && !isNaN(Date.parse(row[col]))));
-      const startDateInput = document.getElementById('start-date');
-      const endDateInput = document.getElementById('end-date');
-      if (dateKeys.length > 0) {
-        const dateCol = dateKeys[0];
-        const dates = rawData.map(row => new Date(row[dateCol])).filter(d => !isNaN(d));
-        const minDate = new Date(Math.min(...dates));
-        const maxDate = new Date(Math.max(...dates));
-        startDateInput.valueAsDate = minDate;
-        endDateInput.valueAsDate = maxDate;
-        startDateInput.dataset.column = dateCol;
-        endDateInput.dataset.column = dateCol;
-        startDateInput.min = minDate.toISOString().split('T')[0];
-        startDateInput.max = maxDate.toISOString().split('T')[0];
-        endDateInput.min = minDate.toISOString().split('T')[0];
-        endDateInput.max = maxDate.toISOString().split('T')[0];
+
+      // Prepare date inputs (leave blank to avoid default filtering)
+      if (dateCol) {
+        const dates = rawData
+          .map(r => new Date(r[dateCol]))
+          .filter(d => !isNaN(d))
+          .sort((a,b) => a-b);
+        if (dates.length) {
+          const minISO = toISO(dates[0]);
+          const maxISO = toISO(dates[dates.length-1]);
+          id('startDate').min = minISO; id('startDate').max = maxISO;
+          id('endDate').min = minISO;   id('endDate').max = maxISO;
+          id('startDate').dataset.col = dateCol;
+          id('endDate').dataset.col = dateCol;
+        }
       }
-      // Event listeners for filters
-      ageSelect.addEventListener('change', applyFiltersAndUpdate);
-      employmentSelect.addEventListener('change', applyFiltersAndUpdate);
-      startDateInput.addEventListener('change', applyFiltersAndUpdate);
-      endDateInput.addEventListener('change', applyFiltersAndUpdate);
+
+      // Trigger filtering on select changes
+      $age.addEventListener('change', applyFilters);
+      $emp.addEventListener('change', applyFilters);
     }
 
-    function applyFiltersAndUpdate() {
-      const startDateInput = document.getElementById('start-date');
-      const endDateInput = document.getElementById('end-date');
-      const ageSelect = document.getElementById('age-select');
-      const empSelect = document.getElementById('employment-select');
-      filteredData = rawData.filter(row => {
-        let datePass = true;
-        if (startDateInput.dataset.column) {
-          const dateCol = startDateInput.dataset.column;
-          const rowDate = new Date(row[dateCol]);
-          const s = startDateInput.value ? new Date(startDateInput.value) : null;
-          const e = endDateInput.value ? new Date(endDateInput.value) : null;
-          if (s && rowDate < s) datePass = false;
-          if (e && rowDate > e) datePass = false;
+    function populateBuilderSelects() {
+      const xSel = id('fldX'), ySel = id('fldY'), cSel = id('fldColor');
+      xSel.innerHTML = ySel.innerHTML = cSel.innerHTML = '';
+      for (const c of columns) {
+        appendOption(xSel, c); appendOption(ySel, c); appendOption(cSel, c);
+      }
+    }
+
+    // ----------------------------
+    // Filtering + table
+    // ----------------------------
+    function applyFilters() {
+      const s = id('startDate').value ? new Date(id('startDate').value) : null;
+      const e = id('endDate').value ? new Date(id('endDate').value) : null;
+      const ageSel = id('selAge');  const empSel = id('selEmp');
+
+      const chosenAge = (ageSel.options.length && ageSel.dataset.col)
+        ? Array.from(ageSel.selectedOptions).map(o => String(o.value)) : null;
+      const chosenEmp = (empSel.options.length && empSel.dataset.col)
+        ? Array.from(empSel.selectedOptions).map(o => String(o.value)) : null;
+
+      filtered = rawData.filter(r => {
+        // date
+        if (dateCol && (s || e)) {
+          const d = new Date(r[dateCol]);
+          if (isNaN(d)) return false;
+          if (s && d < s) return false;
+          if (e && d > e) return false;
         }
-        let agePass = true;
-        if (ageSelect.dataset.column && ageSelect.options.length > 0) {
-          const col = ageSelect.dataset.column;
-          const selected = Array.from(ageSelect.selectedOptions).map(o => o.value);
-          if (selected.length > 0 && !selected.includes(String(row[col]))) agePass = false;
+        // age
+        if (chosenAge && chosenAge.length) {
+          if (!chosenAge.includes(String(r[ageCol]))) return false;
         }
-        let empPass = true;
-        if (empSelect.dataset.column && empSelect.options.length > 0) {
-          const col = empSelect.dataset.column;
-          const selected = Array.from(empSelect.selectedOptions).map(o => o.value);
-          if (selected.length > 0 && !selected.includes(String(row[col]))) empPass = false;
+        // employment
+        if (chosenEmp && chosenEmp.length) {
+          if (!chosenEmp.includes(String(r[empCol]))) return false;
         }
-        return datePass && agePass && empPass;
+        return true;
       });
-      // Redraw charts and update data table
+
+      updateTable();
       charts.forEach(drawChart);
-      updateDataTable();
     }
 
-    function updateDataTable() {
-      const container = document.getElementById('data-table-container');
-      container.innerHTML = '';
-      if (!filteredData || filteredData.length === 0) {
-        container.textContent = 'No data to display';
+    function updateTable() {
+      const wrap = id('tableWrap');
+      wrap.innerHTML = '';
+      if (!filtered.length) {
+        wrap.innerHTML = '<div class="text-muted">No data to display</div>';
         return;
       }
       const table = document.createElement('table');
       table.className = 'table table-sm table-striped';
       const thead = document.createElement('thead');
-      const trHead = document.createElement('tr');
-      columns.forEach(col => {
-        const th = document.createElement('th');
-        th.textContent = col;
-        trHead.appendChild(th);
-      });
-      thead.appendChild(trHead);
-      const tbody = document.createElement('tbody');
-      const rows = filteredData.slice(0, 100); // limit rows for preview
-      rows.forEach(row => {
-        const tr = document.createElement('tr');
-        columns.forEach(col => {
-          const td = document.createElement('td');
-          const val = row[col];
-          td.textContent = val !== undefined ? val : '';
-          tr.appendChild(td);
-        });
-        tbody.appendChild(tr);
-      });
-      table.appendChild(thead);
-      table.appendChild(tbody);
-      container.appendChild(table);
-    }
-
-    // Chart builder initialization
-    function initializeChartBuilder() {
-      const modal = document.getElementById('chart-modal');
-      const chartTypeSelect = document.getElementById('chart-type');
-      const xFieldSelect = document.getElementById('x-field');
-      const yFieldSelect = document.getElementById('y-field');
-      const colorSelect = document.getElementById('color-field');
-      const aggSelect = document.getElementById('agg-func');
-      // Populate select options based on columns
-      columns.forEach(col => {
-        const optX = document.createElement('option'); optX.value = col; optX.textContent = col; xFieldSelect.appendChild(optX);
-        const optY = document.createElement('option'); optY.value = col; optY.textContent = col; yFieldSelect.appendChild(optY);
-        const optC = document.createElement('option'); optC.value = col; optC.textContent = col; colorSelect.appendChild(optC);
-      });
-      // Cancel button
-      document.getElementById('btn-cancel-chart').addEventListener('click', () => {
-        modal.style.display = 'none';
-      });
-      // Create button
-      document.getElementById('btn-create-chart').addEventListener('click', () => {
-        const config = {
-          type: chartTypeSelect.value,
-          x: xFieldSelect.value,
-          y: yFieldSelect.value,
-          color: colorSelect.value || null,
-          agg: aggSelect.value
-        };
-        addChart(config);
-        modal.style.display = 'none';
-      });
-    }
-
-    function openChartModal() {
-      document.getElementById('chart-modal').style.display = 'flex';
-    }
-
-    function addChart(config) {
-      charts.push(config);
-      createChartCard(config);
-      drawChart(config);
-    }
-
-    function createChartCard(config) {
-      const container = document.getElementById('chart-container');
-      const card = document.createElement('div');
-      card.className = 'chart-card';
-      // Header
-      const header = document.createElement('div');
-      header.className = 'card-header';
-      const title = document.createElement('h6');
-      title.textContent = config.type.charAt(0).toUpperCase() + config.type.slice(1) + ' chart';
-      const removeBtn = document.createElement('button');
-      removeBtn.className = 'remove-btn';
-      removeBtn.innerHTML = '<i class="bi bi-x"></i>';
-      removeBtn.addEventListener('click', () => {
-        // Remove from charts array and DOM
-        const idx = charts.indexOf(config);
-        if (idx > -1) charts.splice(idx, 1);
-        container.removeChild(card);
-      });
-      header.appendChild(title);
-      header.appendChild(removeBtn);
-      // Chart div
-      const chartDiv = document.createElement('div');
-      chartDiv.style.height = '300px';
-      card.appendChild(header);
-      card.appendChild(chartDiv);
-      container.appendChild(card);
-      config._chartDiv = chartDiv;
-    }
-
-    function drawChart(config) {
-      const data = filteredData;
-      const div = config._chartDiv;
-      if (!data || data.length === 0) {
-        div.innerHTML = '<p class="text-muted">No data</p>';
-        return;
+      const trh = document.createElement('tr');
+      for (const c of columns) {
+        const th = document.createElement('th'); th.textContent = c; trh.appendChild(th);
       }
-      // Determine aggregator function
-      const aggFunc = (values) => {
-        if (config.agg === 'sum') {
-          return values.reduce((a, b) => (+a || 0) + (+b || 0), 0);
-        } else if (config.agg === 'mean') {
-          const sum = values.reduce((a, b) => (+a || 0) + (+b || 0), 0);
-          return sum / values.length;
-        } else {
-          // count
-          return values.length;
+      thead.appendChild(trh);
+      const tbody = document.createElement('tbody');
+      const rows = filtered.slice(0, 100);
+      for (const r of rows) {
+        const tr = document.createElement('tr');
+        for (const c of columns) {
+          const td = document.createElement('td');
+          const v = r[c]; td.textContent = (v === undefined || v === null) ? '' : v;
+          tr.appendChild(td);
         }
+        tbody.appendChild(tr);
+      }
+      table.appendChild(thead); table.appendChild(tbody);
+      wrap.appendChild(table);
+    }
+
+    // ----------------------------
+    // Starter charts (auto-create)
+    // ----------------------------
+    function autoStarterCharts() {
+      // derive candidates
+      const numericCols = columns.filter(c => looksNumericColumn(c));
+      const catCols = columns.filter(c => looksCategoricalColumn(c));
+
+      // prefer knowns
+      const income = ['X20_21_langfragen_income', 'income'].find(c => columns.includes(c)) || numericCols[0];
+      const age = ageCol || catCols.find(c => /age/i.test(c)) || catCols[0];
+      const emp = empCol || catCols.find(c => /employ|job|work/i.test(c));
+
+      // 1) Pie of employment counts (if available)
+      if (emp) addChart({ type: 'pie', x: emp, y: income || emp, agg: 'count' });
+
+      // 2) Bar: mean income by age group (or first numeric)
+      if (age && income) addChart({ type: 'bar', x: age, y: income, agg: 'mean' });
+
+      // 3) Line over time (if we have a date + numeric)
+      if (dateCol && income) addChart({ type: 'line', x: dateCol, y: income, agg: 'mean' });
+    }
+
+    function looksNumericColumn(col) {
+      const vals = sampleValues(col, 200);
+      if (!vals.length) return false;
+      let nums = 0;
+      for (const v of vals) if (typeof v === 'number' && !Number.isNaN(v)) nums++;
+      // Consider numeric if at least 70% are numbers
+      return nums / vals.length >= 0.7;
+    }
+
+    function looksCategoricalColumn(col) {
+      const vals = sampleValues(col, 400);
+      const uniq = new Set(vals.filter(v => v !== '' && v !== null && v !== undefined).map(String));
+      // categorical if distinct values between 2 and 20 and not mostly numbers
+      const mostlyNums = looksNumericColumn(col);
+      return !mostlyNums && uniq.size >= 2 && uniq.size <= 20;
+    }
+
+    // ----------------------------
+    // Charting
+    // ----------------------------
+    function addChart(cfg) {
+      charts.push(cfg);
+      const card = document.createElement('div');
+      card.className = 'card-chart';
+      card.innerHTML = `
+        <div class="card-header">
+          <h6>${titleFor(cfg)}</h6>
+          <button class="remove" title="Remove"><i class="bi bi-x-lg"></i></button>
+        </div>
+        <div class="plot"></div>
+      `;
+      id('grid').appendChild(card);
+      cfg._el = card.querySelector('.plot');
+      card.querySelector('.remove').addEventListener('click', () => {
+        charts = charts.filter(c => c !== cfg);
+        card.remove();
+      });
+      drawChart(cfg);
+    }
+
+    function titleFor(cfg) {
+      const t = cfg.type[0].toUpperCase() + cfg.type.slice(1);
+      const parts = [`${t}`];
+      if (cfg.x) parts.push(`X: ${cfg.x}`);
+      if (cfg.y && cfg.agg) parts.push(`Y: ${cfg.agg}(${cfg.y})`);
+      if (cfg.color) parts.push(`Color: ${cfg.color}`);
+      return parts.join(' · ');
+    }
+
+    function drawChart(cfg) {
+      const el = cfg._el;
+      if (!filtered.length) { el.innerHTML = '<div class="text-muted p-2">No data</div>'; return; }
+
+      // Grouping helper
+      const groupBy = (rows, keys) => {
+        const map = new Map();
+        for (const r of rows) {
+          const key = keys.map(k => String(r[k])).join('¦'); // join to single key
+          if (!map.has(key)) map.set(key, []);
+          map.get(key).push(r);
+        }
+        return { map, keys };
       };
-      let fig;
-      if (config.type === 'bar' || config.type === 'pie') {
-        // Group by X and (optionally) color
-        const groups = {};
-        data.forEach(row => {
-          const key = row[config.x];
-          const colorKey = config.color ? row[config.color] : null;
-          if (!groups[key]) groups[key] = {};
-          if (!groups[key][colorKey]) groups[key][colorKey] = [];
-          groups[key][colorKey].push(row[config.y]);
-        });
-        const labels = Object.keys(groups);
-        if (config.type === 'bar') {
-          const traces = [];
-          const colorKeys = new Set();
-          labels.forEach(key => {
-            Object.keys(groups[key]).forEach(c => colorKeys.add(c));
-          });
-          colorKeys.forEach(colorVal => {
-            const yVals = labels.map(label => {
-              const vals = groups[label][colorVal] || [];
-              return aggFunc(vals);
-            });
-            traces.push({
-              x: labels,
-              y: yVals,
-              name: colorVal || 'Value',
-              type: 'bar'
-            });
-          });
-          fig = { data: traces, layout: { barmode: 'group', title: `${config.x} vs ${config.y}` } };
-        } else {
-          // Pie chart uses only first group; ignore color dimension
-          const values = labels.map(label => {
-            const vals = [].concat(...Object.values(groups[label]));
-            return aggFunc(vals);
-          });
-          fig = { data: [{ labels: labels, values: values, type: 'pie', hole: 0.3 }], layout: { title: `${config.x} distribution` } };
+
+      // Aggregator on Y
+      const agg = (rows) => {
+        if (cfg.agg === 'count') return rows.length;
+        const vals = rows.map(r => +r[cfg.y]).filter(v => !Number.isNaN(v));
+        if (!vals.length) return 0;
+        if (cfg.agg === 'sum') return vals.reduce((a,b)=>a+b,0);
+        if (cfg.agg === 'mean') return vals.reduce((a,b)=>a+b,0) / vals.length;
+        return rows.length;
+      };
+
+      let fig = { data: [], layout: { margin: {l:50,r:20,b:50,t:40}, title: titleFor(cfg) } };
+
+      if (cfg.type === 'bar' || cfg.type === 'pie') {
+        // group by X and optionally Color
+        const by = cfg.color ? [cfg.x, cfg.color] : [cfg.x];
+        const g = groupBy(filtered, by);
+
+        // collect unique X and Color keys
+        const xs = new Set(); const colors = new Set();
+        for (const key of g.map.keys()) {
+          const parts = key.split('¦');
+          xs.add(parts[0]);
+          if (cfg.color) colors.add(parts[1]);
         }
-      } else if (config.type === 'line') {
-        // Line chart: group by X (assumed date or numeric) and apply aggregator on Y
-        const groups = {};
-        data.forEach(row => {
-          const key = row[config.x];
-          if (!groups[key]) groups[key] = [];
-          groups[key].push(row[config.y]);
-        });
-        const xVals = Object.keys(groups).sort((a, b) => {
-          // Sort by date or numeric if possible
-          const da = new Date(a); const db = new Date(b);
+        const xArr = Array.from(xs);
+        const colorArr = cfg.color ? Array.from(colors) : [null];
+
+        if (cfg.type === 'bar') {
+          for (const cval of colorArr) {
+            const y = xArr.map(xval => {
+              const key = cfg.color ? [xval, cval].join('¦') : String(xval);
+              const rows = g.map.get(key) || [];
+              return agg(rows);
+            });
+            fig.data.push({ x: xArr, y, type: 'bar', name: cval ?? 'value' });
+          }
+          fig.layout.barmode = 'group';
+          fig.layout.xaxis = { title: cfg.x };
+          if (cfg.y) fig.layout.yaxis = { title: `${cfg.agg}(${cfg.y})` };
+        } else {
+          // pie ignores Color; just totals per X
+          const values = xArr.map(xval => {
+            const rows = Array.from(g.map.entries())
+              .filter(([k]) => k.split('¦')[0] == xval)
+              .flatMap(([,rows]) => rows);
+            return agg(rows);
+          });
+          fig.data.push({ labels: xArr, values, type: 'pie', hole: .35 });
+        }
+
+      } else if (cfg.type === 'line') {
+        // group by X value (date or numeric) and aggregate Y per X
+        const g = groupBy(filtered, [cfg.x]);
+        const xVals = Array.from(g.map.keys()).map(k => k.split('¦')[0]);
+        // sort: dates > numeric > string
+        const sorted = xVals.slice().sort((a,b) => {
+          const da = new Date(a), db = new Date(b);
           if (!isNaN(da) && !isNaN(db)) return da - db;
-          if (!isNaN(Number(a)) && !isNaN(Number(b))) return a - b;
+          const na = +a, nb = +b;
+          if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
           return String(a).localeCompare(String(b));
         });
-        const yVals = xVals.map(k => aggFunc(groups[k]));
-        fig = { data: [{ x: xVals, y: yVals, type: 'scatter', mode: 'lines+markers' }], layout: { title: `${config.x} vs ${config.y}` } };
-      } else if (config.type === 'scatter') {
-        // Scatter plot: raw data points; color optional
-        const trace = {
-          x: data.map(r => r[config.x]),
-          y: data.map(r => r[config.y]),
-          mode: 'markers',
-          type: 'scatter',
-        };
-        if (config.color) {
-          trace.marker = { color: data.map(r => r[config.color]), colorscale: 'Viridis', showscale: true };
+        const yVals = sorted.map(xv => {
+          const rows = g.map.get(String(xv)) || g.map.get(xv) || [];
+          return agg(rows);
+        });
+        fig.data.push({ x: sorted, y: yVals, type: 'scatter', mode: 'lines+markers' });
+        fig.layout.xaxis = { title: cfg.x };
+        if (cfg.y) fig.layout.yaxis = { title: `${cfg.agg}(${cfg.y})` };
+
+      } else if (cfg.type === 'scatter') {
+        const x = filtered.map(r => r[cfg.x]);
+        const y = filtered.map(r => r[cfg.y]);
+
+        if (cfg.color) {
+          // If color is numeric -> single trace with continuous colorscale
+          if (looksNumericColumn(cfg.color)) {
+            fig.data.push({
+              x, y, mode: 'markers', type: 'scatter',
+              marker: { color: filtered.map(r => r[cfg.color]), showscale: true }
+            });
+          } else {
+            // Categorical colors -> multiple traces
+            const cats = uniqueNonEmpty(filtered.map(r => r[cfg.color])).slice(0, 15);
+            for (const c of cats) {
+              const pts = filtered.filter(r => String(r[cfg.color]) === String(c));
+              fig.data.push({
+                x: pts.map(r => r[cfg.x]),
+                y: pts.map(r => r[cfg.y]),
+                mode: 'markers', type: 'scatter', name: c
+              });
+            }
+          }
+        } else {
+          fig.data.push({ x, y, mode: 'markers', type: 'scatter' });
         }
-        fig = { data: [trace], layout: { title: `${config.x} vs ${config.y}`, xaxis: { title: config.x }, yaxis: { title: config.y } } };
+        fig.layout.xaxis = { title: cfg.x };
+        fig.layout.yaxis = { title: cfg.y };
       }
-      Plotly.newPlot(div, fig.data, fig.layout, { responsive: true });
+
+      Plotly.newPlot(el, fig.data, fig.layout, { responsive: true });
     }
+
+    // ----------------------------
+    // Utilities
+    // ----------------------------
+    const id = (s) => document.getElementById(s);
+    const toISO = (d) => new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().split('T')[0];
+    const uniqueNonEmpty = (arr) => Array.from(new Set(arr.map(v => v===null||v===undefined?'' : String(v)).filter(s => s !== ''))).sort();
+
+    function appendOption(sel, value, label) {
+      const o = document.createElement('option');
+      o.value = value; o.textContent = label ?? value;
+      sel.appendChild(o);
+    }
+    function fillMultiSelect(sel, values) {
+      sel.innerHTML = '';
+      for (const v of values) {
+        const o = document.createElement('option');
+        o.value = v; o.textContent = v; o.selected = true;
+        sel.appendChild(o);
+      }
+    }
+    function selectAll(sel){ for (const o of sel.options) o.selected = true; sel.dispatchEvent(new Event('change')); }
+    function clearAll(sel){ for (const o of sel.options) o.selected = false; sel.dispatchEvent(new Event('change')); }
+
+    function toggle(panelId) {
+      const el = id(panelId);
+      el.classList.toggle('active');
+    }
+    function show(panelId, on=true) {
+      const el = id(panelId);
+      if (on) el.classList.add('active'); else el.classList.remove('active');
+    }
+    function openModal(){ id('modal').style.display = 'grid'; }
+    function closeModal(){ id('modal').style.display = 'none'; }
   </script>
 </body>
 </html>
