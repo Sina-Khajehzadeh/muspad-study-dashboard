@@ -5,9 +5,17 @@
 
 <!-- Libraries (load once, at the top) -->
 <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-<link rel="stylesheet" href="https://cdn.webdatarocks.com/latest/webdatarocks.min.css">
-<script src="https://cdn.webdatarocks.com/latest/webdatarocks.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+<!-- PivotTable.js + deps -->
+<script src="https://unpkg.com/jquery@3.7.1/dist/jquery.min.js"></script>
+<link  rel="stylesheet" href="https://unpkg.com/jquery-ui-dist@1.13.2/jquery-ui.min.css">
+<script src="https://unpkg.com/jquery-ui-dist@1.13.2/jquery-ui.min.js"></script>
+
+<link  rel="stylesheet" href="https://unpkg.com/pivottable@2.23.0/dist/pivot.css">
+<script src="https://unpkg.com/pivottable@2.23.0/dist/pivot.min.js"></script>
+<!-- optional Plotly renderers inside the pivot (since you already use Plotly) -->
+<script src="https://unpkg.com/pivottable@2.23.0/dist/plotly_renderers.min.js"></script>
 
 <style>
   :root{ --page-max: 1900px; --gap: 6px; }
@@ -41,6 +49,11 @@
   th,td{ border:1px solid #e5e8ef; padding:6px 8px; text-align:left }
   th{ background:#f2f5fb; position:sticky; top:0; z-index:1 }
   .scroll{ max-height:clamp(200px, 40vh, 480px); overflow:auto }
+
+  /* pivot UI tweaks so it fits nicely */
+  #pivot{ height:clamp(420px, 60vh, 800px); overflow:auto; }
+  #pivot .pvtUi{ font-size:12px; }
+  #pivot .pvtUi select, #pivot .pvtUi button{ font-size:12px; }
 </style>
 
 <h1>Muspad Study — Descriptive Overview</h1>
@@ -58,7 +71,7 @@
 
   <!-- BOTTOM: full pivot -->
   <div id="bottom" class="card">
-    <div id="pivot" style="height: clamp(420px, 60vh, 800px);"></div>
+    <div id="pivot"></div>
   </div>
 </div>
 
@@ -159,17 +172,6 @@
     renderChart("chart2", fig2);
   });
 
-  /* ---------- Full Pivot (entire df3) ---------- */
-  new WebDataRocks({
-    container: "#pivot",
-    toolbar: true,
-    height: "100%",
-    report: {
-      dataSource: { filename: "data/df3_full_for_pivot.csv" }
-      // We can add a default slice later if you want.
-    }
-  });
-
   /* ---------- Top-left preview table (small/fast) ---------- */
   function renderTable(targetId, rows, opts = {}) {
     const el = document.getElementById(targetId);
@@ -200,6 +202,34 @@
       const rows = res.data.filter(r => Object.keys(r).length);
       const cols = res.meta.fields || (rows[0] ? Object.keys(rows[0]) : []);
       renderTable("table-top", rows, { limit: 8, columns: cols.slice(0, 6) });
+    }
+  });
+
+  /* ---------- Bottom: PivotTable.js over the FULL CSV ---------- */
+  Papa.parse("data/df3_full_for_pivot.csv", {
+    download: true,
+    header:   true,
+    worker:   true,
+    skipEmptyLines: true,
+    complete: function(res){
+      const rows = res.data.filter(r => Object.keys(r).length);
+
+      // merge built-in + plotly renderers (so you can choose heatmaps, bars, etc.)
+      const utils = $.pivotUtilities;
+      const renderers = $.extend({}, utils.renderers, utils.plotly_renderers || {});
+
+      $("#pivot").pivotUI(
+        rows,
+        {
+          // Set your default view here (tell me fields you want by default):
+          // rows: ["age_group_22_1"],
+          // cols:  ["X20_21_serostatus"],
+          // aggregatorName: "Count",
+          rendererName: "Table",
+          renderers: renderers
+        },
+        true // overwrite
+      );
     }
   });
 </script>
