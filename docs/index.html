@@ -306,10 +306,9 @@
       // Define possible CSV locations in order of preference.  Use relative
       // paths for GitHub Pages.  Do NOT enable Web Worker (worker: false)
       const urls = [
-        'data/df3_full_for_pivot.csv',
-        'https://sina-khajehzadeh.github.io/muspad-study-dashboard/data/df3_full_for_pivot.csv',
         'https://cdn.jsdelivr.net/gh/Sina-Khajehzadeh/muspad-study-dashboard/docs/data/df3_full_for_pivot.csv'
       ];
+
       let i = 0;
       const tryNext = () => {
         if (i >= urls.length) {
