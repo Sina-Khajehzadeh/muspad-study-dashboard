@@ -3,226 +3,203 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Muspad Study</title>
 
-<!-- ======== CDNs (order matters) ======== -->
-<!-- jQuery (DataTables + PivotTable.js depend on this) -->
-<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-
-<!-- jQuery UI (for PivotTable drag/drop) -->
-<link rel="stylesheet" href="https://unpkg.com/jquery-ui-dist@1.13.2/jquery-ui.min.css">
-<script src="https://unpkg.com/jquery-ui-dist@1.13.2/jquery-ui.min.js"></script>
-
-<!-- PapaParse: CSV -> JS (we'll use worker:false for GH Pages) -->
+<!-- Libraries (load once, at the top) -->
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<link rel="stylesheet" href="https://cdn.webdatarocks.com/latest/webdatarocks.min.css">
+<script src="https://cdn.webdatarocks.com/latest/webdatarocks.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
-<!-- DataTables + Scroller (virtual scrolling) -->
-<link  href="https://cdn.datatables.net/1.13.8/css/jquery.dataTables.min.css" rel="stylesheet">
-<link  href="https://cdn.datatables.net/scroller/2.4.1/css/scroller.dataTables.min.css" rel="stylesheet">
-<script src="https://cdn.datatables.net/1.13.8/js/jquery.dataTables.min.js"></script>
-<script src="https://cdn.datatables.net/scroller/2.4.1/js/dataTables.scroller.min.js"></script>
-
-<!-- PivotTable.js (with optional Plotly renderers) -->
-<link  rel="stylesheet" href="https://unpkg.com/pivottable@2.23.0/dist/pivot.css">
-<script src="https://unpkg.com/pivottable@2.23.0/dist/pivot.min.js"></script>
-<script src="https://unpkg.com/pivottable@2.23.0/dist/plotly_renderers.min.js"></script>
-
-<!-- Plotly (for PivotTable Plotly renderers; your iframes load their own) -->
-<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
-
 <style>
-  :root{
-    --page-max: 1900px;
-    --gap: 8px;
-    --top-card-h: clamp(340px, 46vh, 640px); /* unified height for top row */
-  }
-
+  :root{ --page-max: 1900px; --gap: 6px; }
   *{ box-sizing:border-box }
   body{ font-family:system-ui, Arial, sans-serif; background:#f6f7fb; margin:0 }
   h1{ text-align:center; padding:12px 4px; margin:0; font-weight:700 }
 
-  /* 3-column grid (unchanged) */
   .grid{
     display:grid;
-    grid-template-columns: 1.4fr 1.6fr 1.4fr;   /* left | middle | right */
+    grid-template-columns: 1.4fr 1.6fr 1.4fr; /* left | middle | right */
     gap:var(--gap);
     max-width:var(--page-max);
-    width:min(99vw, var(--page-max));
-    margin:8px auto 18px;
-    padding:0 6px;
+    width: min(99vw, var(--page-max));
+    margin:3px auto 12px;
+    padding:0 4px;
     align-items:stretch;
   }
-  @media (max-width:1200px){
-    .grid{ grid-template-columns:1fr }
-  }
+  @media (max-width:1200px){ .grid{ grid-template-columns:1fr } #bottom{ grid-column:auto } }
 
   .card{
     background:#fff; border:1px solid #e6e9ef; border-radius:10px;
     box-shadow:0 1px 3px rgba(0,0,0,.04);
     padding:10px; display:flex; flex-direction:column; min-height:0;
   }
-  .top-card{ height:var(--top-card-h); }
+  #bottom{ grid-column:1 / -1 }
 
-  /* Left card: dataset table */
-  .card h2{ font-size:16px; margin:0 0 6px 0; }
-  .fill-scroll{ flex:1 1 auto; min-height:0; }
+  .chart{ width:100%; height:clamp(320px, 46vh, 640px) }
+  .placeholder{ color:#667; font-size:13px }
 
-  /* DataTables compact look */
-  table.dataTable.compact thead th,
-  table.dataTable.compact tbody td{
-    padding: 6px 8px;
-    white-space: nowrap;  /* horizontal scroll if many columns */
-    font-size: 12px;
-  }
-  div.dataTables_wrapper{ width:100%; }
-
-  /* Plotly iframes (charts) */
-  .chart-frame{
-    width:100%;
-    height:calc(var(--top-card-h) - 6px);
-    border:none;
-    border-radius:8px;
-    background:#fff;
-  }
+  table{ border-collapse:collapse; width:100%; font-size:12.5px }
+  th,td{ border:1px solid #e5e8ef; padding:6px 8px; text-align:left }
+  th{ background:#f2f5fb; position:sticky; top:0; z-index:1 }
+  .scroll{ max-height:clamp(200px, 40vh, 480px); overflow:auto }
 </style>
 
 <h1>Muspad Study — Descriptive Overview</h1>
 
-<!-- ======= TOP ROW ======= -->
 <div class="grid">
-  <!-- LEFT: Dataset (virtual scrolling table) -->
-  <div class="card top-card">
-    <h2>Muspad data set</h2>
-    <div id="table-status" style="font-size:12px;color:#667;margin:4px 0 6px;">Loading…</div>
-    <div class="fill-scroll">
-      <table id="dataset" class="display compact nowrap" style="width:100%">
-        <thead></thead>
-        <tbody></tbody>
-      </table>
-    </div>
+  <!-- TOP LEFT: preview table -->
+  <div class="card">
+    <div class="placeholder"><b>Dataset (top-left)</b><br>Small preview of df3.</div>
+    <div id="table-top" class="scroll"></div>
   </div>
 
-  <!-- MIDDLE: Chart 1 (exported Plotly HTML) -->
-  <div class="card top-card">
-    <iframe class="chart-frame" src="plots/education.html" loading="lazy"></iframe>
-  </div>
+  <!-- TOP MIDDLE/RIGHT: charts -->
+  <div class="card"><div id="chart1" class="chart"></div></div>
+  <div class="card"><div id="chart2" class="chart"></div></div>
 
-  <!-- RIGHT: Chart 2 (exported Plotly HTML) -->
-  <div class="card top-card">
-    <iframe class="chart-frame" src="plots/employment.html" loading="lazy"></iframe>
-  </div>
-</div>
-
-<!-- ======= BOTTOM (Pivot) ======= -->
-<div class="grid" style="margin-top:0;">
-  <div class="card" style="grid-column:1 / -1; height:60vh;">
-    <div id="pivot-status" style="font-size:12px;color:#667;margin-bottom:6px;">Loading pivot…</div>
-    <div id="pivot" style="height:calc(100% - 20px); overflow:auto;"></div>
+  <!-- BOTTOM: full pivot -->
+  <div id="bottom" class="card">
+    <div id="pivot" style="height: clamp(420px, 60vh, 800px);"></div>
   </div>
 </div>
 
 <script>
-  /* ========= Config ========= */
-  const CSV_PREVIEW = "data/df3_preview.csv?v=1";            // small/fast table
-  const CSV_FULL    = "data/df3_full_for_pivot.csv?v=1";     // full pivot
+  /* ---------- Consistent Plotly styling ---------- */
+  const BASE_WIDTH = 1400;
+  const FONT_FAMILY = "Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif";
+  const SIZES = { title: 18, axisTitle: 12, tick: 11, legend: 10.5, hover: 12 };
+  const RIGHT_MARGIN = 84;
 
-  /* ========= CSV loader (robust to delimiter; no web worker) ========= */
-  function loadCSVAuto(url, done){
-    const base = { download:true, header:true, skipEmptyLines:true, worker:false };
-    Papa.parse(url, {
-      ...base,
-      complete: (res) => {
-        if (res.data && res.data.length && Object.keys(res.data[0]||{}).length > 1) return done(null, res);
-        Papa.parse(url, { ...base, delimiter:";", complete:(r2)=>done(null,r2), error:(e)=>done(e) });
-      },
-      error: (err) => done(err)
-    });
-  }
+  const scale = (px, el) => {
+    const w = (el?.clientWidth || BASE_WIDTH);
+    const s = Math.min(1.15, Math.max(0.9, w / BASE_WIDTH));
+    return Math.round(px * s);
+  };
 
-  /* ========= DataTables helpers ========= */
-  function colsFromFields(fields){
-    return fields.map(name => ({ title: name, data: name }));
-  }
-
-  function initDataTable(rows, fields){
-    // Destroy prior instance if any
-    if ($.fn.dataTable.isDataTable('#dataset')){
-      $('#dataset').DataTable().clear().destroy();
-      $('#dataset thead').empty();
-    }
-    // Build <thead>
-    const thead = document.querySelector('#dataset thead');
-    const tr = document.createElement('tr');
-    (fields || Object.keys(rows[0]||{})).forEach(col=>{
-      const th = document.createElement('th');
-      th.textContent = col;
-      tr.appendChild(th);
-    });
-    thead.appendChild(tr);
-
-    // Init DataTable (Scroller + horiz/vert scroll)
-    $('#dataset').DataTable({
-      data: rows,
-      columns: colsFromFields(fields),
-      deferRender: true,
-      scroller: true,
-      scrollY: '38vh',       // fits inside the top-card
-      scrollX: true,
-      scrollCollapse: true,
-      paging: false,
-      searching: true,
-      ordering: true,
-      info: false,
-      autoWidth: false
-    });
-  }
-
-  /* ========= Load preview table ========= */
-  loadCSVAuto(CSV_PREVIEW, (err, res) => {
-    const status = document.getElementById('table-status');
-    if (err){
-      console.error(err);
-      if (status) status.textContent = 'Failed to load dataset.';
-      document.querySelector('#dataset').outerHTML =
-        '<div style="color:#b00; padding:8px;">Failed to load dataset.</div>';
-      return;
-    }
-    const rows = (res.data || []).filter(r => Object.keys(r).length);
-    const fields = res.meta?.fields || (rows[0] ? Object.keys(rows[0]) : []);
-    if (status) status.textContent = `Loaded ${rows.length.toLocaleString()} rows, ${fields.length} columns`;
-    initDataTable(rows, fields);
-  });
-
-  // Keep table sized nicely on resize
-  window.addEventListener('resize', () => {
-    if ($.fn.dataTable.isDataTable('#dataset')){
-      $('#dataset').DataTable().columns.adjust().draw(false);
-    }
-  });
-
-  /* ========= Load Pivot ========= */
-  (function(){
-    const pstat = document.getElementById('pivot-status');
-    loadCSVAuto(CSV_FULL, (err, res) => {
-      if (err){
-        console.error(err);
-        if (pstat) pstat.textContent = 'Failed to load pivot data.';
-        return;
+  function maybeRotateX(fig){
+    try{
+      const xs = (fig.data?.[0]?.x || []).map(String);
+      if (xs.some(v => v.length > 14)) {
+        fig.layout.xaxis = fig.layout.xaxis || {};
+        fig.layout.xaxis.tickangle = -30;
       }
-      const rows = (res.data || []).filter(r => Object.keys(r).length);
-      if (pstat) pstat.textContent = `Pivot loaded: ${rows.length.toLocaleString()} rows`;
+    }catch(e){}
+  }
 
-      const utils = $.pivotUtilities;
-      const renderers = $.extend({}, utils.renderers, utils.plotly_renderers || {});
-      $("#pivot").pivotUI(
-        rows,
-        {
-          rendererName: "Table",
-          aggregatorName: "Count",
-          rows: [],
-          cols: [],
-          renderers
-        },
-        true
-      );
-    });
-  })();
+  function normalize(fig, el){
+    fig.layout = fig.layout || {};
+    delete fig.layout.width; delete fig.layout.height;
+
+    fig.layout.template = "plotly_white";
+    fig.layout.paper_bgcolor = "#ffffff";
+    fig.layout.plot_bgcolor  = "#ffffff";
+
+    const m = fig.layout.margin || {};
+    fig.layout.margin = { l: 54, r: Math.max(RIGHT_MARGIN, m.r||0), t: 50, b: 46 };
+
+    fig.layout.font = { family: FONT_FAMILY, size: scale(12.5, el), color:"#213547" };
+
+    fig.layout.title = fig.layout.title || {};
+    fig.layout.title.x = (fig.layout.title.x ?? 0.02);
+    fig.layout.title.font = { size: scale(SIZES.title, el), family: FONT_FAMILY };
+
+    fig.layout.legend = Object.assign({
+      orientation: "v",
+      x: 1.003, xanchor: "left",
+      y: 1,    yanchor: "top",
+      itemsizing: "constant",
+      bgcolor: "rgba(255,255,255,0.85)",
+      borderwidth: 0,
+      font: { size: scale(SIZES.legend, el), family: FONT_FAMILY }
+    }, fig.layout.legend || {});
+
+    for (const k of Object.keys(fig.layout)) {
+      if (/^[xy]axis(\d+)?$/.test(k)) {
+        const ax = fig.layout[k] = Object.assign({
+          automargin:true, zeroline:false, showline:true, mirror:true,
+          linecolor:"#cfd6e4", linewidth:1,
+          gridcolor:"#ecf0f6", ticks:"outside", tickcolor:"#cfd6e4", ticklen:3
+        }, fig.layout[k] || {});
+        ax.title = ax.title || {};
+        ax.title.font = { size: scale(SIZES.axisTitle, el), family: FONT_FAMILY };
+        ax.tickfont  = { size: scale(SIZES.tick, el), family: FONT_FAMILY };
+        ax.title.standoff = 4;
+      }
+    }
+
+    if (fig.layout.coloraxis){
+      fig.layout.coloraxis.colorbar = Object.assign({
+        thickness: 10, outlinewidth: 0,
+        tickfont: { size: scale(SIZES.tick, el), family: FONT_FAMILY },
+        title:    { font: { size: scale(SIZES.tick, el), family: FONT_FAMILY } }
+      }, fig.layout.coloraxis.colorbar || {});
+    }
+
+    maybeRotateX(fig);
+    return fig;
+  }
+
+  function renderChart(id, raw){
+    const el = document.getElementById(id);
+    const fig = normalize(
+      window.structuredClone ? structuredClone(raw) : JSON.parse(JSON.stringify(raw)),
+      el
+    );
+    Plotly.newPlot(id, fig.data, fig.layout, {responsive:true});
+    const resize = () => Plotly.Plots.resize(el);
+    window.addEventListener("resize", resize);
+    if ("ResizeObserver" in window) new ResizeObserver(resize).observe(el);
+  }
+
+  /* ---------- Load charts ---------- */
+  Promise.all([
+    fetch("education.json").then(r => r.json()),
+    fetch("employment.json").then(r => r.json())
+  ]).then(([fig1, fig2]) => {
+    renderChart("chart1", fig1);
+    renderChart("chart2", fig2);
+  });
+
+  /* ---------- Full Pivot (entire df3) ---------- */
+  new WebDataRocks({
+    container: "#pivot",
+    toolbar: true,
+    height: "100%",
+    report: {
+      dataSource: { filename: "data/df3_full_for_pivot.csv" }
+      // We can add a default slice later if you want.
+    }
+  });
+
+  /* ---------- Top-left preview table (small/fast) ---------- */
+  function renderTable(targetId, rows, opts = {}) {
+    const el = document.getElementById(targetId);
+    if (!rows || rows.length === 0) { el.textContent = "No rows"; return; }
+
+    const cols  = opts.columns || Object.keys(rows[0]);
+    const limit = Number.isFinite(opts.limit) ? opts.limit : rows.length;
+
+    const esc = (v) => String(v == null ? "" : v)
+      .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+
+    let html = "<table><thead><tr>";
+    for (const c of cols) html += `<th>${esc(c)}</th>`;
+    html += "</tr></thead><tbody>";
+
+    for (let i = 0; i < Math.min(limit, rows.length); i++) {
+      html += "<tr>";
+      for (const c of cols) html += `<td>${esc(rows[i][c])}</td>`;
+      html += "</tr>";
+    }
+    html += "</tbody></table>";
+    el.innerHTML = html;
+  }
+
+  Papa.parse("data/df3_preview.csv", {
+    download: true, header: true, worker: true, skipEmptyLines: true,
+    complete: (res) => {
+      const rows = res.data.filter(r => Object.keys(r).length);
+      const cols = res.meta.fields || (rows[0] ? Object.keys(rows[0]) : []);
+      renderTable("table-top", rows, { limit: 8, columns: cols.slice(0, 6) });
+    }
+  });
 </script>
