@@ -351,24 +351,66 @@
 
     // Load CSV dataset
     function loadDataset() {
-      Papa.parse('data/df3_full_for_pivot.csv', {
-        download: true,
-        header: true,
-        skipEmptyLines: true,
-        dynamicTyping: true,
-        complete: function(results) {
-          rawData = results.data;
-          columns = Object.keys(rawData[0]);
-          // Initialize filters and chart builder options
-          initializeFilters();
-          initializeChartBuilder();
-          applyFiltersAndUpdate();
-        },
-        error: function(err) {
-          console.error('Error loading dataset', err);
-        },
-      });
+  const statusEl = document.getElementById('status');
+  const setStatus = (msg) => { if (statusEl) statusEl.textContent = msg; };
+
+  const urls = [
+    // 1) relative path (works on GitHub Pages when index.html is in docs/)
+    'data/df3_full_for_pivot.csv',
+    // 2) CDN fallback (works even if relative path fails for any reason)
+    'https://cdn.jsdelivr.net/gh/Sina-Khajehzadeh/muspad-study-dashboard/docs/data/df3_full_for_pivot.csv'
+  ];
+
+  let i = 0;
+  const tryNext = () => {
+    if (i >= urls.length) {
+      setStatus('Failed to load CSV (all sources tried).');
+      console.error('CSV load failed from all sources:', urls);
+      return;
     }
+    const url = urls[i++];
+    setStatus(`Loading data… (${url.includes('cdn.jsdelivr') ? 'CDN' : 'local'})`);
+    Papa.parse(url, {
+      download: true,
+      header: true,
+      skipEmptyLines: true,
+      dynamicTyping: true,
+      worker: true,
+      // trim header names + strip BOM if present
+      transformHeader: (h) => h.replace(/^\uFEFF/, '').trim(),
+      complete: function(results) {
+        if (!results || !results.data || results.data.length === 0) {
+          console.warn('CSV parsed but no rows. Trying next source…');
+          tryNext();
+          return;
+        }
+        rawData = results.data;
+        // Prefer header list from Papa (more robust), fallback to first row keys
+        columns = (results.meta && Array.isArray(results.meta.fields) && results.meta.fields.length)
+          ? results.meta.fields
+          : Object.keys(rawData[0] || {});
+        if (!columns || columns.length === 0) {
+          console.warn('No columns detected. Trying next source…');
+          tryNext();
+          return;
+        }
+        initializeFilters();
+        initializeChartBuilder();
+        applyFiltersAndUpdate();
+        autoAddStarterChart();      // <= ensure you see a chart immediately
+        setStatus(`Data loaded: ${rawData.length.toLocaleString()} rows, ${columns.length} columns`);
+        console.log('Columns:', columns);
+      },
+      error: function(err) {
+        console.error('Papa parse error:', err);
+        tryNext();
+      },
+    });
+  };
+  tryNext();
+}
+
+
 
     // Initialize filter selectors (age group, employment) and date range
     function initializeFilters() {
@@ -1105,5 +1147,38 @@
     // Initialize on page load
     window.addEventListener('load', loadDataset);
   </script>
+  function autoAddStarterChart() {
+  // Find a date column if present
+  const dateCol = columns.find(c => rawData.some(r => r[c] && !isNaN(Date.parse(r[c]))));
+  // Find a string/categorical column
+  const catCol = columns.find(c => typeof (rawData.find(r => r[c] !== null && r[c] !== undefined) || {})[c] === 'string');
+  // Find a numeric column
+  const numCol = columns.find(c => typeof (rawData.find(r => typeof r[c] === 'number') || {})[c] === 'number');
+
+  if (dateCol) {
+    createChartCard({
+      type: 'time-series',
+      x: dateCol,
+      y: numCol || null,   // falls back to 'count' if null via agg='count'
+      agg: numCol ? 'mean' : 'count',
+      title: `Records over time${numCol ? ' (mean ' + numCol + ')' : ''}`
+    });
+  } else if (catCol) {
+    createChartCard({
+      type: 'bar',
+      x: catCol,
+      y: numCol || null,
+      agg: 'count',        // safe: bar chart “count by category”
+      title: `Count by ${catCol}`
+    });
+  } else if (numCol) {
+    createChartCard({
+      type: 'line',
+      x: numCol,
+      y: numCol,
+      title: `Line of ${numCol}`
+    });
+  }
+}
 </body>
 </html>
