@@ -1,22 +1,24 @@
 <!--
-  MUSPAD Dynamic Dashboard
+  MUSPAD Dynamic Dashboard (GitHub Pages compatible)
 
-  This HTML file implements an interactive dashboard that loads a CSV dataset
-  directly from the same GitHub repository and lets users build a wide range
-  of charts on the fly.  The layout takes inspiration from the Polymer AI
-  dashboard: there is a fixed header with a date-range filter, a vertical
-  sidebar with icons (filters, data, settings and a plus button for adding
-  charts) and a flexible grid where each newly created chart appears as a
-  card.  Users can filter the dataset globally by date, age group and
-  employment type, then create charts such as bar charts, pie/donut charts,
-  line/time series charts, scatter/bubble plots, heatmaps, funnels, pivot
-  tables, maps and data tables.  Each chart updates automatically when
-  global filters change.
+  This HTML file implements an interactive dashboard that loads a CSV
+  dataset directly from this GitHub repository and lets users build
+  a wide range of charts on the fly.  The layout takes inspiration
+  from Polymer's AI dashboard: there is a fixed header with a date‑range
+  filter, a vertical sidebar with icons (filters, data table, settings
+  and a plus button for adding new charts) and a flexible grid where
+  each newly created chart appears as a card.  Users can filter the
+  dataset globally by date, age group and employment type, then create
+  charts such as bar charts, pie/donut charts, line/time series charts
+  and scatter plots.  Each chart updates automatically when global
+  filters change.
 
-  Place this file in your repo at: docs/index.html
+  Place this file in your repository at: docs/index.html
   Dataset must be at:              docs/data/df3_full_for_pivot.csv
 
-  The script tries a relative path first, then falls back to a CDN copy.
+  Note: For GitHub Pages, ensure that all paths are relative to the
+  repository root (e.g. data/df3_full_for_pivot.csv).  This version
+  disables PapaParse's Web Worker mode to avoid cross‑origin issues.
 -->
 <!DOCTYPE html>
 <html lang="en">
@@ -25,88 +27,180 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>MUSPAD Dynamic Dashboard</title>
 
-  <!-- Bootstrap + Icons -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
-        rel="stylesheet"
-        integrity="sha384-ENjdO4Dr2bkBIFxQpeoGe9CAd1Anb7oh7v1G1roG9LMwHN1fKrbM/8W64HAvK0Pa"
-        crossorigin="anonymous" />
-  <link rel="stylesheet"
-        href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" />
+  <!-- Bootstrap CSS and Icons -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+    integrity="sha384-ENjdO4Dr2bkBIFxQpeoGe9CAd1Anb7oh7v1G1roG9LMwHN1fKrbM/8W64HAvK0Pa"
+    crossorigin="anonymous"
+  />
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css"
+  />
 
-  <!-- Plotly + PapaParse -->
+  <!-- Plotly.js for charts -->
   <script src="https://cdn.plot.ly/plotly-2.25.2.min.js"></script>
+  <!-- PapaParse for CSV parsing -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
   <style>
-    body { margin: 0; font-family: Arial, Helvetica, sans-serif; overflow: hidden; }
-    #app-container { display: flex; height: 100vh; overflow: hidden; }
-
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      overflow: hidden;
+    }
+    #app-container {
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
     /* Sidebar */
     #sidebar {
-      width: 50px; background-color: #f5f5f5; border-right: 1px solid #ddd;
-      display: flex; flex-direction: column; align-items: center; padding-top: 1rem;
+      width: 50px;
+      background-color: #f5f5f5;
+      border-right: 1px solid #ddd;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-top: 1rem;
     }
     #sidebar button {
-      background: none; border: none; margin-bottom: 1rem; font-size: 1.5rem;
-      color: #333; cursor: pointer;
+      background: none;
+      border: none;
+      margin-bottom: 1rem;
+      font-size: 1.5rem;
+      color: #333;
+      cursor: pointer;
     }
-    #sidebar button:hover { color: #007bff; }
-
-    /* Main */
-    #main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-
+    #sidebar button:hover {
+      color: #007bff;
+    }
+    /* Main area */
+    #main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
     /* Header */
     #header {
-      padding: 0.5rem 1rem; display: flex; align-items: center;
-      border-bottom: 1px solid #ddd; background-color: #fff;
+      padding: 0.5rem 1rem;
+      display: flex;
+      align-items: center;
+      border-bottom: 1px solid #ddd;
+      background-color: #fff;
     }
-    #header h2 { margin: 0; font-size: 1.5rem; flex: 1; }
-    #header .date-range { display: flex; gap: 0.5rem; }
+    #header h2 {
+      margin: 0;
+      font-size: 1.5rem;
+      flex: 1;
+    }
+    #header .date-range {
+      display: flex;
+      gap: 0.5rem;
+    }
     #header .date-range input {
-      padding: 0.25rem 0.5rem; border: 1px solid #ccc; border-radius: 4px;
+      padding: 0.25rem 0.5rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
     }
-
-    /* Panels */
-    .panel { display: none; background-color: #f9f9f9; border-bottom: 1px solid #ddd;
-             padding: 1rem; overflow-y: auto; }
-    .panel.active { display: block; }
-
+    /* Panels (Filters, Data, Settings) */
+    .panel {
+      display: none;
+      background-color: #f9f9f9;
+      border-bottom: 1px solid #ddd;
+      padding: 1rem;
+      overflow-y: auto;
+    }
+    .panel.active {
+      display: block;
+    }
     /* Chart grid */
     #chart-container {
-      flex: 1; padding: 1rem; overflow-y: auto; display: flex; flex-wrap: wrap; gap: 1rem;
+      flex: 1;
+      padding: 1rem;
+      overflow-y: auto;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
     }
     .chart-card {
-      background: #fff; border: 1px solid #ddd; border-radius: 6px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 0.5rem;
-      width: calc(50% - 0.5rem); min-width: 400px; position: relative;
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      padding: 0.5rem;
+      width: calc(50% - 0.5rem);
+      min-width: 400px;
+      position: relative;
     }
     .chart-card .card-header {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 0.5rem; border-bottom: 1px solid #eee;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem;
+      border-bottom: 1px solid #eee;
     }
-    .chart-card .card-header h6 { margin: 0; }
+    .chart-card .card-header h6 {
+      margin: 0;
+      font-size: 1rem;
+    }
     .chart-card .remove-btn {
-      background: none; border: none; color: #888; cursor: pointer; font-size: 1.2rem;
+      background: none;
+      border: none;
+      color: #888;
+      cursor: pointer;
+      font-size: 1.2rem;
     }
-    .chart-card .remove-btn:hover { color: #dc3545; }
-
+    .chart-card .remove-btn:hover {
+      color: #dc3545;
+    }
     /* Chart builder modal */
     #chart-modal {
-      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 1000;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
     }
     #chart-modal .modal-content {
-      background: #fff; padding: 1.5rem; border-radius: 6px; max-width: 600px; width: 90%;
+      background: #fff;
+      padding: 1.5rem;
+      border-radius: 6px;
+      max-width: 600px;
+      width: 90%;
     }
-    #chart-modal .form-group { margin-bottom: 1rem; }
-    #chart-modal label { display: block; margin-bottom: 0.5rem; font-weight: bold; }
-    #chart-modal select, #chart-modal input {
-      width: 100%; padding: 0.35rem; border: 1px solid #ccc; border-radius: 4px;
+    #chart-modal .form-group {
+      margin-bottom: 1rem;
     }
-    #chart-modal .modal-actions { display: flex; justify-content: flex-end; gap: 1rem; }
-
+    #chart-modal label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: bold;
+    }
+    #chart-modal select,
+    #chart-modal input {
+      width: 100%;
+      padding: 0.35rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    #chart-modal .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 1rem;
+    }
     @media (max-width: 800px) {
-      .chart-card { width: 100%; min-width: 100%; }
+      .chart-card {
+        width: 100%;
+        min-width: 100%;
+      }
     }
   </style>
 </head>
@@ -114,13 +208,11 @@
   <div id="app-container">
     <!-- Sidebar -->
     <div id="sidebar">
-      <!-- Order: Filters, Data, Settings, then Plus BELOW settings -->
       <button id="btn-toggle-filter" title="Filters"><i class="bi bi-funnel-fill"></i></button>
-      <button id="btn-toggle-data"   title="Data Table"><i class="bi bi-table"></i></button>
+      <button id="btn-toggle-data" title="Data Table"><i class="bi bi-table"></i></button>
       <button id="btn-toggle-settings" title="Settings"><i class="bi bi-gear-fill"></i></button>
-      <button id="btn-add-chart"     title="Add Chart"><i class="bi bi-plus-lg"></i></button>
+      <button id="btn-add-chart" title="Add Chart"><i class="bi bi-plus-lg"></i></button>
     </div>
-
     <!-- Main -->
     <div id="main">
       <!-- Header -->
@@ -128,159 +220,125 @@
         <h2>MUSPAD Dynamic Dashboard</h2>
         <div class="date-range">
           <input type="date" id="start-date" />
-          <span>to</span>
           <input type="date" id="end-date" />
         </div>
-        <span id="status" class="ms-3 small text-muted">Loading data…</span>
       </div>
-
       <!-- Filter panel -->
       <div id="filter-panel" class="panel">
         <h5>Filters</h5>
         <div class="mb-3">
-          <label for="age-select" class="form-label">Age Groups</label>
-          <select id="age-select" multiple class="form-select"></select>
+          <label for="age-select" class="form-label">Age groups</label>
+          <select multiple id="age-select" class="form-select"></select>
         </div>
         <div class="mb-3">
-          <label for="employment-select" class="form-label">Employment Types</label>
-          <select id="employment-select" multiple class="form-select"></select>
+          <label for="employment-select" class="form-label">Employment types</label>
+          <select multiple id="employment-select" class="form-select"></select>
         </div>
       </div>
-
-      <!-- Data panel -->
+      <!-- Data table panel -->
       <div id="data-panel" class="panel">
-        <h5>Data Table</h5>
-        <div id="data-table-container" style="max-height: 400px; overflow-y: auto;"></div>
+        <h5>Data Preview</h5>
+        <div id="data-table-container"></div>
       </div>
-
       <!-- Settings panel -->
       <div id="settings-panel" class="panel">
         <h5>Settings</h5>
-        <p>Customize colours and styles here (coming soon).</p>
+        <p>You can extend this panel with custom theme or layout options.</p>
       </div>
-
-      <!-- Chart grid -->
+      <!-- Chart container -->
       <div id="chart-container"></div>
     </div>
   </div>
-
   <!-- Chart builder modal -->
   <div id="chart-modal">
     <div class="modal-content">
-      <h5>Create a New Chart</h5>
+      <h5 class="mb-3">Create Chart</h5>
       <div class="form-group">
-        <label for="chart-type">Chart Type</label>
-        <select id="chart-type">
-          <option value="bar">Bar Chart</option>
-          <option value="bar-horizontal">Horizontal Bar Chart</option>
-          <option value="bar-line">Bar & Line Chart</option>
-          <option value="pie">Pie/Donut Chart</option>
-          <option value="time-series">Time Series</option>
-          <option value="line">Line Plot</option>
-          <option value="scatter">Scatter Plot</option>
-          <option value="bubble">Bubble Chart</option>
-          <option value="heatmap">Heatmap</option>
-          <option value="funnel">Funnel Chart</option>
-          <option value="pivot">Pivot Table</option>
-          <option value="map">Map</option>
-          <option value="datatable">Data Table</option>
+        <label for="chart-type">Chart type</label>
+        <select id="chart-type" class="form-select">
+          <option value="bar">Bar</option>
+          <option value="pie">Pie</option>
+          <option value="line">Line</option>
+          <option value="scatter">Scatter</option>
         </select>
       </div>
-      <div class="form-group" id="group-x">
-        <label for="x-variable">X Variable</label>
-        <select id="x-variable"></select>
+      <div class="form-group">
+        <label for="x-field">X-axis / Category</label>
+        <select id="x-field" class="form-select"></select>
       </div>
-      <div class="form-group" id="group-y">
-        <label for="y-variable">Y Variable</label>
-        <select id="y-variable"></select>
+      <div class="form-group">
+        <label for="y-field">Y-axis (numeric)</label>
+        <select id="y-field" class="form-select"></select>
       </div>
-      <div class="form-group" id="group-z" style="display:none;">
-        <label for="z-variable">Size/Value Variable</label>
-        <select id="z-variable"></select>
+      <div class="form-group">
+        <label for="color-field">Color / Group (optional)</label>
+        <select id="color-field" class="form-select"></select>
       </div>
-      <div class="form-group" id="group-color" style="display:none;">
-        <label for="color-variable">Colour Variable</label>
-        <select id="color-variable"></select>
-      </div>
-      <div class="form-group" id="group-agg" style="display:none;">
-        <label for="agg-function">Aggregation Function</label>
-        <select id="agg-function">
+      <div class="form-group">
+        <label for="agg-func">Aggregation</label>
+        <select id="agg-func" class="form-select">
           <option value="count">Count</option>
           <option value="sum">Sum</option>
           <option value="mean">Mean</option>
-          <option value="median">Median</option>
         </select>
       </div>
-      <div class="form-group" id="group-title">
-        <label for="chart-title">Chart Title</label>
-        <input type="text" id="chart-title" placeholder="Enter a title" />
-      </div>
       <div class="modal-actions">
-        <button class="btn btn-secondary" id="cancel-chart">Cancel</button>
-        <button class="btn btn-primary" id="create-chart">Create</button>
+        <button id="btn-cancel-chart" class="btn btn-secondary">Cancel</button>
+        <button id="btn-create-chart" class="btn btn-primary">Create</button>
       </div>
     </div>
   </div>
 
   <script>
-    // -------------------- Globals --------------------
+    // Global state
     let rawData = [];
     let filteredData = [];
     let columns = [];
     let charts = [];
 
-    // -------------------- Data load --------------------
-    function loadDataset() {
-      const statusEl = document.getElementById('status');
-      const setStatus = (msg) => { if (statusEl) statusEl.textContent = msg; };
-    
-      // Explicitly point to your GitHub Pages CSV first, then fallbacks.
+    // Entry point
+    document.addEventListener('DOMContentLoaded', () => {
+      loadData();
+      setupSidebar();
+    });
+
+    function loadData() {
+      // Define possible CSV locations in order of preference.  Use relative
+      // paths for GitHub Pages.  Do NOT enable Web Worker (worker: false)
       const urls = [
-        // Your live Pages URL (same origin for the site)
-        'https://sina-khajehzadeh.github.io/muspad-study-dashboard/data/df3_full_for_pivot.csv',
-        // Relative path (works when testing locally from docs/)
         'data/df3_full_for_pivot.csv',
-        // Raw GitHub fallback
-        'https://raw.githubusercontent.com/Sina-Khajehzadeh/muspad-study-dashboard/main/docs/data/df3_full_for_pivot.csv',
-        // jsDelivr fallback
+        'https://sina-khajehzadeh.github.io/muspad-study-dashboard/data/df3_full_for_pivot.csv',
         'https://cdn.jsdelivr.net/gh/Sina-Khajehzadeh/muspad-study-dashboard/docs/data/df3_full_for_pivot.csv'
       ];
-    
       let i = 0;
       const tryNext = () => {
         if (i >= urls.length) {
-          setStatus('Failed to load CSV (all sources tried).');
-          console.error('CSV load failed from all sources:', urls);
+          alert('Failed to load CSV from all sources.');
           return;
         }
         const url = urls[i++];
-        setStatus(`Loading data… (${url})`);
+        console.log('Loading data from', url);
         Papa.parse(url, {
           download: true,
           header: true,
           skipEmptyLines: true,
           dynamicTyping: true,
-          worker: true,
-          // If your CSV uses semicolons (Excel EU), UNCOMMENT the next line:
-          // delimiter: ";",
+          worker: false,
           transformHeader: (h) => h.replace(/^\uFEFF/, '').trim(),
           complete: function(results) {
             if (!results || !Array.isArray(results.data) || results.data.length === 0) {
               console.warn('Parsed but no rows. Trying next source…');
-              tryNext(); return;
+              tryNext();
+              return;
             }
             rawData = results.data;
             columns = (results.meta && Array.isArray(results.meta.fields) && results.meta.fields.length)
               ? results.meta.fields
               : Object.keys(rawData[0] || {});
-            if (!columns.length) { console.warn('No columns detected. Next source…'); tryNext(); return; }
-    
+            console.log('Columns detected:', columns.slice(0, 30));
             initializeFilters();
             initializeChartBuilder();
             applyFiltersAndUpdate();
-            autoAddStarterChart(); // show an initial chart
-            setStatus(`Data loaded: ${rawData.length.toLocaleString()} rows • ${columns.length} cols`);
-            console.log('Columns:', columns.slice(0, 30));
           },
           error: function(err) {
             console.error('Papa parse error:', err);
@@ -290,45 +348,65 @@
       };
       tryNext();
     }
-    // -------------------- Filters --------------------
+
+    function setupSidebar() {
+      document.getElementById('btn-toggle-filter').addEventListener('click', () => togglePanel('filter-panel'));
+      document.getElementById('btn-toggle-data').addEventListener('click', () => togglePanel('data-panel'));
+      document.getElementById('btn-toggle-settings').addEventListener('click', () => togglePanel('settings-panel'));
+      document.getElementById('btn-add-chart').addEventListener('click', () => openChartModal());
+    }
+
+    function togglePanel(id) {
+      const panel = document.getElementById(id);
+      panel.classList.toggle('active');
+    }
+
     function initializeFilters() {
       const ageSelect = document.getElementById('age-select');
       const employmentSelect = document.getElementById('employment-select');
-
-      const possibleAgeCols = ['age_group','ageGroup','Age_Group'];
-      const possibleEmpCols = ['employment_type','employmentType','Employment_Type'];
-
-      let ageCol = possibleAgeCols.find(c => columns.includes(c));
-      let empCol = possibleEmpCols.find(c => columns.includes(c));
-
+      // Column detection lists include dataset specific names as well as generic names
+      const possibleAgeCols = [
+        'age_group','ageGroup','Age_Group',
+        'age_group_22_1','age_group_22_2','age_group_23_1','age_group_23_2'
+      ];
+      const possibleEmpCols = [
+        'employment_type','employmentType','Employment_Type',
+        'X20_21_kurzfragen_employment_type_clean','employment_type_clean'
+      ];
+      const ageCol = possibleAgeCols.find(c => columns.includes(c));
+      const empCol = possibleEmpCols.find(c => columns.includes(c));
+      // Populate age filter
       if (ageCol) {
         const uniqueAges = [...new Set(rawData.map(r => r[ageCol]))]
           .filter(v => v !== undefined && v !== null && v !== '')
           .sort();
         uniqueAges.forEach(val => {
-          const o = document.createElement('option');
-          o.value = val; o.textContent = val; o.selected = true;
-          ageSelect.appendChild(o);
+          const opt = document.createElement('option');
+          opt.value = val;
+          opt.textContent = val;
+          opt.selected = true;
+          ageSelect.appendChild(opt);
         });
         ageSelect.dataset.column = ageCol;
       }
-
+      // Populate employment filter
       if (empCol) {
         const uniqueEmps = [...new Set(rawData.map(r => r[empCol]))]
           .filter(v => v !== undefined && v !== null && v !== '')
           .sort();
         uniqueEmps.forEach(val => {
-          const o = document.createElement('option');
-          o.value = val; o.textContent = val; o.selected = true;
-          employmentSelect.appendChild(o);
+          const opt = document.createElement('option');
+          opt.value = val;
+          opt.textContent = val;
+          opt.selected = true;
+          employmentSelect.appendChild(opt);
         });
         employmentSelect.dataset.column = empCol;
       }
-
+      // Date detection: find first column containing parseable dates
       const dateKeys = columns.filter(col => rawData.some(row => row[col] && !isNaN(Date.parse(row[col]))));
       const startDateInput = document.getElementById('start-date');
       const endDateInput = document.getElementById('end-date');
-
       if (dateKeys.length > 0) {
         const dateCol = dateKeys[0];
         const dates = rawData.map(row => new Date(row[dateCol])).filter(d => !isNaN(d));
@@ -343,7 +421,7 @@
         endDateInput.min = minDate.toISOString().split('T')[0];
         endDateInput.max = maxDate.toISOString().split('T')[0];
       }
-
+      // Event listeners for filters
       ageSelect.addEventListener('change', applyFiltersAndUpdate);
       employmentSelect.addEventListener('change', applyFiltersAndUpdate);
       startDateInput.addEventListener('change', applyFiltersAndUpdate);
@@ -355,7 +433,6 @@
       const endDateInput = document.getElementById('end-date');
       const ageSelect = document.getElementById('age-select');
       const empSelect = document.getElementById('employment-select');
-
       filteredData = rawData.filter(row => {
         let datePass = true;
         if (startDateInput.dataset.column) {
@@ -366,24 +443,21 @@
           if (s && rowDate < s) datePass = false;
           if (e && rowDate > e) datePass = false;
         }
-
         let agePass = true;
         if (ageSelect.dataset.column && ageSelect.options.length > 0) {
           const col = ageSelect.dataset.column;
           const selected = Array.from(ageSelect.selectedOptions).map(o => o.value);
           if (selected.length > 0 && !selected.includes(String(row[col]))) agePass = false;
         }
-
         let empPass = true;
         if (empSelect.dataset.column && empSelect.options.length > 0) {
           const col = empSelect.dataset.column;
           const selected = Array.from(empSelect.selectedOptions).map(o => o.value);
           if (selected.length > 0 && !selected.includes(String(row[col]))) empPass = false;
         }
-
         return datePass && agePass && empPass;
       });
-
+      // Redraw charts and update data table
       charts.forEach(drawChart);
       updateDataTable();
     }
@@ -399,351 +473,190 @@
       table.className = 'table table-sm table-striped';
       const thead = document.createElement('thead');
       const trHead = document.createElement('tr');
-      columns.forEach(col => { const th = document.createElement('th'); th.textContent = col; trHead.appendChild(th); });
+      columns.forEach(col => {
+        const th = document.createElement('th');
+        th.textContent = col;
+        trHead.appendChild(th);
+      });
       thead.appendChild(trHead);
-      table.appendChild(thead);
       const tbody = document.createElement('tbody');
-      filteredData.slice(0, 100).forEach(row => {
+      const rows = filteredData.slice(0, 100); // limit rows for preview
+      rows.forEach(row => {
         const tr = document.createElement('tr');
-        columns.forEach(col => { const td = document.createElement('td'); td.textContent = row[col]; tr.appendChild(td); });
+        columns.forEach(col => {
+          const td = document.createElement('td');
+          const val = row[col];
+          td.textContent = val !== undefined ? val : '';
+          tr.appendChild(td);
+        });
         tbody.appendChild(tr);
       });
+      table.appendChild(thead);
       table.appendChild(tbody);
       container.appendChild(table);
     }
 
-    // -------------------- Panels --------------------
-    function togglePanel(panelId) {
-      const panels = ['filter-panel','data-panel','settings-panel'];
-      panels.forEach(id => {
-        const p = document.getElementById(id);
-        if (id === panelId) p.classList.toggle('active'); else p.classList.remove('active');
-      });
-    }
-
-    // -------------------- Chart creation --------------------
-    document.getElementById('btn-add-chart').addEventListener('click', () => {
-      document.getElementById('chart-modal').style.display = 'flex';
-    });
-    document.getElementById('btn-toggle-filter').addEventListener('click', () => togglePanel('filter-panel'));
-    document.getElementById('btn-toggle-data').addEventListener('click',   () => togglePanel('data-panel'));
-    document.getElementById('btn-toggle-settings').addEventListener('click',() => togglePanel('settings-panel'));
-    document.getElementById('cancel-chart').addEventListener('click',      () => { document.getElementById('chart-modal').style.display = 'none'; });
-
+    // Chart builder initialization
     function initializeChartBuilder() {
-      const xSelect = document.getElementById('x-variable');
-      const ySelect = document.getElementById('y-variable');
-      const zSelect = document.getElementById('z-variable');
-      const colorSelect = document.getElementById('color-variable');
-      [xSelect,ySelect,zSelect,colorSelect].forEach(sel => sel.innerHTML = '');
-      columns.forEach(col => {
-        const o = document.createElement('option'); o.value = col; o.textContent = col;
-        xSelect.appendChild(o.cloneNode(true));
-        ySelect.appendChild(o.cloneNode(true));
-        zSelect.appendChild(o.cloneNode(true));
-        colorSelect.appendChild(o.cloneNode(true));
-      });
+      const modal = document.getElementById('chart-modal');
       const chartTypeSelect = document.getElementById('chart-type');
-      chartTypeSelect.addEventListener('change', updateChartBuilderFields);
-      updateChartBuilderFields();
+      const xFieldSelect = document.getElementById('x-field');
+      const yFieldSelect = document.getElementById('y-field');
+      const colorSelect = document.getElementById('color-field');
+      const aggSelect = document.getElementById('agg-func');
+      // Populate select options based on columns
+      columns.forEach(col => {
+        const optX = document.createElement('option'); optX.value = col; optX.textContent = col; xFieldSelect.appendChild(optX);
+        const optY = document.createElement('option'); optY.value = col; optY.textContent = col; yFieldSelect.appendChild(optY);
+        const optC = document.createElement('option'); optC.value = col; optC.textContent = col; colorSelect.appendChild(optC);
+      });
+      // Cancel button
+      document.getElementById('btn-cancel-chart').addEventListener('click', () => {
+        modal.style.display = 'none';
+      });
+      // Create button
+      document.getElementById('btn-create-chart').addEventListener('click', () => {
+        const config = {
+          type: chartTypeSelect.value,
+          x: xFieldSelect.value,
+          y: yFieldSelect.value,
+          color: colorSelect.value || null,
+          agg: aggSelect.value
+        };
+        addChart(config);
+        modal.style.display = 'none';
+      });
     }
 
-    function updateChartBuilderFields() {
-      const type = document.getElementById('chart-type').value;
-      const groupX = document.getElementById('group-x');
-      const groupY = document.getElementById('group-y');
-      const groupZ = document.getElementById('group-z');
-      const groupColor = document.getElementById('group-color');
-      const groupAgg = document.getElementById('group-agg');
-      groupX.style.display = 'block'; groupY.style.display = 'block';
-      groupZ.style.display = 'none'; groupColor.style.display = 'none'; groupAgg.style.display = 'none';
-      switch (type) {
-        case 'bar':
-        case 'bar-horizontal':
-        case 'bar-line':
-        case 'time-series':
-        case 'line':
-        case 'heatmap':
-        case 'funnel':
-        case 'pivot':
-          groupAgg.style.display = 'block'; break;
-        case 'pie':
-          groupY.style.display = 'none'; groupAgg.style.display = 'block'; break;
-        case 'scatter':
-          groupColor.style.display = 'block'; break;
-        case 'bubble':
-          groupColor.style.display = 'block'; groupZ.style.display = 'block'; break;
-        case 'map':
-          groupColor.style.display = 'block'; break;
-        case 'datatable':
-          groupX.style.display = 'none'; groupY.style.display = 'none'; groupAgg.style.display = 'none'; break;
-      }
+    function openChartModal() {
+      document.getElementById('chart-modal').style.display = 'flex';
     }
 
-    document.getElementById('create-chart').addEventListener('click', function () {
-      const type  = document.getElementById('chart-type').value;
-      const x     = document.getElementById('x-variable').value;
-      const y     = document.getElementById('y-variable').value;
-      const z     = document.getElementById('z-variable').value;
-      const color = document.getElementById('color-variable').value;
-      const agg   = document.getElementById('agg-function').value;
-      const title = document.getElementById('chart-title').value.trim() || type;
-      const config = { type, x, y, z, color, agg, title };
+    function addChart(config) {
+      charts.push(config);
       createChartCard(config);
-      document.getElementById('chart-modal').style.display = 'none';
-    });
+      drawChart(config);
+    }
 
-    function createChartCard(options) {
-      const chartId = 'chart-' + Date.now();
-      const card = document.createElement('div'); card.className = 'chart-card';
-      const header = document.createElement('div'); header.className = 'card-header';
-      const title = document.createElement('h6'); title.textContent = options.title || options.type.toUpperCase();
-      const removeBtn = document.createElement('button'); removeBtn.className = 'remove-btn'; removeBtn.innerHTML = '&times;';
-      removeBtn.addEventListener('click', () => { card.remove(); charts = charts.filter(c => c.id !== chartId); });
-      header.appendChild(title); header.appendChild(removeBtn);
-      const chartDiv = document.createElement('div'); chartDiv.id = chartId; chartDiv.style.height = '350px';
-      card.appendChild(header); card.appendChild(chartDiv);
-      document.getElementById('chart-container').appendChild(card);
-      const chartConfig = Object.assign({}, options, { id: chartId });
-      charts.push(chartConfig);
-      drawChart(chartConfig);
+    function createChartCard(config) {
+      const container = document.getElementById('chart-container');
+      const card = document.createElement('div');
+      card.className = 'chart-card';
+      // Header
+      const header = document.createElement('div');
+      header.className = 'card-header';
+      const title = document.createElement('h6');
+      title.textContent = config.type.charAt(0).toUpperCase() + config.type.slice(1) + ' chart';
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'remove-btn';
+      removeBtn.innerHTML = '<i class="bi bi-x"></i>';
+      removeBtn.addEventListener('click', () => {
+        // Remove from charts array and DOM
+        const idx = charts.indexOf(config);
+        if (idx > -1) charts.splice(idx, 1);
+        container.removeChild(card);
+      });
+      header.appendChild(title);
+      header.appendChild(removeBtn);
+      // Chart div
+      const chartDiv = document.createElement('div');
+      chartDiv.style.height = '300px';
+      card.appendChild(header);
+      card.appendChild(chartDiv);
+      container.appendChild(card);
+      config._chartDiv = chartDiv;
     }
 
     function drawChart(config) {
       const data = filteredData;
-      const id = config.id;
-      const type = config.type;
-      const xVar = config.x, yVar = config.y, zVar = config.z, colorVar = config.color;
-      const agg = config.agg || 'count';
-      const title = config.title || '';
-      const div = document.getElementById(id); if (!div) return;
-
-      let traces = [];
-      let layout = { title: { text: title }, margin: { t: 40, r: 20, l: 40, b: 40 } };
-
-      try {
-        switch (type) {
-          case 'bar':
-          case 'bar-horizontal': {
-            const groups = {};
-            data.forEach(r => { const k = r[xVar]; (groups[k] ||= []).push(r); });
-            const xs = Object.keys(groups);
-            const ys = xs.map(k => {
-              const rows = groups[k];
-              if (agg === 'count') return rows.length;
-              const nums = rows.map(r => Number(r[yVar]));
-              if (agg === 'sum')  return nums.reduce((a,b)=>a+b,0);
-              if (agg === 'mean') return nums.reduce((a,b)=>a+b,0)/(nums.length||1);
-              if (agg === 'median'){ const s=nums.slice().sort((a,b)=>a-b); const m=Math.floor(s.length/2); return s.length%2?s[m]:(s[m-1]+s[m])/2; }
-            });
-            traces.push({
-              x: type === 'bar' ? xs : ys,
-              y: type === 'bar' ? ys : xs,
-              type: 'bar',
-              orientation: type === 'bar' ? 'v' : 'h',
-              marker: { color: '#4285f4' }
-            });
-            layout.xaxis = { title: type === 'bar' ? xVar : yVar };
-            layout.yaxis = { title: type === 'bar' ? yVar : xVar };
-            break;
-          }
-          case 'bar-line': {
-            const groups = {};
-            data.forEach(r => { const k = r[xVar]; (groups[k] ||= []).push(r); });
-            const xs = Object.keys(groups);
-            const y1 = xs.map(k => {
-              const rows = groups[k];
-              if (agg === 'count' || !yVar) return rows.length;
-              const nums = rows.map(r => Number(r[yVar]));
-              if (agg === 'sum')  return nums.reduce((a,b)=>a+b,0);
-              if (agg === 'mean') return nums.reduce((a,b)=>a+b,0)/(nums.length||1);
-              if (agg === 'median'){ const s=nums.slice().sort((a,b)=>a-b); const m=Math.floor(s.length/2); return s.length%2?s[m]:(s[m-1]+s[m])/2; }
-            });
-            const y2 = xs.map(k => {
-              const rows = groups[k];
-              if (!zVar) return null;
-              const nums = rows.map(r => Number(r[zVar]));
-              if (agg === 'sum')  return nums.reduce((a,b)=>a+b,0);
-              if (agg === 'mean') return nums.reduce((a,b)=>a+b,0)/(nums.length||1);
-              if (agg === 'median'){ const s=nums.slice().sort((a,b)=>a-b); const m=Math.floor(s.length/2); return s.length%2?s[m]:(s[m-1]+s[m])/2; }
-              return nums.reduce((a,b)=>a+b,0);
-            });
-            traces.push({ x: xs, y: y1, type: 'bar', name: yVar || 'Count', marker: { color: '#00b894' } });
-            if (zVar) {
-              traces.push({ x: xs, y: y2, type: 'scatter', mode: 'lines+markers', name: zVar, yaxis: 'y2', line: { color: '#d63031' } });
-              layout.yaxis2 = { title: zVar, overlaying: 'y', side: 'right' };
-            }
-            layout.xaxis = { title: xVar };
-            layout.yaxis = { title: yVar || 'Count' };
-            break;
-          }
-          case 'pie': {
-            const groups = {};
-            data.forEach(r => { const k = r[xVar]; (groups[k] ||= []).push(r); });
-            const labels = Object.keys(groups);
-            const values = labels.map(k => {
-              const rows = groups[k];
-              if (agg === 'count') return rows.length;
-              const nums = rows.map(r => Number(r[yVar]));
-              if (agg === 'sum')  return nums.reduce((a,b)=>a+b,0);
-              if (agg === 'mean') return nums.reduce((a,b)=>a+b,0)/(nums.length||1);
-              if (agg === 'median'){ const s=nums.slice().sort((a,b)=>a-b); const m=Math.floor(s.length/2); return s.length%2?s[m]:(s[m-1]+s[m])/2; }
-            });
-            traces.push({ labels, values, type: 'pie', hole: 0.4 });
-            layout.showlegend = true;
-            break;
-          }
-          case 'time-series': {
-            const groups = {};
-            data.forEach(r => { const k = r[xVar]; (groups[k] ||= []).push(r); });
-            const dates = Object.keys(groups).map(d => new Date(d)).filter(d => !isNaN(d)).sort((a,b)=>a-b);
-            const yVals = dates.map(d => {
-              const key = d.toISOString().split('T')[0];
-              const rows = groups[key] || groups[d];
-              if (!rows) return 0;
-              if (agg === 'count') return rows.length;
-              const nums = rows.map(r => Number(r[yVar]));
-              if (agg === 'sum')  return nums.reduce((a,b)=>a+b,0);
-              if (agg === 'mean') return nums.reduce((a,b)=>a+b,0)/(nums.length||1);
-              if (agg === 'median'){ const s=nums.slice().sort((a,b)=>a-b); const m=Math.floor(s.length/2); return s.length%2?s[m]:(s[m-1]+s[m])/2; }
-            });
-            traces.push({ x: dates, y: yVals, type: 'scatter', mode: 'lines+markers', marker: { color: '#0984e3' } });
-            layout.xaxis = { title: xVar, type: 'date' };
-            layout.yaxis = { title: yVar || 'Count' };
-            break;
-          }
-          case 'line': {
-            const x = data.map(r => r[xVar]), y = data.map(r => r[yVar]);
-            traces.push({ x, y, type: 'scatter', mode: 'lines+markers', marker: { color: '#6c5ce7' } });
-            layout.xaxis = { title: xVar }; layout.yaxis = { title: yVar };
-            break;
-          }
-          case 'scatter': {
-            const x = data.map(r => r[xVar]), y = data.map(r => r[yVar]);
-            const t = { x, y, mode: 'markers', type: 'scatter' };
-            if (colorVar) t.marker = { color: data.map(r => r[colorVar]) };
-            traces.push(t);
-            layout.xaxis = { title: xVar }; layout.yaxis = { title: yVar };
-            break;
-          }
-          case 'bubble': {
-            const x = data.map(r => r[xVar]), y = data.map(r => r[yVar]);
-            const sizes = data.map(r => Number(r[zVar] || 1));
-            const t = { x, y, mode: 'markers', type: 'scatter',
-              marker: { size: sizes.map(v => (isNaN(v) ? 5 : Math.max(5, Math.sqrt(v)))), sizemode: 'area' } };
-            if (colorVar) t.marker.color = data.map(r => r[colorVar]);
-            traces.push(t);
-            layout.xaxis = { title: xVar }; layout.yaxis = { title: yVar };
-            break;
-          }
-          case 'heatmap': {
-            const xCats = [...new Set(data.map(r => r[xVar]))];
-            const yCats = [...new Set(data.map(r => r[yVar]))];
-            const zMat = yCats.map(() => xCats.map(() => 0));
-            xCats.forEach((xVal, xi) => {
-              yCats.forEach((yVal, yi) => {
-                const rows = data.filter(r => r[xVar] === xVal && r[yVar] === yVal);
-                if (agg === 'count') zMat[yi][xi] = rows.length;
-                else {
-                  const nums = rows.map(r => Number(r[zVar]));
-                  if (agg === 'sum')  zMat[yi][xi] = nums.reduce((a,b)=>a+b,0);
-                  else if (agg === 'mean') zMat[yi][xi] = nums.length ? nums.reduce((a,b)=>a+b,0)/nums.length : 0;
-                  else if (agg === 'median'){ const s=nums.slice().sort((a,b)=>a-b); const m=Math.floor(s.length/2); zMat[yi][xi] = s.length%2?s[m]:(s[m-1]+s[m])/2; }
-                }
-              });
-            });
-            traces.push({ x: xCats, y: yCats, z: zMat, type: 'heatmap', colorscale: 'Viridis' });
-            layout.xaxis = { title: xVar }; layout.yaxis = { title: yVar };
-            break;
-          }
-          case 'funnel': {
-            const stages = [...new Set(data.map(r => r[xVar]))];
-            const values = stages.map(stage => {
-              const rows = data.filter(r => r[xVar] === stage);
-              if (agg === 'count') return rows.length;
-              const nums = rows.map(r => Number(r[yVar]));
-              if (agg === 'sum')  return nums.reduce((a,b)=>a+b,0);
-              if (agg === 'mean') return nums.reduce((a,b)=>a+b,0)/(nums.length||1);
-              if (agg === 'median'){ const s=nums.slice().sort((a,b)=>a-b); const m=Math.floor(s.length/2); return s.length%2?s[m]:(s[m-1]+s[m])/2; }
-            });
-            traces.push({ type: 'funnel', y: stages, x: values });
-            layout.xaxis = { title: `${agg} of ${yVar}` }; layout.yaxis = { title: xVar };
-            break;
-          }
-          case 'pivot': {
-            const rowCats = [...new Set(data.map(r => r[xVar]))];
-            const colCats = [...new Set(data.map(r => r[yVar]))];
-            const matrix = [];
-            rowCats.forEach(rv => {
-              const rowArr = [];
-              colCats.forEach(cv => {
-                const cells = data.filter(r => r[xVar] === rv && r[yVar] === cv);
-                if (agg === 'count') rowArr.push(cells.length);
-                else {
-                  const nums = cells.map(r => Number(r[zVar]));
-                  if (agg === 'sum')  rowArr.push(nums.reduce((a,b)=>a+b,0));
-                  else if (agg === 'mean') rowArr.push(nums.length ? nums.reduce((a,b)=>a+b,0)/nums.length : 0);
-                  else if (agg === 'median'){ const s=nums.slice().sort((a,b)=>a-b); const m=Math.floor(s.length/2);
-                    rowArr.push(s.length%2?s[m]:(s[m-1]+s[m])/2); }
-                }
-              });
-              matrix.push(rowArr);
-            });
-            traces.push({
-              type: 'table',
-              header: { values: [''].concat(colCats), align: 'center', fill: { color: '#f5f5f5' } },
-              cells:  { values: [rowCats].concat(matrix), align: 'center' }
-            });
-            layout = { title: { text: title }, margin: { t: 40 } };
-            break;
-          }
-          case 'map': {
-            const lat = data.map(r => Number(r[xVar]));
-            const lon = data.map(r => Number(r[yVar]));
-            const t = { type: 'scattergeo', lat, lon, mode: 'markers' };
-            if (colorVar) t.marker = { color: data.map(r => r[colorVar]), colorscale: 'Viridis', reversescale: true };
-            traces.push(t);
-            layout = { title: { text: title }, geo: { scope: 'world', showland: true, landcolor: '#f5f5f5' },
-                       margin: { t: 40, r: 0, l: 0, b: 0 } };
-            break;
-          }
-          case 'datatable': {
-            const headerValues = columns;
-            const cellValues = columns.map(c => filteredData.slice(0,20).map(r => r[c]));
-            traces.push({ type: 'table',
-              header: { values: headerValues, align: 'center', fill: { color: '#f5f5f5' } },
-              cells:  { values: cellValues, align: 'center' } });
-            layout = { title: { text: title }, margin: { t: 40 } };
-            break;
-          }
-          default:
-            console.warn('Unsupported chart type:', type);
-        }
-        Plotly.react(id, traces, layout, { responsive: true });
-      } catch (err) { console.error('Error drawing chart', err); }
-    }
-
-    // -------------------- Starter chart --------------------
-    function autoAddStarterChart() {
-      const dateCol = columns.find(c => rawData.some(r => r[c] && !isNaN(Date.parse(r[c]))));
-      const catCol  = columns.find(c => typeof (rawData.find(r => r[c] !== null && r[c] !== undefined) || {})[c] === 'string');
-      const numCol  = columns.find(c => typeof (rawData.find(r => typeof r[c] === 'number') || {})[c] === 'number');
-
-      if (dateCol) {
-        createChartCard({
-          type: 'time-series', x: dateCol, y: numCol || null,
-          agg: numCol ? 'mean' : 'count',
-          title: `Records over time${numCol ? ' (mean ' + numCol + ')' : ''}`
-        });
-      } else if (catCol) {
-        createChartCard({ type: 'bar', x: catCol, y: numCol || null, agg: 'count', title: `Count by ${catCol}` });
-      } else if (numCol) {
-        createChartCard({ type: 'line', x: numCol, y: numCol, title: `Line of ${numCol}` });
+      const div = config._chartDiv;
+      if (!data || data.length === 0) {
+        div.innerHTML = '<p class="text-muted">No data</p>';
+        return;
       }
+      // Determine aggregator function
+      const aggFunc = (values) => {
+        if (config.agg === 'sum') {
+          return values.reduce((a, b) => (+a || 0) + (+b || 0), 0);
+        } else if (config.agg === 'mean') {
+          const sum = values.reduce((a, b) => (+a || 0) + (+b || 0), 0);
+          return sum / values.length;
+        } else {
+          // count
+          return values.length;
+        }
+      };
+      let fig;
+      if (config.type === 'bar' || config.type === 'pie') {
+        // Group by X and (optionally) color
+        const groups = {};
+        data.forEach(row => {
+          const key = row[config.x];
+          const colorKey = config.color ? row[config.color] : null;
+          if (!groups[key]) groups[key] = {};
+          if (!groups[key][colorKey]) groups[key][colorKey] = [];
+          groups[key][colorKey].push(row[config.y]);
+        });
+        const labels = Object.keys(groups);
+        if (config.type === 'bar') {
+          const traces = [];
+          const colorKeys = new Set();
+          labels.forEach(key => {
+            Object.keys(groups[key]).forEach(c => colorKeys.add(c));
+          });
+          colorKeys.forEach(colorVal => {
+            const yVals = labels.map(label => {
+              const vals = groups[label][colorVal] || [];
+              return aggFunc(vals);
+            });
+            traces.push({
+              x: labels,
+              y: yVals,
+              name: colorVal || 'Value',
+              type: 'bar'
+            });
+          });
+          fig = { data: traces, layout: { barmode: 'group', title: `${config.x} vs ${config.y}` } };
+        } else {
+          // Pie chart uses only first group; ignore color dimension
+          const values = labels.map(label => {
+            const vals = [].concat(...Object.values(groups[label]));
+            return aggFunc(vals);
+          });
+          fig = { data: [{ labels: labels, values: values, type: 'pie', hole: 0.3 }], layout: { title: `${config.x} distribution` } };
+        }
+      } else if (config.type === 'line') {
+        // Line chart: group by X (assumed date or numeric) and apply aggregator on Y
+        const groups = {};
+        data.forEach(row => {
+          const key = row[config.x];
+          if (!groups[key]) groups[key] = [];
+          groups[key].push(row[config.y]);
+        });
+        const xVals = Object.keys(groups).sort((a, b) => {
+          // Sort by date or numeric if possible
+          const da = new Date(a); const db = new Date(b);
+          if (!isNaN(da) && !isNaN(db)) return da - db;
+          if (!isNaN(Number(a)) && !isNaN(Number(b))) return a - b;
+          return String(a).localeCompare(String(b));
+        });
+        const yVals = xVals.map(k => aggFunc(groups[k]));
+        fig = { data: [{ x: xVals, y: yVals, type: 'scatter', mode: 'lines+markers' }], layout: { title: `${config.x} vs ${config.y}` } };
+      } else if (config.type === 'scatter') {
+        // Scatter plot: raw data points; color optional
+        const trace = {
+          x: data.map(r => r[config.x]),
+          y: data.map(r => r[config.y]),
+          mode: 'markers',
+          type: 'scatter',
+        };
+        if (config.color) {
+          trace.marker = { color: data.map(r => r[config.color]), colorscale: 'Viridis', showscale: true };
+        }
+        fig = { data: [trace], layout: { title: `${config.x} vs ${config.y}`, xaxis: { title: config.x }, yaxis: { title: config.y } } };
+      }
+      Plotly.newPlot(div, fig.data, fig.layout, { responsive: true });
     }
-
-    // -------------------- Init --------------------
-    window.addEventListener('load', loadDataset);
   </script>
 </body>
 </html>
