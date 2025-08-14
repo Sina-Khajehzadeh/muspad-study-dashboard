@@ -226,95 +226,95 @@
     </div>
   </div>
   <script>
-    // ----------------------------
-    // Global state
-    // ----------------------------
-    let rawData = [];
-    let filtered = [];
-    let columns = [];
-    let charts = [];
-    let dateCol = null;
-    let ageCol = null;
-    let empCol = null;
-    // Arrays to hold inferred numeric and categorical columns
-    let numericCols = [];
-    let categoricalCols = [];
 
-  // ----------------------------
-  // Boot
-  // ----------------------------
-  document.addEventListener('DOMContentLoaded', () => {
-    wireUI();
-    loadCSV();
-  });
-  
-  function wireUI() {
-    // Sidebar toggles
-    id('btnFilters').addEventListener('click', () => toggle('panelFilters'));
-    id('btnData').addEventListener('click', () => toggle('panelData'));
-    id('btnSettings').addEventListener('click', () => toggle('panelSettings'));
-    id('btnAdd').addEventListener('click', () => {
-      updateBuilderVisibility();   // ensure correct fields show when opening
-      openModal();
-    });
-  
-    // Date change
-    id('startDate').addEventListener('change', applyFilters);
-    id('endDate').addEventListener('change', applyFilters);
-  
-    // Modal controls
-    id('btnCancel').addEventListener('click', closeModal);
-    id('btnCreate').addEventListener('click', () => {
-      const cfg = {
-        type: id('fldType').value,
-        x: id('fldX').value || null,
-        y: id('fldY').value || null,
-        y2: id('fldY2').value || null,
-        yCat: id('fldYCat').value || null,   // second categorical (heatmap/pivot)
-        color: id('fldColor').value || null,
-        size: id('fldSize').value || null,
-        agg: id('fldAgg').value || 'count',
-        dualAxis: id('chkDualAxis').checked,
-        histOverlay: id('chkHistOverlay').checked
-      };
-
-    // Close modal by clicking backdrop
-    id('modal').addEventListener('click', (e) => {
-      if (e.target === id('modal')) closeModal();
-    });
-  
-    // Builder visibility: change handler + initial call
-    if (id('fldType')) {
-      id('fldType').addEventListener('change', updateBuilderVisibility);
-      updateBuilderVisibility();
-    }
-  }
-  
-  // ----------------------------
-  // Builder field visibility
-  // ----------------------------
-  function updateBuilderVisibility() {
-    const type = id('fldType').value;
-  
-    const show = (selector, on) => {
-      document.querySelectorAll(selector).forEach(el => {
-        el.style.display = on ? '' : 'none';
+      // ----------------------------
+      // Global state
+      // ----------------------------
+      let rawData = [];
+      let filtered = [];
+      let columns = [];
+      let charts = [];
+      let dateCol = null;
+      let ageCol  = null;
+      let empCol  = null;
+      let numericCols = [];
+      let categoricalCols = [];
+    
+      // ----------------------------
+      // Boot
+      // ----------------------------
+      document.addEventListener('DOMContentLoaded', () => {
+        wireUI();
+        loadCSV();
       });
-    };
-  
-    // Which fields should be visible per chart type
-    show('[data-role="needsNumeric"]', !['pie','heatmap','pivot','datatable','funnel'].includes(type));
-    show('[data-role="needsAgg"]', !['scatter','bubble','box','datatable','pivot'].includes(type));
-    show('[data-role="needsColor"]', ['bar','line','scatter','bubble','box','barline'].includes(type));
-    show('[data-role="needsSecondCat"]', ['heatmap','pivot'].includes(type));
-    show('[data-role="needsY2"]', type === 'barline');
-    show('[data-role="needsSize"]', type === 'bubble');
-    show('[data-role="comboToggles"]', ['barline','line','box'].includes(type));
-    show('[data-role="histToggle"]', ['line','box'].includes(type));
-  }
-  
-      // Filter helper buttons for dynamic filters are added during populateFilters()
-    }
+    
+      function wireUI() {
+        // Sidebar toggles
+        id('btnFilters').addEventListener('click', () => toggle('panelFilters'));
+        id('btnData').addEventListener('click', () => toggle('panelData'));
+        id('btnSettings').addEventListener('click', () => toggle('panelSettings'));
+        id('btnAdd').addEventListener('click', () => {
+          updateBuilderVisibility();   // ensure correct fields show when opening
+          openModal();
+        });
+    
+        // Date change
+        id('startDate').addEventListener('change', applyFilters);
+        id('endDate').addEventListener('change', applyFilters);
+    
+        // Modal controls
+        id('btnCancel').addEventListener('click', closeModal);
+        id('btnCreate').addEventListener('click', () => {
+          // build config with all optional fields
+          const cfg = {
+            type:    id('fldType').value,
+            x:       id('fldX').value || null,
+            y:       id('fldY').value || null,
+            y2:      id('fldY2').value || null,
+            yCat:    id('fldYCat').value || null,
+            color:   id('fldColor').value || null,
+            size:    id('fldSize').value || null,
+            agg:     id('fldAgg').value || 'count',
+            dualAxis:    id('chkDualAxis').checked,
+            histOverlay:id('chkHistOverlay').checked
+          };
+          addChart(cfg);    // actually create the chart
+          closeModal();
+        });
+    
+        // Close modal by clicking on the backdrop
+        id('modal').addEventListener('click', (e) => {
+          if (e.target === id('modal')) closeModal();
+        });
+    
+        // Update builder visibility when chart type changes
+        if (id('fldType')) {
+          id('fldType').addEventListener('change', updateBuilderVisibility);
+          updateBuilderVisibility();
+        }
+      }
+    
+      // ----------------------------
+      // Builder field visibility
+      // ----------------------------
+      function updateBuilderVisibility() {
+        const type = id('fldType').value;
+        const show = (selector, on) => {
+          document.querySelectorAll(selector).forEach(el => {
+            el.style.display = on ? '' : 'none';
+          });
+        };
+        // Which fields should be visible per chart type
+        show('[data-role="needsNumeric"]', !['pie','heatmap','pivot','datatable','funnel'].includes(type));
+        show('[data-role="needsAgg"]', !['scatter','bubble','box','datatable','pivot'].includes(type));
+        show('[data-role="needsColor"]', ['bar','line','scatter','bubble','box','barline'].includes(type));
+        show('[data-role="needsSecondCat"]', ['heatmap','pivot'].includes(type));
+        show('[data-role="needsY2"]', type === 'barline');
+        show('[data-role="needsSize"]', type === 'bubble');
+        show('[data-role="comboToggles"]', ['barline','line','box'].includes(type));
+        show('[data-role="histToggle"]', ['line','box'].includes(type));
+      }
+
 
     // ----------------------------
     // Data loading (with fallbacks)
