@@ -739,18 +739,11 @@
       updateTable();
       charts.forEach(drawChart);
      
-  if (dateCol) {
-    // Determine the range of valid dates among the filtered rows. Invalid or
-    // out‑of‑range values are ignored via parseValidDate().
-    const ds = filtered
-      .map(r => parseValidDate(r[dateCol]))
-      .filter(Boolean)
-      .sort((a,b) => a - b);
-    if (ds.length) {
-      id('startDate').value = toISO(ds[0]);
-      id('endDate').value   = toISO(ds[ds.length - 1]);
-    }
-  }
+  // Note: we no longer override the start/end date inputs after filtering.  The
+  // user’s selected range should persist.  Previously this block reset
+  // `startDate.value` and `endDate.value` to the min/max of the filtered rows,
+  // which confused users when they chose a date outside the current data span.
+  // The dataset summary still reflects the filtered span via updateInspectorSummary().
  
       // Inspector: recompute summary + current field stats (on filtered)
       updateInspectorSummary();
@@ -1195,14 +1188,52 @@ function showFieldStats(col) {
 
   // 1) Distribution
   const asStr = nonNull.map(v => String(v));
-  const top5 = topN(asStr, 5);
+  const totalCount = vals.length;
+  let distribution = [];
+  if (isNumeric) {
+    // Numeric: bin into 5 ranges across the observed min and max
+    const nums = nonNull.map(Number).filter(v => !Number.isNaN(v));
+    if (nums.length) {
+      const minVal = Math.min(...nums);
+      const maxVal = Math.max(...nums);
+      const binCount = 5;
+      let width = (maxVal - minVal) / binCount;
+      // handle zero width (all values equal) by assigning width 1
+      if (width === 0) width = 1;
+      const bins = Array(binCount).fill(0);
+      const labels = [];
+      for (let i = 0; i < binCount; i++) {
+        const start = minVal + width * i;
+        const end   = (i === binCount - 1) ? maxVal : minVal + width * (i + 1);
+        labels.push(`${fmt(start)}–${fmt(end)}`);
+      }
+      nums.forEach(v => {
+        let idx = Math.floor((v - minVal) / width);
+        if (idx < 0) idx = 0;
+        if (idx >= binCount) idx = binCount - 1;
+        bins[idx]++;
+      });
+      distribution = labels.map((lab, i) => ({ label: lab, count: bins[i] }));
+      // Remove zero-count bins to avoid clutter
+      distribution = distribution.filter(item => item.count > 0);
+    }
+  } else {
+    // Categorical: top 5 categories + "Other"
+    const m = new Map();
+    asStr.forEach(v => m.set(v, (m.get(v) || 0) + 1));
+    const entries = [...m.entries()].sort((a,b) => b[1] - a[1]);
+    const top = entries.slice(0, 5);
+    const otherCount = entries.slice(5).reduce((s, [,c]) => s + c, 0);
+    distribution = top.map(([label, count]) => ({ label, count }));
+    if (otherCount > 0) distribution.push({ label: 'Other', count: otherCount });
+  }
   html += `
     <div class="mb-2">
       <h6 class="mb-1">Data Distribution Overview</h6>
       <table class="table table-sm mb-2">
         <thead><tr><th>Value</th><th class="text-end">Share</th></tr></thead>
         <tbody>
-          ${top5.map(([k, c]) => `<tr><td>${k}</td><td class="text-end">${percent(c, vals.length)}</td></tr>`).join('')}
+          ${distribution.map(row => `<tr><td>${row.label}</td><td class="text-end">${percent(row.count, totalCount)}</td></tr>`).join('')}
         </tbody>
       </table>
     </div>
@@ -1211,10 +1242,9 @@ function showFieldStats(col) {
   // 2) Quality metrics
   const filled = nonNull.length;
   const uniqueCount = new Set(asStr).size;
-  const avgLen = asStr.length ? (asStr.reduce((s,v)=>s+v.length,0)/asStr.length) : 0;
-  // For numeric columns the concept of "average string length" isn't meaningful,
-  // so display a dash instead of a number. Otherwise show the calculated length.
-  const avgLenDisplay = isNumeric ? '—' : fmt(avgLen, 2);
+  // Average length: string length for categorical or number length for numeric
+  const avgLen = asStr.length ? (asStr.reduce((s, v) => s + v.length, 0) / asStr.length) : 0;
+  const avgLenDisplay = (avgLen && !Number.isNaN(avgLen)) ? fmt(avgLen, 2) : '—';
   html += `
     <div class="mb-2">
       <h6 class="mb-1">Data Quality Metrics</h6>
@@ -1276,9 +1306,13 @@ function showFieldStats(col) {
   } else {
     // categorical / text
     const counts = new Map();
-    asStr.forEach(v => counts.set(v, (counts.get(v)||0)+1));
+    asStr.forEach(v => counts.set(v, (counts.get(v) || 0) + 1));
     let topVal = '—', topFreq = 0;
-    for (const [k,v] of counts.entries()) if (v > topFreq) { topVal = k; topFreq = v; }
+    for (const [k, v] of counts.entries()) if (v > topFreq) { topVal = k; topFreq = v; }
+    // Compute min/max category string length
+    const lengths = asStr.map(v => v.length);
+    const minLen = lengths.length ? Math.min(...lengths) : 0;
+    const maxLen = lengths.length ? Math.max(...lengths) : 0;
 
     html += `
       <div>
@@ -1289,6 +1323,8 @@ function showFieldStats(col) {
             <tr><th class="text-muted">Unique</th><td>${counts.size.toLocaleString()}</td></tr>
             <tr><th class="text-muted">Top</th><td>${topVal}</td></tr>
             <tr><th class="text-muted">Freq</th><td>${topFreq.toLocaleString()} (${percent(topFreq, asStr.length)})</td></tr>
+            <tr><th class="text-muted">Min Length</th><td>${minLen.toLocaleString()}</td></tr>
+            <tr><th class="text-muted">Max Length</th><td>${maxLen.toLocaleString()}</td></tr>
           </tbody>
         </table>
       </div>
