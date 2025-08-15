@@ -166,7 +166,7 @@
 
 /* Field stats area (scrollable if long) */
 #fieldStats {
-  max-height: 22vh;
+  max-height: auto;
   overflow: auto;
   background:#fff;
   border:1px solid #eee;
@@ -1072,106 +1072,198 @@ function updateInspectorSummary() {
   id('sumTotalCols').textContent    = (columns?.length ?? 0).toLocaleString();
   id('sumFilteredRows').textContent = (filtered?.length ?? 0).toLocaleString();
 
-  // Date range (dataset-level, uses rawData)
-  if (!dateCol) {
-    id('sumDateRange').textContent = '—';
-    return;
-  }
-  const dates = (rawData || [])
+  // If we don't have a detected date column, show a dash
+  if (!dateCol) { id('sumDateRange').textContent = '—'; return; }
+
+  // Use FILTERED rows if any; otherwise fall back to ALL rows
+  const rowsForRange = (filtered && filtered.length) ? filtered : rawData;
+
+  const dates = rowsForRange
     .map(r => new Date(r[dateCol]))
     .filter(d => !isNaN(d))
-    .sort((a,b)=>a-b);
-  if (!dates.length) {
-    id('sumDateRange').textContent = '—';
-    return;
-  }
-  id('sumDateRange').textContent = `${toISO(dates[0])} → ${toISO(dates[dates.length-1])}`;
+    .sort((a,b) => a - b);
+
+  id('sumDateRange').textContent =
+    dates.length ? `${toISO(dates[0])} → ${toISO(dates[dates.length-1])}` : '—';
 }
+
+
+let inspectorSelectedField = null; // keep this near your other globals
 
 function rebuildInspectorColumnList() {
   const wrap = id('inspectorList');
   wrap.innerHTML = '';
   if (!columns?.length) return;
 
+  // Build buttons
+  const frag = document.createDocumentFragment();
   columns.forEach(col => {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.textContent = col;
     btn.dataset.col = col;
-    btn.addEventListener('click', () => {
-      inspectorSelectedField = col;
-      // set active state
-      wrap.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.col === col));
-      showFieldStats(col);
-    });
-    wrap.appendChild(btn);
+    frag.appendChild(btn);
   });
+  wrap.appendChild(frag);
+
+  // Single click listener for all buttons (works even after rebuilds)
+  wrap.onclick = (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    inspectorSelectedField = btn.dataset.col;
+    wrap.querySelectorAll('button').forEach(b =>
+      b.classList.toggle('active', b === btn)
+    );
+    showFieldStats(inspectorSelectedField);
+  };
 
   // Preselect first column
-  if (!inspectorSelectedField && columns.length) {
-    inspectorSelectedField = columns[0];
-    const firstBtn = wrap.querySelector('button');
-    if (firstBtn) firstBtn.classList.add('active');
-    showFieldStats(inspectorSelectedField);
-  }
+  inspectorSelectedField = columns[0];
+  const firstBtn = wrap.querySelector('button');
+  if (firstBtn) firstBtn.classList.add('active');
+  showFieldStats(inspectorSelectedField);
 }
 
 function showFieldStats(col) {
   if (!col) return;
   id('fieldName').textContent = col;
 
-  // Work on the CURRENT filtered rows
-  const values = (filtered || []).map(r => r[col]);
-  const nonNull = values.filter(v => v !== null && v !== undefined && v !== '');
+  // Use current FILTERED rows
+  const vals = (filtered || []).map(r => r[col]);
+  const nonNull = vals.filter(v => v !== null && v !== undefined && v !== '');
 
-  // Type detection using what we already know
+  // Type detection
   const isNumeric = numericCols.includes(col);
-  const isDate    = (col === dateCol) || sampleValues(col, 30).some(v => !isNaN(new Date(v)));
+  const isDate = (col === dateCol) || sampleValues(col, 30)
+    .some(v => !Number.isNaN(new Date(v)));
 
-  let html = '<table class="table table-sm mb-0"><tbody>';
+  // Helpers
+  const fmt = (x, d=3) =>
+    (x === undefined || x === null || Number.isNaN(x)) ? '—'
+      : Number(x).toLocaleString(undefined, { maximumFractionDigits: d });
 
+  const percent = (num, den) =>
+    (den ? (100 * num / den) : 0).toLocaleString(undefined, { maximumFractionDigits: 1 }) + '%';
+
+  const topN = (arr, n=5) => {
+    const m = new Map();
+    arr.forEach(v => m.set(v, (m.get(v)||0)+1));
+    return [...m.entries()].sort((a,b) => b[1]-a[1]).slice(0, n);
+  };
+
+  const qtile = (sorted, q) => {
+    if (!sorted.length) return NaN;
+    const pos = (sorted.length - 1) * q;
+    const base = Math.floor(pos);
+    const rest = pos - base;
+    return (sorted[base+1] !== undefined)
+      ? sorted[base] + rest * (sorted[base+1] - sorted[base])
+      : sorted[base];
+  };
+
+  // Build HTML
+  let html = '';
+
+  // 1) Distribution
+  const asStr = nonNull.map(v => String(v));
+  const top5 = topN(asStr, 5);
+  html += `
+    <div class="mb-2">
+      <h6 class="mb-1">Data Distribution Overview</h6>
+      <table class="table table-sm mb-2">
+        <thead><tr><th>Value</th><th class="text-end">Share</th></tr></thead>
+        <tbody>
+          ${top5.map(([k, c]) => `<tr><td>${k}</td><td class="text-end">${percent(c, vals.length)}</td></tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  // 2) Quality metrics
+  const filled = nonNull.length;
+  const uniqueCount = new Set(asStr).size;
+  const avgLen = asStr.length ? (asStr.reduce((s,v)=>s+v.length,0)/asStr.length) : 0;
+  html += `
+    <div class="mb-2">
+      <h6 class="mb-1">Data Quality Metrics</h6>
+      <table class="table table-sm mb-2">
+        <tbody>
+          <tr><th class="text-muted">Filled percentage</th><td>${percent(filled, vals.length)}</td></tr>
+          <tr><th class="text-muted">Filled values</th><td>${filled.toLocaleString()}</td></tr>
+          <tr><th class="text-muted">Avg. Length</th><td>${fmt(avgLen, 2)}</td></tr>
+          <tr><th class="text-muted">Unique Items</th><td>${uniqueCount.toLocaleString()}</td></tr>
+          <tr><th class="text-muted">Uniqueness</th><td>${percent(uniqueCount, filled)}</td></tr>
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  // 3) Summary (type specific)
   if (isNumeric) {
     const nums = nonNull.map(Number).filter(v => !Number.isNaN(v)).sort((a,b)=>a-b);
-    const count = nums.length;
-    const mean  = count ? (nums.reduce((a,b)=>a+b,0) / count) : 0;
-    const std   = (count > 1) ? Math.sqrt(nums.reduce((s,v)=>s+Math.pow(v-mean,2),0) / (count-1)) : 0;
+    const n = nums.length;
+    const mean = n ? nums.reduce((a,b)=>a+b,0)/n : 0;
+    const std = (n>1) ? Math.sqrt(nums.reduce((s,v)=>s+(v-mean)**2,0)/(n-1)) : 0;
+    const zeros = nums.filter(v => v === 0).length;
+    const rsd = mean !== 0 ? (std/mean)*100 : 0;
 
-    html += row('count', count.toLocaleString());
-    html += row('mean',  fmt(mean));
-    html += row('std',   fmt(std));
-    html += row('min',   fmt(nums[0]));
-    html += row('25%',   fmt(quantile(nums, 0.25)));
-    html += row('50%',   fmt(quantile(nums, 0.50)));
-    html += row('75%',   fmt(quantile(nums, 0.75)));
-    html += row('max',   fmt(nums[nums.length-1]));
+    html += `
+      <div>
+        <h6 class="mb-1">Summary Statistics</h6>
+        <table class="table table-sm mb-0">
+          <tbody>
+            <tr><th class="text-muted">Mean</th><td>${fmt(mean)}</td></tr>
+            <tr><th class="text-muted">Min</th><td>${fmt(nums[0])}</td></tr>
+            <tr><th class="text-muted">Max</th><td>${fmt(nums[n-1])}</td></tr>
+            <tr><th class="text-muted">Std Dev</th><td>${fmt(std)}</td></tr>
+            <tr><th class="text-muted">Relative Std Dev</th><td>${fmt(rsd,1)}%</td></tr>
+            <tr><th class="text-muted">Zero Values</th><td>${zeros.toLocaleString()} (${percent(zeros, n)})</td></tr>
+            <tr><th class="text-muted">25%</th><td>${fmt(qtile(nums, 0.25))}</td></tr>
+            <tr><th class="text-muted">50% (Median)</th><td>${fmt(qtile(nums, 0.50))}</td></tr>
+            <tr><th class="text-muted">75%</th><td>${fmt(qtile(nums, 0.75))}</td></tr>
+          </tbody>
+        </table>
+      </div>
+    `;
   } else if (isDate) {
     const dates = nonNull.map(v => new Date(v)).filter(d => !isNaN(d)).sort((a,b)=>a-b);
-    const uniq  = new Set(dates.map(d => d.getTime()));
-    html += row('count',  dates.length.toLocaleString());
-    html += row('unique', uniq.size.toLocaleString());
-    html += row('min',    dates.length ? toISO(dates[0]) : '—');
-    html += row('max',    dates.length ? toISO(dates[dates.length-1]) : '—');
+    const uniq = new Set(dates.map(d => d.getTime()));
+    html += `
+      <div>
+        <h6 class="mb-1">Summary (Date)</h6>
+        <table class="table table-sm mb-0">
+          <tbody>
+            <tr><th class="text-muted">Count</th><td>${dates.length.toLocaleString()}</td></tr>
+            <tr><th class="text-muted">Unique</th><td>${uniq.size.toLocaleString()}</td></tr>
+            <tr><th class="text-muted">Min</th><td>${dates.length ? toISO(dates[0]) : '—'}</td></tr>
+            <tr><th class="text-muted">Max</th><td>${dates.length ? toISO(dates[dates.length-1]) : '—'}</td></tr>
+          </tbody>
+        </table>
+      </div>
+    `;
   } else {
-    const asStr = nonNull.map(v => String(v));
-    const count = asStr.length;
-    const uniqSet = new Map(); // value -> freq
-    asStr.forEach(v => uniqSet.set(v, (uniqSet.get(v) || 0) + 1));
-    let top = '—', freq = 0;
-    for (const [k,v] of uniqSet.entries()) {
-      if (v > freq) { top = k; freq = v; }
-    }
-    html += row('count',  count.toLocaleString());
-    html += row('unique', uniqSet.size.toLocaleString());
-    html += row('top',    top);
-    html += row('freq',   freq.toLocaleString());
+    // categorical / text
+    const counts = new Map();
+    asStr.forEach(v => counts.set(v, (counts.get(v)||0)+1));
+    let topVal = '—', topFreq = 0;
+    for (const [k,v] of counts.entries()) if (v > topFreq) { topVal = k; topFreq = v; }
+
+    html += `
+      <div>
+        <h6 class="mb-1">Summary (Categorical/Text)</h6>
+        <table class="table table-sm mb-0">
+          <tbody>
+            <tr><th class="text-muted">Count</th><td>${asStr.length.toLocaleString()}</td></tr>
+            <tr><th class="text-muted">Unique</th><td>${counts.size.toLocaleString()}</td></tr>
+            <tr><th class="text-muted">Top</th><td>${topVal}</td></tr>
+            <tr><th class="text-muted">Freq</th><td>${topFreq.toLocaleString()} (${percent(topFreq, asStr.length)})</td></tr>
+          </tbody>
+        </table>
+      </div>
+    `;
   }
 
-  html += '</tbody></table>';
   id('fieldStats').innerHTML = html;
-
-  function row(label, value) {
-    return `<tr><th scope="row" class="text-muted" style="width:40%">${label}</th><td>${value ?? '—'}</td></tr>`;
-  }
 }
 
 function fmt(x) {
