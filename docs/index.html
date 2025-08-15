@@ -97,13 +97,18 @@
 
 /* ===== Inspector panel styles START ===== */
 
-/* Data panel two-column layout */
-#dataLayout {
-  display: grid;
-  grid-template-columns: 1fr 320px;
-  gap: 1rem;
-  min-height: 300px;
-}
+        /* Data panel two-column layout */
+        #dataLayout {
+          display: grid;
+          /* Increase the width of the inspector column to allow more room for
+             the variable profiling blocks.  Previously the inspector column was
+             fixed at 320px which could cause cramped tables when many rows of
+             statistics are displayed.  Bump this up slightly so the right
+             panel is wider without significantly shrinking the data table. */
+          grid-template-columns: 1fr 360px;
+          gap: 1rem;
+          min-height: 300px;
+        }
 
 /* Right inspector panel */
 #inspector {
@@ -115,11 +120,10 @@
   display: flex;
   flex-direction: column;
   gap: .75rem;
-          max-height: 70vh; /* increased to allow more vertical space for inspector */
-  
-  
-      overflow-y: auto; /* enable vertical scrolling in inspector */
-  
+  /* Increase the inspector height so that the variable profile has room to breathe.
+     Allow vertical scrolling within the inspector when content overflows. */
+  max-height: 70vh;
+  overflow-y: auto;
 }
 
 /* Blocks inside inspector */
@@ -1159,9 +1163,19 @@ function showFieldStats(col) {
   const nonNull = vals.filter(v => v !== null && v !== undefined && v !== '');
 
   // Type detection
-  const isNumeric = numericCols.includes(col);
-  const isDate = (col === dateCol) || sampleValues(col, 30)
-    .some(v => !Number.isNaN(new Date(v)));
+      const isNumeric = numericCols.includes(col);
+      /* Determine if a column should be treated as a date.  The previous
+         implementation attempted to parse each sample value with the Date
+         constructor and checked `!Number.isNaN(new Date(v))`.  However,
+         `Number.isNaN()` only tests numeric values.  When passed an
+         `Invalid Date` object (which is not a number) it incorrectly
+         returns false, causing virtually any string to appear parseable.
+         This led to categorical fields like "standort" being misidentified
+         as dates and showing the wrong summary (e.g. min/max dates of
+         `—`).  To avoid this, only treat the detected date column as a
+         date.  All other fields will be handled as numeric or
+         categorical/text based on `numericCols` above. */
+      const isDate = (col === dateCol);
 
   // Helpers
   const fmt = (x, d=3) =>
@@ -1365,8 +1379,7 @@ function quantile(sortedNums, q) {
      * converted to a valid date and the year falls within an acceptable
      * window (2000–2050). If the value is invalid or out‑of‑range this
      * returns null. Using this helper prevents bogus dates such as 1970/2030
-         
-    
+     * from creeping into our date range calculations.
      * @param {any} v
      * @returns {Date|null}
      */
@@ -1381,8 +1394,7 @@ function quantile(sortedNums, q) {
        * when computing the filter bounds or date‑based summaries.  Restrict
        * the acceptable year window accordingly so that outliers are ignored.
        */
-          return (y >= 2019 && y <= 2025) ? d : null; /* accept years 2019-2025 inclusive */
-      
+      return (y >= 2019 && y <= 2024) ? d : null;
     }
 
     function appendOption(sel, value, label) {
