@@ -1105,8 +1105,13 @@ function updateInspectorSummary() {
   // If we don't have a detected date column, show a dash
   if (!dateCol) { id('sumDateRange').textContent = '—'; return; }
 
-  // Use FILTERED rows if any; otherwise fall back to ALL rows
-  const rowsForRange = (filtered && filtered.length) ? filtered : rawData;
+  // Use only the currently filtered rows when computing the date range.
+  // If the filtered set is empty (i.e. no rows fall within the selected
+  // interval) then we'll display a dash for the date range rather than
+  // reverting back to the full dataset.  Previously this fallback caused the
+  // summary to show the overall data span even when no rows matched the
+  // filter, leading to confusion.  Always rely on the `filtered` array.
+  const rowsForRange = (filtered && Array.isArray(filtered)) ? filtered : rawData;
 
   // Build sorted list of dates using the safe parser to exclude invalid or
   // out‑of‑range dates. Without this guard, artefacts like 1970/2030 would
