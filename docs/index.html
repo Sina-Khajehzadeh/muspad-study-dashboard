@@ -369,7 +369,7 @@
       let empCol  = null;
       let numericCols = [];
       let categoricalCols = [];
-      let inspectorSelectedField = null;
+      let inspectorSelectedField = null; // Track which column is currently selected in the inspector
     
       // ----------------------------
       // Boot
@@ -570,11 +570,15 @@
         const d = new Date(v);
         if (!isNaN(d)) {
           parsed++;
-          const y = d.getUTCFullYear();
-          if (y >= 1990 && y <= 2100) withinRange++;
+        const y = d.getUTCFullYear();
+        // Accept dates only inside a reasonable window (2000–2050).
+        // Otherwise things like 1970/2030 (Unix epoch defaults or parsing artefacts) will pollute our detection.
+        if (y >= 2000 && y <= 2050) withinRange++;
         }
       }
       const rate = vals.length ? parsed / vals.length : 0;
+      // Only count years that fall within our acceptable range (2000‑2050).
+      // This helps avoid spurious dates like 1970/2030 that appear when parsing invalid values.
       const rangeRate = vals.length ? withinRange / vals.length : 0;
       const valid = rate >= 0.7 && rangeRate >= 0.7;
       const confidence = (rate + rangeRate) / 2 + (/(date|time|timestamp)/i.test(col) ? 0.1 : 0);
@@ -654,10 +658,11 @@
 
       // Prepare date inputs 
     if (dateCol) {
+      // Build a sorted list of valid dates while ignoring out‑of‑range values.
       const dates = rawData
-      .map(r => new Date(r[dateCol]))
-      .filter(d => !isNaN(d))
-      .sort((a,b) => a-b);
+      .map(r => parseValidDate(r[dateCol]))
+      .filter(Boolean)
+      .sort((a,b) => a - b);
   
     if (dates.length) {
       const minISO = toISO(dates[0]);
@@ -714,8 +719,10 @@
       filtered = rawData.filter(r => {
         // date filter
         if (dateCol && (s || e)) {
-          const d = new Date(r[dateCol]);
-          if (isNaN(d)) return false;
+          // Parse the row's date using the safe helper. Invalid or out‑of‑range values
+          // are treated as missing and filtered out.
+          const d = parseValidDate(r[dateCol]);
+          if (!d) return false;
           if (s && d < s) return false;
           if (e && d > e) return false;
         }
@@ -733,9 +740,11 @@
       charts.forEach(drawChart);
      
   if (dateCol) {
+    // Determine the range of valid dates among the filtered rows. Invalid or
+    // out‑of‑range values are ignored via parseValidDate().
     const ds = filtered
-      .map(r => new Date(r[dateCol]))
-      .filter(d => !isNaN(d))
+      .map(r => parseValidDate(r[dateCol]))
+      .filter(Boolean)
       .sort((a,b) => a - b);
     if (ds.length) {
       id('startDate').value = toISO(ds[0]);
@@ -1098,9 +1107,12 @@ function updateInspectorSummary() {
   // Use FILTERED rows if any; otherwise fall back to ALL rows
   const rowsForRange = (filtered && filtered.length) ? filtered : rawData;
 
+  // Build sorted list of dates using the safe parser to exclude invalid or
+  // out‑of‑range dates. Without this guard, artefacts like 1970/2030 would
+  // incorrectly expand the reported range.
   const dates = rowsForRange
-    .map(r => new Date(r[dateCol]))
-    .filter(d => !isNaN(d))
+    .map(r => parseValidDate(r[dateCol]))
+    .filter(Boolean)
     .sort((a,b) => a - b);
 
   id('sumDateRange').textContent =
@@ -1200,6 +1212,9 @@ function showFieldStats(col) {
   const filled = nonNull.length;
   const uniqueCount = new Set(asStr).size;
   const avgLen = asStr.length ? (asStr.reduce((s,v)=>s+v.length,0)/asStr.length) : 0;
+  // For numeric columns the concept of "average string length" isn't meaningful,
+  // so display a dash instead of a number. Otherwise show the calculated length.
+  const avgLenDisplay = isNumeric ? '—' : fmt(avgLen, 2);
   html += `
     <div class="mb-2">
       <h6 class="mb-1">Data Quality Metrics</h6>
@@ -1207,7 +1222,7 @@ function showFieldStats(col) {
         <tbody>
           <tr><th class="text-muted">Filled percentage</th><td>${percent(filled, vals.length)}</td></tr>
           <tr><th class="text-muted">Filled values</th><td>${filled.toLocaleString()}</td></tr>
-          <tr><th class="text-muted">Avg. Length</th><td>${fmt(avgLen, 2)}</td></tr>
+          <tr><th class="text-muted">Avg. Length</th><td>${avgLenDisplay}</td></tr>
           <tr><th class="text-muted">Unique Items</th><td>${uniqueCount.toLocaleString()}</td></tr>
           <tr><th class="text-muted">Uniqueness</th><td>${percent(uniqueCount, filled)}</td></tr>
         </tbody>
@@ -1304,6 +1319,22 @@ function quantile(sortedNums, q) {
     const id = (s) => document.getElementById(s);
     const toISO = (d) => new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().split('T')[0];
     const uniqueNonEmpty = (arr) => Array.from(new Set(arr.map(v => v===null||v===undefined?'' : String(v)).filter(s => s !== ''))).sort();
+
+    /**
+     * Safely parse a date value. Returns a Date object if the input can be
+     * converted to a valid date and the year falls within an acceptable
+     * window (2000–2050). If the value is invalid or out‑of‑range this
+     * returns null. Using this helper prevents bogus dates such as 1970/2030
+     * from creeping into our date range calculations.
+     * @param {any} v
+     * @returns {Date|null}
+     */
+    function parseValidDate(v) {
+      const d = new Date(v);
+      if (Number.isNaN(d.getTime())) return null;
+      const y = d.getUTCFullYear();
+      return (y >= 2000 && y <= 2050) ? d : null;
+    }
 
     function appendOption(sel, value, label) {
       const o = document.createElement('option');
