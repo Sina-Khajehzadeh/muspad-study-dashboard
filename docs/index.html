@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -23,7 +22,7 @@
       --card-min: 400px;
     }
     * { box-sizing: border-box; }
-     { margin: 0; font-family: Arial, Helvetica, sans-serif; overflow: hidden; }
+    body { margin: 0; font-family: Arial, Helvetica, sans-serif; overflow: hidden; }
     #app { display: flex; height: 100vh; overflow: hidden; }
 
     /* Sidebar */
@@ -36,7 +35,6 @@
     }
     #sidebar button {
       width: 36px; height: 36px; border: 0; background: transparent; border-radius: 8px;
-      
       display: grid; place-items: center; font-size: 1.25rem; color: #333; cursor: pointer;
     }
     #sidebar button:hover { background: #e9ecef; color: #0d6efd; }
@@ -97,105 +95,92 @@
     #modal .grid { display: grid; gap: .75rem; }
     #modal .actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: .75rem; }
 
-/* ===== Inspector panel styles START ===== */
+    /* ===== Inspector panel styles START ===== */
+    #dataLayout {
+      display: grid;
+      grid-template-columns: 1fr 360px;
+      gap: 1rem;
+      min-height: 300px;
+    }
 
-        /* Data panel two-column layout */
-        #dataLayout {
-          display: grid;
-          /* Increase the width of the inspector column to allow more room for
-             the variable profiling blocks.  Previously the inspector column was
-             fixed at 320px which could cause cramped tables when many rows of
-             statistics are displayed.  Bump this up slightly so the right
-             panel is wider without significantly shrinking the data table. */
-          grid-template-columns: 1fr 360px;
-          gap: 1rem;
-          min-height: 300px;
-        }
+    /* Right inspector panel */
+    #inspector {
+      background: #fff;
+      border: 1px solid #e1e1e1;
+      border-radius: 8px;
+      padding: .75rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,.06);
+      display: flex;
+      flex-direction: column;
+      gap: .75rem;
+      max-height: 70vh;
+      overflow-y: auto;
+    }
 
-/* Right inspector panel */
-#inspector {
-  background: #fff;
-  border: 1px solid #e1e1e1;
-  border-radius: 8px;
-  padding: .75rem;
-  box-shadow: 0 2px 4px rgba(0,0,0,.06);
-  display: flex;
-  flex-direction: column;
-  gap: .75rem;
-  /* Increase the inspector height so that the variable profile has room to breathe.
-     Allow vertical scrolling within the inspector when content overflows. */
-  max-height: 70vh;
-  overflow-y: auto;
-}
+    /* Blocks inside inspector */
+    .inspector-block {
+      border: 1px solid #f0f0f0;
+      border-radius: 6px;
+      padding: .5rem .6rem;
+      background: #fafafa;
+    }
+    .inspector-title {
+      margin: 0 0 .5rem 0;
+      font-size: .95rem;
+      font-weight: 600;
+    }
 
-/* Blocks inside inspector */
-.inspector-block {
-  border: 1px solid #f0f0f0;
-  border-radius: 6px;
-  padding: .5rem .6rem;
-  background: #fafafa;
-}
-.inspector-title {
-  margin: 0 0 .5rem 0;
-  font-size: .95rem;
-  font-weight: 600;
-}
+    /* KPI grid */
+    .inspector-kpis {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0,1fr));
+      gap: .5rem;
+    }
+    .kpi { background:#fff; border:1px solid #eee; border-radius:6px; padding:.4rem .5rem; }
+    .kpi-wide { grid-column: 1 / -1; }
+    .kpi-label { font-size:.75rem; color:#6c757d; }
+    .kpi-value { font-weight:600; }
 
-/* KPI grid */
-.inspector-kpis {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0,1fr));
-  gap: .5rem;
-}
-.kpi { background:#fff; border:1px solid #eee; border-radius:6px; padding:.4rem .5rem; }
-.kpi-wide { grid-column: 1 / -1; }
-.kpi-label { font-size:.75rem; color:#6c757d; }
-.kpi-value { font-weight:600; }
+    /* Column list (scrollable) */
+    .inspector-list {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: .35rem;
+      max-height: 22vh;
+      overflow: auto;
+    }
+    .inspector-list button {
+      width: 100%;
+      text-align: left;
+      padding: .35rem .5rem;
+      border: 1px solid #e1e1e1;
+      background: #fff;
+      border-radius: 6px;
+      font-size: .9rem;
+      cursor: pointer;
+    }
+    .inspector-list button:hover { background:#f5f8ff; border-color:#cfe2ff; }
+    .inspector-list button.active { background:#e7f1ff; border-color:#9ec5fe; }
 
-/* Column list (scrollable) */
-.inspector-list {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: .35rem;
-  max-height: 22vh;
-  overflow: auto;
-}
-.inspector-list button {
-  width: 100%;
-  text-align: left;
-  padding: .35rem .5rem;
-  border: 1px solid #e1e1e1;
-  background: #fff;
-  border-radius: 6px;
-  font-size: .9rem;
-  cursor: pointer;
-}
-.inspector-list button:hover { background:#f5f8ff; border-color:#cfe2ff; }
-.inspector-list button.active { background:#e7f1ff; border-color:#9ec5fe; }
+    /* Field stats area */
+    #fieldStats {
+      max-height: auto;
+      overflow: auto;
+      background:#fff;
+      border:1px solid #eee;
+      border-radius:6px;
+      padding:.5rem;
+    }
 
-/* Field stats area (scrollable if long) */
-#fieldStats {
-  max-height: auto;
-  overflow: auto;
-  background:#fff;
-  border:1px solid #eee;
-  border-radius:6px;
-  padding:.5rem;
-}
-
-/* Responsive: stack on small screens */
-@media (max-width: 900px) {
-  #dataLayout {
-    grid-template-columns: 1fr;
-  }
-  #inspector {
-    max-height: none;
-  }
-}
-/* ===== Inspector panel styles END ===== */
-</style>
+    /* Responsive */
+    @media (max-width: 900px) {
+      #dataLayout { grid-template-columns: 1fr; }
+      #inspector { max-height: none; }
+    }
+    /* ===== Inspector panel styles END ===== */
+  </style>
 </head>
-<>
+<body>
   <div id="app">
     <!-- Sidebar -->
     <aside id="sidebar" aria-label="Toolbar">
@@ -211,38 +196,34 @@
         <h1 id="title">MUSPAD Dynamic Dashboard</h1>
         <span id="loadedBadge" aria-live="polite"></span>
         <div class="header-spacer"></div>
-        <!-- Date range inputs are hidden (maintain for filtering logic but not visible) -->
+
+        <!-- Date range (kept hidden) -->
         <div class="date-range" style="display:none">
           <input type="date" id="startDate" aria-label="Start date">
           <input type="date" id="endDate" aria-label="End date">
         </div>
-      
-        <!-- Add this button -->
+
         <button id="btnDownloadFiltered" type="button" class="btn btn-sm btn-outline-primary">
           Download filtered CSV
         </button>
       </header>
 
-
       <!-- Filters -->
       <section id="panelFilters" class="panel" aria-label="Filters">
         <h5 class="mb-3">Filters</h5>
-        <!-- Dynamic filter container: populated based on dataset columns -->
         <div id="filter-container"></div>
       </section>
 
       <!-- Data table -->
       <section id="panelData" class="panel" aria-label="Data preview">
         <h5 class="mb-2">Data Preview</h5>
-      
-        <!-- Two-column layout: table left, inspector right -->
+
         <div id="dataLayout">
           <!-- LEFT: data table -->
           <div class="table-responsive" id="tableWrap"></div>
-      
+
           <!-- RIGHT: inspector -->
           <aside id="inspector" aria-label="Variable Inspector & Dataset Summary">
-            <!-- Top: dataset summary -->
             <div id="inspectorSummary" class="inspector-block">
               <h6 class="inspector-title">Dataset summary</h6>
               <div class="inspector-kpis">
@@ -252,16 +233,12 @@
                 <div class="kpi kpi-wide"><div class="kpi-label">Date range</div><div class="kpi-value" id="sumDateRange">—</div></div>
               </div>
             </div>
-      
-            <!-- Columns list -->
+
             <div id="inspectorCols" class="inspector-block">
               <h6 class="inspector-title">Columns</h6>
-              <div id="inspectorList" class="inspector-list">
-                <!-- populated by JS: one <button> per column -->
-              </div>
+              <div id="inspectorList" class="inspector-list"></div>
             </div>
-      
-            <!-- Field details -->
+
             <div id="inspectorDetails" class="inspector-block">
               <h6 class="inspector-title"><span id="fieldName">Select a column</span></h6>
               <div id="fieldStats">Choose a column from the list to see statistics.</div>
@@ -269,7 +246,6 @@
           </aside>
         </div>
       </section>
-
 
       <!-- Settings -->
       <section id="panelSettings" class="panel" aria-label="Settings">
@@ -286,8 +262,8 @@
   <div id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
     <div class="sheet">
       <h5 id="modalTitle" class="mb-3">Create chart</h5>
-  
-      <!-- BASIC FIELDS (always shown) -->
+
+      <!-- BASIC FIELDS -->
       <div class="grid">
         <div>
           <label class="form-label">Chart type</label>
@@ -306,27 +282,27 @@
             <option value="datatable">Data Table</option>
           </select>
         </div>
-  
+
         <div>
           <label class="form-label">X / Row / Category</label>
           <select id="fldX" class="form-select"></select>
         </div>
-  
+
         <div data-role="needsNumeric">
           <label class="form-label">Y / Value (numeric)</label>
           <select id="fldY" class="form-select"></select>
         </div>
-  
+
         <div data-role="needsSecondCat">
           <label class="form-label">Column (2nd category) — for Heatmap / Pivot</label>
           <select id="fldYCat" class="form-select"></select>
         </div>
-  
+
         <div data-role="needsColor">
           <label class="form-label">Color / Group (optional)</label>
           <select id="fldColor" class="form-select"></select>
         </div>
-  
+
         <div data-role="needsAgg">
           <label class="form-label">Aggregation</label>
           <select id="fldAgg" class="form-select">
@@ -335,18 +311,17 @@
             <option value="mean">Mean</option>
           </select>
         </div>
-  
-        <!-- Combo / special fields -->
+
         <div data-role="needsY2">
           <label class="form-label">Y2 (numeric) — for Bar+Line</label>
           <select id="fldY2" class="form-select"></select>
         </div>
-  
+
         <div data-role="needsSize">
           <label class="form-label">Size (numeric) — for Bubble</label>
           <select id="fldSize" class="form-select"></select>
         </div>
-  
+
         <div data-role="comboToggles">
           <div class="form-check">
             <input class="form-check-input" type="checkbox" id="chkDualAxis">
@@ -358,1283 +333,1144 @@
           </div>
         </div>
       </div>
-  
+
       <div class="actions">
         <button id="btnCancel" class="btn btn-outline-secondary">Cancel</button>
         <button id="btnCreate" class="btn btn-primary">Create</button>
       </div>
     </div>
   </div>
+
+  <!-- ==================== Main App Script ==================== -->
   <script>
+  // ----------------------------
+  // Global state
+  // ----------------------------
+  let rawData = [];
+  let filtered = [];
+  let columns = [];
+  let charts = [];
+  let dateCol = null;
+  let ageCol  = null;
+  let empCol  = null;
+  let numericCols = [];
+  let categoricalCols = [];
+  let inspectorSelectedField = null;
 
-      // ----------------------------
-      // Global state
-      // ----------------------------
-      let rawData = [];
-      let filtered = [];
-      let columns = [];
-      let charts = [];
-      let dateCol = null;
-      let ageCol  = null;
-      let empCol  = null;
-      let numericCols = [];
-      let categoricalCols = [];
-      let inspectorSelectedField = null; // Track which column is currently selected in the inspector
-    
-      // ----------------------------
-      // Boot
-      // ----------------------------
-      document.addEventListener('DOMContentLoaded', () => {
-        wireUI();
-        loadCSV();
-      });
-    
-      function wireUI() {
-        // Sidebar toggles
-        id('btnFilters').addEventListener('click', () => toggle('panelFilters'));
-        id('btnData').addEventListener('click', () => toggle('panelData'));
-        id('btnSettings').addEventListener('click', () => toggle('panelSettings'));
-        id('btnAdd').addEventListener('click', () => {
-          updateBuilderVisibility();   // ensure correct fields show when opening
-          openModal();
-        });
-    
-        // Date change
-        id('startDate').addEventListener('change', applyFilters);
-        id('endDate').addEventListener('change', applyFilters);
+  // ----------------------------
+  // Boot
+  // ----------------------------
+  document.addEventListener('DOMContentLoaded', () => {
+    wireUI();
+    loadCSV();
+  });
 
+  function wireUI() {
+    // Sidebar toggles
+    id('btnFilters').addEventListener('click', () => toggle('panelFilters'));
+    id('btnData').addEventListener('click', () => toggle('panelData'));
+    id('btnSettings').addEventListener('click', () => toggle('panelSettings'));
+    id('btnAdd').addEventListener('click', () => {
+      updateBuilderVisibility();
+      openModal();
+    });
 
-    
-        // Modal controls
-        id('btnCancel').addEventListener('click', closeModal);
-        id('btnCreate').addEventListener('click', () => {
-          // build config with all optional fields
-          const cfg = {
-            type:    id('fldType').value,
-            x:       id('fldX').value || null,
-            y:       id('fldY').value || null,
-            y2:      id('fldY2').value || null,
-            yCat:    id('fldYCat').value || null,
-            color:   id('fldColor').value || null,
-            size:    id('fldSize').value || null,
-            agg:     id('fldAgg').value || 'count',
-            dualAxis:    id('chkDualAxis').checked,
-            histOverlay:id('chkHistOverlay').checked
-          };
-          addChart(cfg);    // actually create the chart
-          closeModal();
-        });
-    
-        // Close modal by clicking on the backdrop
-        id('modal').addEventListener('click', (e) => {
-          if (e.target === id('modal')) closeModal();
-        });
-    
-        // Update builder visibility when chart type changes
-        if (id('fldType')) {
-          id('fldType').addEventListener('change', updateBuilderVisibility);
-          updateBuilderVisibility();
-        }
-  
-      // Download filtered CSV
-      id('btnDownloadFiltered').addEventListener('click', () => {
-        if (!filtered.length) {
-          alert('No rows in the current filter.');
-          return;
-        }
-      downloadCSV('filtered_data.csv', columns, filtered.map(r => columns.map(c => r[c])));
-    }); 
-      }
+    // Date change
+    id('startDate').addEventListener('change', applyFilters);
+    id('endDate').addEventListener('change', applyFilters);
 
-    
-      // ----------------------------
-      // Builder field visibility
-      // ----------------------------
-      function updateBuilderVisibility() {
-        const type = id('fldType').value;
-        const show = (selector, on) => {
-          document.querySelectorAll(selector).forEach(el => {
-            el.style.display = on ? '' : 'none';
-          });
-        };
-        // Which fields should be visible per chart type
-        show('[data-role="needsNumeric"]', !['pie','heatmap','pivot','datatable','funnel'].includes(type));
-        show('[data-role="needsAgg"]', !['scatter','bubble','box','datatable','pivot'].includes(type));
-        show('[data-role="needsColor"]', ['bar','line','scatter','bubble','box','barline'].includes(type));
-        show('[data-role="needsSecondCat"]', ['heatmap','pivot'].includes(type));
-        show('[data-role="needsY2"]', type === 'barline');
-        show('[data-role="needsSize"]', type === 'bubble');
-        show('[data-role="comboToggles"]', ['barline','line','box'].includes(type));
-        show('[data-role="histToggle"]', ['line','box'].includes(type));
-      }
-
-
-    // ----------------------------
-    // Data loading (with fallbacks)
-    // ----------------------------
-    function loadCSV() {
-      const urls = [
-        // 1) Relative to GitHub Pages root (docs/ is the site root)
-        'data/df3_full_for_pivot.csv',
-        // 2) Explicit Pages URL
-        'https://sina-khajehzadeh.github.io/muspad-study-dashboard/data/df3_full_for_pivot.csv',
-        // 3) Raw GitHub
-        'https://raw.githubusercontent.com/Sina-Khajehzadeh/muspad-study-dashboard/main/docs/data/df3_full_for_pivot.csv',
-        // 4) jsDelivr (may cache; keep as last resort)
-        'https://cdn.jsdelivr.net/gh/Sina-Khajehzadeh/muspad-study-dashboard/docs/data/df3_full_for_pivot.csv'
-      ];
-
-      let idx = 0;
-      const tryNext = () => {
-        if (idx >= urls.length) {
-          alert('Failed to load CSV from all sources.');
-          return;
-        }
-        const url = urls[idx++];
-        console.log('Loading data from', url);
-        Papa.parse(url, {
-          download: true,
-          header: true,
-          skipEmptyLines: true,
-          dynamicTyping: true,
-          worker: false,
-          delimiter: "", // auto-detect
-          transformHeader: (h) => (h || '').replace(/^\uFEFF/, '').trim(),
-          complete: (res) => {
-            if (!res || !Array.isArray(res.data) || res.data.length === 0) {
-              console.warn('Parsed but empty. Trying next source…');
-              tryNext();
-              return;
-            }
-            rawData = res.data;
-            columns = (res.meta && res.meta.fields && res.meta.fields.length)
-              ? res.meta.fields
-              : Object.keys(rawData[0] || {});
-            id('loadedBadge').textContent = `Loaded ${rawData.length.toLocaleString()} rows • ${columns.length} columns`;
-
-            detectColumns();
-            populateFilters();
-            populateBuilderSelects();
-            
-            // Inspector: build list + summary once we know columns
-            rebuildInspectorColumnList();
-            updateInspectorSummary();
-            
-            // Start with data visible & some starter charts
-            show('panelData', true);
-            applyFilters();
-            autoStarterCharts();
-
-          },
-          error: (err) => {
-            console.error('Papa error:', err);
-            tryNext();
-          }
-        });
+    // Modal controls
+    id('btnCancel').addEventListener('click', closeModal);
+    id('btnCreate').addEventListener('click', () => {
+      const cfg = {
+        type:    id('fldType').value,
+        x:       id('fldX').value || null,
+        y:       id('fldY').value || null,
+        y2:      id('fldY2').value || null,
+        yCat:    id('fldYCat').value || null,
+        color:   id('fldColor').value || null,
+        size:    id('fldSize').value || null,
+        agg:     id('fldAgg').value || 'count',
+        dualAxis:    id('chkDualAxis').checked,
+        histOverlay:id('chkHistOverlay').checked
       };
-      tryNext();
-    }
+      addChart(cfg);
+      closeModal();
+    });
 
-    // ----------------------------
-    // Column detection (date/age/employment)
-    // ----------------------------
-    function detectColumns() {
-      // 1) Date column: prefer names that hint date/time and pass parse checks
-      const nameHint = /(date|time|_dt|_time|timestamp)/i;
-      const candidates = columns.filter(c => nameHint.test(c));
-      const ranked = (candidates.length ? candidates : columns).map(c => {
-        const score = scoreDateColumn(c);
-        return { col: c, ...score };
-      }).filter(s => s.valid);
+    // Close builder by clicking backdrop
+    id('modal').addEventListener('click', (e) => {
+      if (e.target === id('modal')) closeModal();
+    });
 
-      ranked.sort((a,b) => b.confidence - a.confidence);
-      dateCol = ranked.length ? ranked[0].col : null;
-
-      // 2) Age group columns (list includes dataset-specific names)
-      const ageCandidates = [
-        'age_group','ageGroup','Age_Group',
-        'age_group_22_1','age_group_22_2','age_group_23_1','age_group_23_2'
-      ];
-      ageCol = ageCandidates.find(c => columns.includes(c)) || null;
-
-      // 3) Employment type columns (extended list, includes "langfragen" variant)
-      const empCandidates = [
-        'employment_type','employmentType','Employment_Type',
-        'X20_21_kurzfragen_employment_type_clean','employment_type_clean',
-        'X20_21_langfragen_employment_type_clean'
-      ];
-      empCol = empCandidates.find(c => columns.includes(c)) || null;
-
-      // 4) Determine numeric and categorical columns for filtering and charting
-      // numericCols: columns where the majority of sampled values are numbers
-      // categoricalCols: columns with distinct values between 2 and 50 and not mostly numeric
-      numericCols = columns.filter(c => looksNumericColumn(c));
-      categoricalCols = columns.filter(c => looksCategoricalColumn(c));
-    }
-
-    // Heuristic to validate date-like column
-    function scoreDateColumn(col) {
-      const vals = sampleValues(col, 300);
-      let parsed = 0, withinRange = 0;
-      for (const v of vals) {
-        const d = new Date(v);
-        if (!isNaN(d)) {
-          parsed++;
-        const y = d.getUTCFullYear();
-        // Accept dates only inside the true study window (2019–2024).  Reject
-        // out‑of‑range years (e.g. 1970, 2015, 2030) so that the date column
-        // scorer isn’t skewed by bogus values.
-        if (y >= 2019 && y <= 2024) withinRange++;
-        }
-      }
-      const rate = vals.length ? parsed / vals.length : 0;
-      // Only count years that fall within our acceptable range (2000‑2050).
-      // This helps avoid spurious dates like 1970/2030 that appear when parsing invalid values.
-      const rangeRate = vals.length ? withinRange / vals.length : 0;
-      const valid = rate >= 0.7 && rangeRate >= 0.7;
-      const confidence = (rate + rangeRate) / 2 + (/(date|time|timestamp)/i.test(col) ? 0.1 : 0);
-      return { valid, confidence };
-    }
-
-    function sampleValues(col, n=200) {
-      const arr = [];
-      const step = Math.max(1, Math.floor(rawData.length / n));
-      for (let i=0; i<rawData.length; i+=step) {
-        const v = rawData[i]?.[col];
-        if (v !== undefined && v !== null && v !== '') arr.push(v);
-        if (arr.length >= n) break;
-      }
-      return arr;
-    }
-
-    // ----------------------------
-    // Populate filters & builder
-    // ----------------------------
-    function populateFilters() {
-      const container = id('filter-container');
-      container.innerHTML = '';
-
-      // Create one filter select for each categorical column with a reasonable number of unique values
-      categoricalCols.forEach(col => {
-        const values = uniqueNonEmpty(rawData.map(r => r[col]));
-        // Skip columns with too many distinct values (e.g. >50) to avoid huge selects
-        if (values.length > 50) return;
-        const wrapper = document.createElement('div');
-        wrapper.className = 'mb-3';
-        const label = document.createElement('label');
-        label.className = 'form-label';
-        label.textContent = col;
-        wrapper.appendChild(label);
-        const row = document.createElement('div');
-        row.className = 'filter-row';
-        const select = document.createElement('select');
-        select.className = 'form-select';
-        select.multiple = true;
-        select.size = Math.min(values.length, 6);
-        select.dataset.col = col;
-        // Populate options
-        values.forEach(v => {
-          const opt = document.createElement('option');
-          opt.value = v;
-          opt.textContent = v;
-          opt.selected = true;
-          select.appendChild(opt);
-        });
-        // Actions: select all / clear
-        const actions = document.createElement('div');
-        actions.className = 'filter-actions';
-        const btnSel = document.createElement('button');
-        btnSel.className = 'btn btn-outline-secondary btn-sm';
-        btnSel.textContent = 'Select all';
-        btnSel.addEventListener('click', () => {
-          for (const o of select.options) o.selected = true;
-          select.dispatchEvent(new Event('change'));
-        });
-        const btnClr = document.createElement('button');
-        btnClr.className = 'btn btn-outline-secondary btn-sm';
-        btnClr.textContent = 'Clear';
-        btnClr.addEventListener('click', () => {
-          for (const o of select.options) o.selected = false;
-          select.dispatchEvent(new Event('change'));
-        });
-        actions.appendChild(btnSel);
-        actions.appendChild(btnClr);
-        row.appendChild(select);
-        row.appendChild(actions);
-        wrapper.appendChild(row);
-        container.appendChild(wrapper);
-        // event to apply filters
-        select.addEventListener('change', applyFilters);
-      });
-
-      // Prepare date inputs 
-    if (dateCol) {
-      // Build a sorted list of valid dates while ignoring out‑of‑range values.
-      const dates = rawData
-      .map(r => parseValidDate(r[dateCol]))
-      .filter(Boolean)
-      .sort((a,b) => a - b);
-  
-    if (dates.length) {
-      const minISO = toISO(dates[0]);
-      const maxISO = toISO(dates[dates.length-1]);
-  
-      id('startDate').min = minISO;
-      id('startDate').max = maxISO;
-      id('endDate').min   = minISO;
-      id('endDate').max   = maxISO;
-      id('startDate').dataset.col = dateCol;
-      id('endDate').dataset.col   = dateCol;
-  
-      // 👇 NEW: prefill the inputs to the data range
-      id('startDate').value = minISO;   // earliest date in data
-      id('endDate').value   = maxISO;   // latest date in data
-    }
-  }
-    }
-
-    function populateBuilderSelects() {
-      const xSel = id('fldX'), ySel = id('fldY'), cSel = id('fldColor');
-      const y2Sel = id('fldY2'), yCatSel = id('fldYCat'), sizeSel = id('fldSize');
-    
-      [xSel, ySel, cSel, y2Sel, yCatSel, sizeSel].forEach(s => s.innerHTML = '');
-    
-      // Prefer to list categorical columns first for X / YCat, and numeric first for Y/Y2/Size.
-      const cats = categoricalCols.length ? categoricalCols : columns;
-      const nums = numericCols.length ? numericCols : columns;
-    
-      cats.forEach(c => { appendOption(xSel, c); appendOption(yCatSel, c); appendOption(cSel, c); });
-      nums.forEach(c => { appendOption(ySel, c); appendOption(y2Sel, c); appendOption(sizeSel, c); });
-    
+    // Update builder visibility when chart type changes
+    if (id('fldType')) {
+      id('fldType').addEventListener('change', updateBuilderVisibility);
       updateBuilderVisibility();
     }
 
-
-    // ----------------------------
-    // Filtering + table
-    // ----------------------------
-    function applyFilters() {
-      const s = id('startDate').value ? new Date(id('startDate').value) : null;
-      const e = id('endDate').value ? new Date(id('endDate').value) : null;
-
-      // Build a map of selected values for each categorical filter
-      const filterContainer = id('filter-container');
-      const filterSelects = filterContainer.querySelectorAll('select[data-col]');
-      const filterMap = {};
-      filterSelects.forEach(sel => {
-        const col = sel.dataset.col;
-        const selected = Array.from(sel.selectedOptions).map(o => String(o.value));
-        filterMap[col] = selected;
-      });
-
-      filtered = rawData.filter(r => {
-        // date filter
-        if (dateCol && (s || e)) {
-          // Parse the row's date using the safe helper. Invalid or out‑of‑range values
-          // are treated as missing and filtered out.
-          const d = parseValidDate(r[dateCol]);
-          if (!d) return false;
-          if (s && d < s) return false;
-          if (e && d > e) return false;
-        }
-        // categorical filters
-        for (const col in filterMap) {
-          const selected = filterMap[col];
-          if (selected && selected.length) {
-            if (!selected.includes(String(r[col]))) return false;
-          }
-        }
-        return true;
-      });
-
-      updateTable();
-      charts.forEach(drawChart);
-     
-  // Note: we no longer override the start/end date inputs after filtering.  The
-  // user’s selected range should persist.  Previously this block reset
-  // `startDate.value` and `endDate.value` to the min/max of the filtered rows,
-  // which confused users when they chose a date outside the current data span.
-  // The dataset summary still reflects the filtered span via updateInspectorSummary().
- 
-      // Inspector: recompute summary + current field stats (on filtered)
-      updateInspectorSummary();
-      if (inspectorSelectedField) {
-        showFieldStats(inspectorSelectedField);
-      }    
-    }
-
-    function updateTable() {
-      const wrap = id('tableWrap');
-      wrap.innerHTML = '';
+    // Download filtered CSV
+    id('btnDownloadFiltered').addEventListener('click', () => {
       if (!filtered.length) {
-        wrap.innerHTML = '<div class="text-muted">No data to display</div>';
+        alert('No rows in the current filter.');
         return;
       }
+      downloadCSV('filtered_data.csv', columns, filtered.map(r => columns.map(c => r[c])));
+    });
+  }
+
+  // ----------------------------
+  // Builder field visibility
+  // ----------------------------
+  function updateBuilderVisibility() {
+    const type = id('fldType').value;
+    const show = (selector, on) => {
+      document.querySelectorAll(selector).forEach(el => {
+        el.style.display = on ? '' : 'none';
+      });
+    };
+    show('[data-role="needsNumeric"]', !['pie','heatmap','pivot','datatable','funnel'].includes(type));
+    show('[data-role="needsAgg"]', !['scatter','bubble','box','datatable','pivot'].includes(type));
+    show('[data-role="needsColor"]', ['bar','line','scatter','bubble','box','barline'].includes(type));
+    show('[data-role="needsSecondCat"]', ['heatmap','pivot'].includes(type));
+    show('[data-role="needsY2"]', type === 'barline');
+    show('[data-role="needsSize"]', type === 'bubble');
+    show('[data-role="comboToggles"]', ['barline','line','box'].includes(type));
+    show('[data-role="histToggle"]', ['line','box'].includes(type));
+  }
+
+  // ----------------------------
+  // Data loading (with fallbacks)
+  // ----------------------------
+  function loadCSV() {
+    const urls = [
+      'data/df3_full_for_pivot.csv',
+      'https://sina-khajehzadeh.github.io/muspad-study-dashboard/data/df3_full_for_pivot.csv',
+      'https://raw.githubusercontent.com/Sina-Khajehzadeh/muspad-study-dashboard/main/docs/data/df3_full_for_pivot.csv',
+      'https://cdn.jsdelivr.net/gh/Sina-Khajehzadeh/muspad-study-dashboard/docs/data/df3_full_for_pivot.csv'
+    ];
+
+    let idx = 0;
+    const tryNext = () => {
+      if (idx >= urls.length) {
+        alert('Failed to load CSV from all sources.');
+        return;
+      }
+      const url = urls[idx++];
+      console.log('Loading data from', url);
+      Papa.parse(url, {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        dynamicTyping: true,
+        worker: false,
+        delimiter: "",
+        transformHeader: (h) => (h || '').replace(/^\uFEFF/, '').trim(),
+        complete: (res) => {
+          if (!res || !Array.isArray(res.data) || res.data.length === 0) {
+            console.warn('Parsed but empty. Trying next source…');
+            tryNext();
+            return;
+          }
+          rawData = res.data;
+          columns = (res.meta && res.meta.fields && res.meta.fields.length)
+            ? res.meta.fields
+            : Object.keys(rawData[0] || {});
+          id('loadedBadge').textContent = `Loaded ${rawData.length.toLocaleString()} rows • ${columns.length} columns`;
+
+          detectColumns();
+          populateFilters();
+          populateBuilderSelects();
+
+          rebuildInspectorColumnList();
+          updateInspectorSummary();
+
+          show('panelData', true);
+          applyFilters();
+          autoStarterCharts();
+        },
+        error: (err) => {
+          console.error('Papa error:', err);
+          tryNext();
+        }
+      });
+    };
+    tryNext();
+  }
+
+  // ----------------------------
+  // Column detection
+  // ----------------------------
+  function detectColumns() {
+    const nameHint = /(date|time|_dt|_time|timestamp)/i;
+    const candidates = columns.filter(c => nameHint.test(c));
+    const ranked = (candidates.length ? candidates : columns).map(c => {
+      const score = scoreDateColumn(c);
+      return { col: c, ...score };
+    }).filter(s => s.valid);
+
+    ranked.sort((a,b) => b.confidence - a.confidence);
+    dateCol = ranked.length ? ranked[0].col : null;
+
+    const ageCandidates = [
+      'age_group','ageGroup','Age_Group',
+      'age_group_22_1','age_group_22_2','age_group_23_1','age_group_23_2'
+    ];
+    ageCol = ageCandidates.find(c => columns.includes(c)) || null;
+
+    const empCandidates = [
+      'employment_type','employmentType','Employment_Type',
+      'X20_21_kurzfragen_employment_type_clean','employment_type_clean',
+      'X20_21_langfragen_employment_type_clean'
+    ];
+    empCol = empCandidates.find(c => columns.includes(c)) || null;
+
+    numericCols = columns.filter(c => looksNumericColumn(c));
+    categoricalCols = columns.filter(c => looksCategoricalColumn(c));
+  }
+
+  function scoreDateColumn(col) {
+    const vals = sampleValues(col, 300);
+    let parsed = 0, withinRange = 0;
+    for (const v of vals) {
+      const d = new Date(v);
+      if (!isNaN(d)) {
+        parsed++;
+        const y = d.getUTCFullYear();
+        if (y >= 2019 && y <= 2024) withinRange++;
+      }
+    }
+    const rate = vals.length ? parsed / vals.length : 0;
+    const rangeRate = vals.length ? withinRange / vals.length : 0;
+    const valid = rate >= 0.7 && rangeRate >= 0.7;
+    const confidence = (rate + rangeRate) / 2 + (/(date|time|timestamp)/i.test(col) ? 0.1 : 0);
+    return { valid, confidence };
+  }
+
+  function sampleValues(col, n=200) {
+    const arr = [];
+    const step = Math.max(1, Math.floor(rawData.length / n));
+    for (let i=0; i<rawData.length; i+=step) {
+      const v = rawData[i]?.[col];
+      if (v !== undefined && v !== null && v !== '') arr.push(v);
+      if (arr.length >= n) break;
+    }
+    return arr;
+  }
+
+  // ----------------------------
+  // Populate filters & builder
+  // ----------------------------
+  function populateFilters() {
+    const container = id('filter-container');
+    container.innerHTML = '';
+
+    categoricalCols.forEach(col => {
+      const values = uniqueNonEmpty(rawData.map(r => r[col]));
+      if (values.length > 50) return;
+      const wrapper = document.createElement('div');
+      wrapper.className = 'mb-3';
+      const label = document.createElement('label');
+      label.className = 'form-label';
+      label.textContent = col;
+      wrapper.appendChild(label);
+      const row = document.createElement('div');
+      row.className = 'filter-row';
+      const select = document.createElement('select');
+      select.className = 'form-select';
+      select.multiple = true;
+      select.size = Math.min(values.length, 6);
+      select.dataset.col = col;
+      values.forEach(v => {
+        const opt = document.createElement('option');
+        opt.value = v;
+        opt.textContent = v;
+        opt.selected = true;
+        select.appendChild(opt);
+      });
+      const actions = document.createElement('div');
+      actions.className = 'filter-actions';
+      const btnSel = document.createElement('button');
+      btnSel.className = 'btn btn-outline-secondary btn-sm';
+      btnSel.textContent = 'Select all';
+      btnSel.addEventListener('click', () => {
+        for (const o of select.options) o.selected = true;
+        select.dispatchEvent(new Event('change'));
+      });
+      const btnClr = document.createElement('button');
+      btnClr.className = 'btn btn-outline-secondary btn-sm';
+      btnClr.textContent = 'Clear';
+      btnClr.addEventListener('click', () => {
+        for (const o of select.options) o.selected = false;
+        select.dispatchEvent(new Event('change'));
+      });
+      actions.appendChild(btnSel);
+      actions.appendChild(btnClr);
+      row.appendChild(select);
+      row.appendChild(actions);
+      wrapper.appendChild(row);
+      container.appendChild(wrapper);
+      select.addEventListener('change', applyFilters);
+    });
+
+    if (dateCol) {
+      const dates = rawData
+        .map(r => parseValidDate(r[dateCol]))
+        .filter(Boolean)
+        .sort((a,b) => a - b);
+
+      if (dates.length) {
+        const minISO = toISO(dates[0]);
+        const maxISO = toISO(dates[dates.length-1]);
+        id('startDate').min = minISO;
+        id('startDate').max = maxISO;
+        id('endDate').min   = minISO;
+        id('endDate').max   = maxISO;
+        id('startDate').dataset.col = dateCol;
+        id('endDate').dataset.col   = dateCol;
+        id('startDate').value = minISO;
+        id('endDate').value   = maxISO;
+      }
+    }
+  }
+
+  function populateBuilderSelects() {
+    const xSel = id('fldX'), ySel = id('fldY'), cSel = id('fldColor');
+    const y2Sel = id('fldY2'), yCatSel = id('fldYCat'), sizeSel = id('fldSize');
+
+    [xSel, ySel, cSel, y2Sel, yCatSel, sizeSel].forEach(s => s.innerHTML = '');
+
+    const cats = categoricalCols.length ? categoricalCols : columns;
+    const nums = numericCols.length ? numericCols : columns;
+
+    cats.forEach(c => { appendOption(xSel, c); appendOption(yCatSel, c); appendOption(cSel, c); });
+    nums.forEach(c => { appendOption(ySel, c); appendOption(y2Sel, c); appendOption(sizeSel, c); });
+
+    updateBuilderVisibility();
+  }
+
+  // ----------------------------
+  // Filtering + table
+  // ----------------------------
+  function applyFilters() {
+    const s = id('startDate').value ? new Date(id('startDate').value) : null;
+    const e = id('endDate').value ? new Date(id('endDate').value) : null;
+
+    const filterContainer = id('filter-container');
+    const filterSelects = filterContainer.querySelectorAll('select[data-col]');
+    const filterMap = {};
+    filterSelects.forEach(sel => {
+      const col = sel.dataset.col;
+      const selected = Array.from(sel.selectedOptions).map(o => String(o.value));
+      filterMap[col] = selected;
+    });
+
+    filtered = rawData.filter(r => {
+      if (dateCol && (s || e)) {
+        const d = parseValidDate(r[dateCol]);
+        if (!d) return false;
+        if (s && d < s) return false;
+        if (e && d > e) return false;
+      }
+      for (const col in filterMap) {
+        const selected = filterMap[col];
+        if (selected && selected.length) {
+          if (!selected.includes(String(r[col]))) return false;
+        }
+      }
+      return true;
+    });
+
+    updateTable();
+    charts.forEach(drawChart);
+
+    updateInspectorSummary();
+    if (inspectorSelectedField) {
+      showFieldStats(inspectorSelectedField);
+    }
+  }
+
+  function updateTable() {
+    const wrap = id('tableWrap');
+    wrap.innerHTML = '';
+    if (!filtered.length) {
+      wrap.innerHTML = '<div class="text-muted">No data to display</div>';
+      return;
+    }
+    const table = document.createElement('table');
+    table.className = 'table table-sm table-striped';
+    const thead = document.createElement('thead');
+    const trh = document.createElement('tr');
+    for (const c of columns) {
+      const th = document.createElement('th'); th.textContent = c; trh.appendChild(th);
+    }
+    thead.appendChild(trh);
+    const tbody = document.createElement('tbody');
+    const rows = filtered.slice(0, 100);
+    for (const r of rows) {
+      const tr = document.createElement('tr');
+      for (const c of columns) {
+        const td = document.createElement('td');
+        const v = r[c]; td.textContent = (v === undefined || v === null) ? '' : v;
+        tr.appendChild(td);
+      }
+      tbody.appendChild(tr);
+    }
+    table.appendChild(thead); table.appendChild(tbody);
+    wrap.appendChild(table);
+  }
+
+  // ----------------------------
+  // Starter charts
+  // ----------------------------
+  function autoStarterCharts() {
+    const numCols = numericCols;
+    const catCols = categoricalCols;
+
+    const income = ['X20_21_langfragen_income','income'].find(c => columns.includes(c)) || (numCols.length ? numCols[0] : null);
+    const age = catCols.find(c => /age/i.test(c)) || (catCols.length ? catCols[0] : null);
+    const emp = catCols.find(c => /employ|job|work/i.test(c)) || (catCols.length > 1 ? catCols[1] : null);
+
+    if (emp) addChart({ type: 'pie', x: emp, y: income || emp, agg: 'count' });
+    if (age && income) addChart({ type: 'bar', x: age, y: income, agg: 'mean' });
+    if (dateCol && income) addChart({ type: 'line', x: dateCol, y: income, agg: 'mean' });
+  }
+
+  function looksNumericColumn(col) {
+    const vals = sampleValues(col, 200);
+    if (!vals.length) return false;
+    let nums = 0;
+    for (const v of vals) if (typeof v === 'number' && !Number.isNaN(v)) nums++;
+    return nums / vals.length >= 0.7;
+  }
+
+  function looksCategoricalColumn(col) {
+    const vals = sampleValues(col, 400);
+    const uniq = new Set(vals.filter(v => v !== '' && v !== null && v !== undefined).map(String));
+    const mostlyNums = looksNumericColumn(col);
+    return !mostlyNums && uniq.size >= 2 && uniq.size <= 20;
+  }
+
+  function makePivotMatrix(rows, rowKey, colKey, valKey, aggName='count') {
+    const rset = new Set(), cset = new Set();
+    const map = new Map(); // key = r¦c -> array of rows
+    rows.forEach(r => {
+      const rk = String(r[rowKey]);
+      const ck = String(r[colKey]);
+      rset.add(rk); cset.add(ck);
+      const key = rk + '¦' + ck;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(r);
+    });
+    const rArr = Array.from(rset), cArr = Array.from(cset);
+    const aggCell = (arr) => {
+      if (aggName === 'count') return arr.length;
+      const vs = arr.map(x => +x[valKey]).filter(v => !Number.isNaN(v));
+      if (!vs.length) return 0;
+      if (aggName === 'sum')  return vs.reduce((a,b)=>a+b,0);
+      return vs.reduce((a,b)=>a+b,0)/vs.length;
+    };
+    const z = rArr.map(rk => cArr.map(ck => aggCell(map.get(rk+'¦'+ck) || [])));
+    // Build HTML table too (for pivot card)
+    const table = document.createElement('table');
+    table.className = 'table table-sm table-bordered';
+    const thead = document.createElement('thead');
+    const trh = document.createElement('tr');
+    trh.appendChild(Object.assign(document.createElement('th'), {textContent: rowKey + ' \\ ' + colKey}));
+    cArr.forEach(c => trh.appendChild(Object.assign(document.createElement('th'), {textContent: c})));
+    thead.appendChild(trh);
+    const tbody = document.createElement('tbody');
+    rArr.forEach((rk, i) => {
+      const tr = document.createElement('tr');
+      tr.appendChild(Object.assign(document.createElement('td'), {textContent: rk}));
+      z[i].forEach(v => tr.appendChild(Object.assign(document.createElement('td'), {textContent: v})));
+      tbody.appendChild(tr);
+    });
+    table.appendChild(thead); table.appendChild(tbody);
+    return { rows: rArr, cols: cArr, z, html: table.outerHTML };
+  }
+
+  // ----------------------------
+  // Charting
+  // ----------------------------
+  function addChart(cfg) {
+    charts.push(cfg);
+    const card = document.createElement('div');
+    card.className = 'card-chart';
+    card.innerHTML = `
+      <div class="card-header">
+        <h6>${titleFor(cfg)}</h6>
+        <button class="remove" title="Remove"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="plot"></div>
+    `;
+    id('grid').appendChild(card);
+    cfg._el = card.querySelector('.plot');
+    card.querySelector('.remove').addEventListener('click', () => {
+      charts = charts.filter(c => c !== cfg);
+      card.remove();
+    });
+    drawChart(cfg);
+  }
+
+  function titleFor(cfg) {
+    const t = cfg.type[0].toUpperCase() + cfg.type.slice(1);
+    const parts = [`${t}`];
+    if (cfg.x) parts.push(`X: ${cfg.x}`);
+    if (cfg.y && cfg.agg) parts.push(`Y: ${cfg.agg}(${cfg.y})`);
+    if (cfg.color) parts.push(`Color: ${cfg.color}`);
+    return parts.join(' · ');
+  }
+
+  function drawChart(cfg) {
+    const el = cfg._el;
+    if (cfg.type === 'datatable') {
+      el.innerHTML = '';
+      const wrap = document.createElement('div');
+      wrap.className = 'table-responsive';
+      el.appendChild(wrap);
       const table = document.createElement('table');
       table.className = 'table table-sm table-striped';
       const thead = document.createElement('thead');
       const trh = document.createElement('tr');
-      for (const c of columns) {
-        const th = document.createElement('th'); th.textContent = c; trh.appendChild(th);
-      }
+      columns.forEach(c => { const th = document.createElement('th'); th.textContent = c; trh.appendChild(th); });
       thead.appendChild(trh);
-      const t = document.createElement('t');
-      const rows = filtered.slice(0, 100);
-      for (const r of rows) {
+      const tbody = document.createElement('tbody');
+      (filtered.slice(0,200)).forEach(r => {
         const tr = document.createElement('tr');
-        for (const c of columns) {
-          const td = document.createElement('td');
-          const v = r[c]; td.textContent = (v === undefined || v === null) ? '' : v;
-          tr.appendChild(td);
-        }
-        t.appendChild(tr);
-      }
-      table.appendChild(thead); table.appendChild(t);
-      wrap.appendChild(table);
-    }
-
-    // ----------------------------
-    // Starter charts (auto-create)
-    // ----------------------------
-    function autoStarterCharts() {
-      // derive candidates
-      // Use detected numericCols/categoricalCols globals
-      const numCols = numericCols;
-      const catCols = categoricalCols;
-
-      // choose candidate numeric for income or metric
-      const income = ['X20_21_langfragen_income','income'].find(c => columns.includes(c)) || (numCols.length ? numCols[0] : null);
-      // choose candidate age-like column
-      const age = catCols.find(c => /age/i.test(c)) || (catCols.length ? catCols[0] : null);
-      // choose candidate employment-like column
-      const emp = catCols.find(c => /employ|job|work/i.test(c)) || (catCols.length > 1 ? catCols[1] : null);
-
-      // 1) Pie of employment counts (if available)
-      if (emp) addChart({ type: 'pie', x: emp, y: income || emp, agg: 'count' });
-
-      // 2) Bar: mean income by age group (or first numeric)
-      if (age && income) addChart({ type: 'bar', x: age, y: income, agg: 'mean' });
-
-      // 3) Line over time (if we have a date + numeric)
-      if (dateCol && income) addChart({ type: 'line', x: dateCol, y: income, agg: 'mean' });
-    }
-
-    function looksNumericColumn(col) {
-      const vals = sampleValues(col, 200);
-      if (!vals.length) return false;
-      let nums = 0;
-      for (const v of vals) if (typeof v === 'number' && !Number.isNaN(v)) nums++;
-      // Consider numeric if at least 70% are numbers
-      return nums / vals.length >= 0.7;
-    }
-
-    function looksCategoricalColumn(col) {
-      const vals = sampleValues(col, 400);
-      const uniq = new Set(vals.filter(v => v !== '' && v !== null && v !== undefined).map(String));
-      // categorical if distinct values between 2 and 20 and not mostly numbers
-      const mostlyNums = looksNumericColumn(col);
-      return !mostlyNums && uniq.size >= 2 && uniq.size <= 20;
-    }
-
-    function makePivotMatrix(rows, rowKey, colKey, valKey, aggName='count') {
-      const rset = new Set(), cset = new Set();
-      const map = new Map(); // key = r¦c -> array of rows
-      rows.forEach(r => {
-        const rk = String(r[rowKey]);
-        const ck = String(r[colKey]);
-        rset.add(rk); cset.add(ck);
-        const key = rk + '¦' + ck;
-        if (!map.has(key)) map.set(key, []);
-        map.get(key).push(r);
-      });
-      const rArr = Array.from(rset), cArr = Array.from(cset);
-      const aggCell = (arr) => {
-        if (aggName === 'count') return arr.length;
-        const vs = arr.map(x => +x[valKey]).filter(v => !Number.isNaN(v));
-        if (!vs.length) return 0;
-        if (aggName === 'sum')  return vs.reduce((a,b)=>a+b,0);
-        return vs.reduce((a,b)=>a+b,0)/vs.length;
-      };
-      const z = rArr.map(rk => cArr.map(ck => aggCell(map.get(rk+'¦'+ck) || [])));
-      // Build HTML table too (for pivot card)
-      const table = document.createElement('table');
-      table.className = 'table table-sm table-bordered';
-      const thead = document.createElement('thead');
-      const trh = document.createElement('tr');
-      trh.appendChild(Object.assign(document.createElement('th'), {textContent: rowKey + ' \\ ' + colKey}));
-      cArr.forEach(c => trh.appendChild(Object.assign(document.createElement('th'), {textContent: c})));
-      thead.appendChild(trh);
-      const t = document.createElement('t');
-      rArr.forEach((rk, i) => {
-        const tr = document.createElement('tr');
-        tr.appendChild(Object.assign(document.createElement('td'), {textContent: rk}));
-        z[i].forEach(v => tr.appendChild(Object.assign(document.createElement('td'), {textContent: v})));
+        columns.forEach(c => {
+          const td = document.createElement('td'); td.textContent = (r[c] ?? ''); tr.appendChild(td);
+        });
         tbody.appendChild(tr);
       });
       table.appendChild(thead); table.appendChild(tbody);
-      return { rows: rArr, cols: cArr, z, html: table.outerHTML };
-    }
-    
-    
-    // ----------------------------
-    // Charting
-    // ----------------------------
-    function addChart(cfg) {
-      charts.push(cfg);
-      const card = document.createElement('div');
-      card.className = 'card-chart';
-      card.innerHTML = `
-        <div class="card-header">
-          <h6>${titleFor(cfg)}</h6>
-          <button class="remove" title="Remove"><i class="bi bi-x-lg"></i></button>
-        </div>
-        <div class="plot"></div>
-      `;
-      id('grid').appendChild(card);
-      cfg._el = card.querySelector('.plot');
-      card.querySelector('.remove').addEventListener('click', () => {
-        charts = charts.filter(c => c !== cfg);
-        card.remove();
-      });
-      drawChart(cfg);
+      wrap.appendChild(table);
+      return;
     }
 
-    function titleFor(cfg) {
-      const t = cfg.type[0].toUpperCase() + cfg.type.slice(1);
-      const parts = [`${t}`];
-      if (cfg.x) parts.push(`X: ${cfg.x}`);
-      if (cfg.y && cfg.agg) parts.push(`Y: ${cfg.agg}(${cfg.y})`);
-      if (cfg.color) parts.push(`Color: ${cfg.color}`);
-      return parts.join(' · ');
+    if (cfg.type === 'pivot') {
+      const matrix = makePivotMatrix(filtered, cfg.x, cfg.yCat, cfg.y, cfg.agg);
+      el.innerHTML = matrix.html;
+      return;
     }
 
-    function drawChart(cfg) {
-      const el = cfg._el;
-      if (cfg.type === 'datatable') {
-        // render a data table card of the current filtered rows
-        el.innerHTML = '';
-        const wrap = document.createElement('div');
-        wrap.className = 'table-responsive';
-        el.appendChild(wrap);
-        const table = document.createElement('table');
-        table.className = 'table table-sm table-striped';
-        const thead = document.createElement('thead');
-        const trh = document.createElement('tr');
-        columns.forEach(c => { const th = document.createElement('th'); th.textContent = c; trh.appendChild(th); });
-        thead.appendChild(trh);
-        const tbody = document.createElement('tbody');
-        (filtered.slice(0,200)).forEach(r => {
-          const tr = document.createElement('tr');
-          columns.forEach(c => {
-            const td = document.createElement('td'); td.textContent = (r[c] ?? ''); tr.appendChild(td);
+    if (!filtered.length) { el.innerHTML = '<div class="text-muted p-2">No data</div>'; return; }
+
+    const groupBy = (rows, keys) => {
+      const map = new Map();
+      for (const r of rows) {
+        const key = keys.map(k => String(r[k])).join('¦');
+        if (!map.has(key)) map.set(key, []);
+        map.get(key).push(r);
+      }
+      return { map, keys };
+    };
+    const agg = (rows) => {
+      if (cfg.agg === 'count') return rows.length;
+      const vals = rows.map(r => +r[cfg.y]).filter(v => !Number.isNaN(v));
+      if (!vals.length) return 0;
+      if (cfg.agg === 'sum')  return vals.reduce((a,b)=>a+b,0);
+      return vals.reduce((a,b)=>a+b,0) / vals.length; // mean
+    };
+
+    let fig = { data: [], layout: { margin: {l:50,r:20,b:50,t:40}, title: titleFor(cfg) } };
+
+    if (cfg.type === 'bar' || cfg.type === 'pie') {
+      const by = cfg.color ? [cfg.x, cfg.color] : [cfg.x];
+      const g = groupBy(filtered, by);
+      const xs = new Set(), colors = new Set();
+      for (const k of g.map.keys()) {
+        const parts = k.split('¦'); xs.add(parts[0]); if (cfg.color) colors.add(parts[1]);
+      }
+      const xArr = Array.from(xs), colorArr = cfg.color ? Array.from(colors) : [null];
+
+      if (cfg.type === 'bar') {
+        for (const cval of colorArr) {
+          const y = xArr.map(xv => {
+            const key = cfg.color ? [xv, cval].join('¦') : String(xv);
+            return agg(g.map.get(key) || []);
           });
-          tbody.appendChild(tr);
-        });
-        table.appendChild(thead); table.appendChild(tbody);
-        wrap.appendChild(table);
-        return;
-      }
-    
-      if (cfg.type === 'pivot') {
-        // simple pivot to HTML table: rows = cfg.x, cols = cfg.yCat, values = agg(cfg.y)
-        const matrix = makePivotMatrix(filtered, cfg.x, cfg.yCat, cfg.y, cfg.agg);
-        el.innerHTML = matrix.html;
-        return;
-      }
-    
-      if (!filtered.length) { el.innerHTML = '<div class="text-muted p-2">No data</div>'; return; }
-    
-      const groupBy = (rows, keys) => {
-        const map = new Map();
-        for (const r of rows) {
-          const key = keys.map(k => String(r[k])).join('¦');
-          if (!map.has(key)) map.set(key, []);
-          map.get(key).push(r);
+          fig.data.push({ x: xArr, y, type: 'bar', name: cval ?? 'value' });
         }
-        return { map, keys };
-      };
-      const agg = (rows) => {
-        if (cfg.agg === 'count') return rows.length;
-        const vals = rows.map(r => +r[cfg.y]).filter(v => !Number.isNaN(v));
-        if (!vals.length) return 0;
-        if (cfg.agg === 'sum')  return vals.reduce((a,b)=>a+b,0);
-        return vals.reduce((a,b)=>a+b,0) / vals.length; // mean
-      };
-    
-      let fig = { data: [], layout: { margin: {l:50,r:20,b:50,t:40}, title: titleFor(cfg) } };
-    
-      // ---------- BASIC TYPES ----------
-      if (cfg.type === 'bar' || cfg.type === 'pie') {
-        const by = cfg.color ? [cfg.x, cfg.color] : [cfg.x];
-        const g = groupBy(filtered, by);
-        const xs = new Set(), colors = new Set();
-        for (const k of g.map.keys()) {
-          const parts = k.split('¦'); xs.add(parts[0]); if (cfg.color) colors.add(parts[1]);
-        }
-        const xArr = Array.from(xs), colorArr = cfg.color ? Array.from(colors) : [null];
-    
-        if (cfg.type === 'bar') {
-          for (const cval of colorArr) {
-            const y = xArr.map(xv => {
-              const key = cfg.color ? [xv, cval].join('¦') : String(xv);
-              return agg(g.map.get(key) || []);
-            });
-            fig.data.push({ x: xArr, y, type: 'bar', name: cval ?? 'value' });
-          }
-          fig.layout.barmode = 'group';
-          fig.layout.xaxis = { title: cfg.x };
-          if (cfg.y) fig.layout.yaxis = { title: `${cfg.agg}(${cfg.y})` };
-        } else {
-          const values = xArr.map(xv => {
-            const rows = Array.from(g.map.entries()).filter(([k]) => k.split('¦')[0] == xv).flatMap(([,rows]) => rows);
-            return agg(rows);
-          });
-          fig.data.push({ labels: xArr, values, type: 'pie', hole: .35 });
-        }
-      }
-    
-      else if (cfg.type === 'line' || cfg.type === 'timeseries') {
-        // timeseries is just line with a date-ish X
-        const g = groupBy(filtered, [cfg.x]);
-        const xVals = Array.from(g.map.keys()).map(k => k.split('¦')[0]);
-        const sorted = xVals.slice().sort((a,b) => {
-          const da = new Date(a), db = new Date(b);
-          if (!isNaN(da) && !isNaN(db)) return da - db;
-          const na = +a, nb = +b;
-          if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
-          return String(a).localeCompare(String(b));
-        });
-        const yVals = sorted.map(xv => agg(g.map.get(String(xv)) || g.map.get(xv) || []));
-        fig.data.push({ x: sorted, y: yVals, type: 'scatter', mode: 'lines+markers', name: cfg.y });
-    
-        if (cfg.histOverlay) {
-          const vals = filtered.map(r => +r[cfg.y]).filter(v => !Number.isNaN(v));
-          fig.data.push({ x: vals, type: 'histogram', opacity: 0.35, xaxis: 'x2', yaxis: 'y2', name: 'Histogram' });
-          fig.layout.grid = { rows: 1, columns: 2, pattern: 'independent' };
-          fig.layout.xaxis2 = {};
-          fig.layout.yaxis2 = {};
-          fig.layout.title += ' · + Histogram';
-        }
+        fig.layout.barmode = 'group';
         fig.layout.xaxis = { title: cfg.x };
         if (cfg.y) fig.layout.yaxis = { title: `${cfg.agg}(${cfg.y})` };
-      }
-    
-      else if (cfg.type === 'scatter' || cfg.type === 'bubble') {
-        const x = filtered.map(r => r[cfg.x]), y = filtered.map(r => r[cfg.y]);
-        const trace = { x, y, mode: 'markers', type: 'scatter', name: cfg.y };
-        if (cfg.type === 'bubble' && cfg.size) {
-          const s = filtered.map(r => +r[cfg.size]);
-          const min = Math.min(...s.filter(v => !Number.isNaN(v))), max = Math.max(...s.filter(v => !Number.isNaN(v)));
-          const scaled = s.map(v => Number.isNaN(v) ? 5 : (10 + 30 * ((v - min) / Math.max(1e-9, max - min))));
-          trace.marker = { size: scaled, sizemode: 'diameter', opacity: 0.7 };
-        }
-        if (cfg.color) trace.text = filtered.map(r => r[cfg.color]);
-        fig.data.push(trace);
-        fig.layout.xaxis = { title: cfg.x };
-        fig.layout.yaxis = { title: cfg.y };
-      }
-    
-      else if (cfg.type === 'box') {
-        if (!cfg.y) { el.innerHTML = '<div class="text-muted p-2">Please select a numeric Y.</div>'; return; }
-        const groups = {};
-        filtered.forEach(r => {
-          const key = r[cfg.x]; const val = +r[cfg.y];
-          if (Number.isNaN(val)) return;
-          (groups[key] ||= []).push(val);
+      } else {
+        const values = xArr.map(xv => {
+          const rows = Array.from(g.map.entries()).filter(([k]) => k.split('¦')[0] == xv).flatMap(([,rows]) => rows);
+          return agg(rows);
         });
-        Object.keys(groups).forEach(k => fig.data.push({ y: groups[k], name: String(k), type: 'box' }));
-        fig.layout.xaxis = { title: cfg.x }; fig.layout.yaxis = { title: cfg.y };
-    
-        if (cfg.histOverlay) {
-          const vals = filtered.map(r => +r[cfg.y]).filter(v => !Number.isNaN(v));
-          fig.data.push({ x: vals, type: 'histogram', opacity: 0.3, xaxis: 'x2', yaxis: 'y2', name: 'Histogram' });
-          fig.layout.grid = { rows: 1, columns: 2, pattern: 'independent' };
-          fig.layout.title += ' · + Histogram';
-        }
+        fig.data.push({ labels: xArr, values, type: 'pie', hole: .35 });
       }
-    
-  else if (cfg.type === 'barline') {
-    // bar of agg(y) by X + line of agg(y2) by X (optional dual axis)
-    const g = groupBy(filtered, [cfg.x]);
-    const xs = Array.from(g.map.keys()).map(k => k.split('¦')[0]).sort((a,b)=>String(a).localeCompare(String(b)));
-    const aggSeries = (yField) => xs.map(xv => {
-      const rows = g.map.get(String(xv)) || g.map.get(xv) || [];
-      if (!yField) return 0;
-      const vals = rows.map(r => +r[yField]).filter(v => !Number.isNaN(v));
-      if (!vals.length) return 0;
-      if (cfg.agg === 'sum') return vals.reduce((a,b)=>a+b,0);
-      if (cfg.agg === 'mean') return vals.reduce((a,b)=>a+b,0)/vals.length;
-      return rows.length;
+    }
+
+    else if (cfg.type === 'line' || cfg.type === 'timeseries') {
+      const g = groupBy(filtered, [cfg.x]);
+      const xVals = Array.from(g.map.keys()).map(k => k.split('¦')[0]);
+      const sorted = xVals.slice().sort((a,b) => {
+        const da = new Date(a), db = new Date(b);
+        if (!isNaN(da) && !isNaN(db)) return da - db;
+        const na = +a, nb = +b;
+        if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
+        return String(a).localeCompare(String(b));
+      });
+      const yVals = sorted.map(xv => agg(g.map.get(String(xv)) || g.map.get(xv) || []));
+      fig.data.push({ x: sorted, y: yVals, type: 'scatter', mode: 'lines+markers', name: cfg.y });
+
+      if (cfg.histOverlay) {
+        const vals = filtered.map(r => +r[cfg.y]).filter(v => !Number.isNaN(v));
+        fig.data.push({ x: vals, type: 'histogram', opacity: 0.35, xaxis: 'x2', yaxis: 'y2', name: 'Histogram' });
+        fig.layout.grid = { rows: 1, columns: 2, pattern: 'independent' };
+        fig.layout.xaxis2 = {};
+        fig.layout.yaxis2 = {};
+        fig.layout.title += ' · + Histogram';
+      }
+      fig.layout.xaxis = { title: cfg.x };
+      if (cfg.y) fig.layout.yaxis = { title: `${cfg.agg}(${cfg.y})` };
+    }
+
+    else if (cfg.type === 'scatter' || cfg.type === 'bubble') {
+      const x = filtered.map(r => r[cfg.x]), y = filtered.map(r => r[cfg.y]);
+      const trace = { x, y, mode: 'markers', type: 'scatter', name: cfg.y };
+      if (cfg.type === 'bubble' && cfg.size) {
+        const s = filtered.map(r => +r[cfg.size]);
+        const min = Math.min(...s.filter(v => !Number.isNaN(v))), max = Math.max(...s.filter(v => !Number.isNaN(v)));
+        const scaled = s.map(v => Number.isNaN(v) ? 5 : (10 + 30 * ((v - min) / Math.max(1e-9, max - min))));
+        trace.marker = { size: scaled, sizemode: 'diameter', opacity: 0.7 };
+      }
+      if (cfg.color) trace.text = filtered.map(r => r[cfg.color]);
+      fig.data.push(trace);
+      fig.layout.xaxis = { title: cfg.x };
+      fig.layout.yaxis = { title: cfg.y };
+    }
+
+    else if (cfg.type === 'box') {
+      if (!cfg.y) { el.innerHTML = '<div class="text-muted p-2">Please select a numeric Y.</div>'; return; }
+      const groups = {};
+      filtered.forEach(r => {
+        const key = r[cfg.x]; const val = +r[cfg.y];
+        if (Number.isNaN(val)) return;
+        (groups[key] ||= []).push(val);
+      });
+      Object.keys(groups).forEach(k => fig.data.push({ y: groups[k], name: String(k), type: 'box' }));
+      fig.layout.xaxis = { title: cfg.x }; fig.layout.yaxis = { title: cfg.y };
+
+      if (cfg.histOverlay) {
+        const vals = filtered.map(r => +r[cfg.y]).filter(v => !Number.isNaN(v));
+        fig.data.push({ x: vals, type: 'histogram', opacity: 0.3, xaxis: 'x2', yaxis: 'y2', name: 'Histogram' });
+        fig.layout.grid = { rows: 1, columns: 2, pattern: 'independent' };
+        fig.layout.title += ' · + Histogram';
+      }
+    }
+
+    else if (cfg.type === 'barline') {
+      const g = groupBy(filtered, [cfg.x]);
+      const xs = Array.from(g.map.keys()).map(k => k.split('¦')[0]).sort((a,b)=>String(a).localeCompare(String(b)));
+      const aggSeries = (yField) => xs.map(xv => {
+        const rows = g.map.get(String(xv)) || g.map.get(xv) || [];
+        if (!yField) return 0;
+        const vals = rows.map(r => +r[yField]).filter(v => !Number.isNaN(v));
+        if (!vals.length) return 0;
+        if (cfg.agg === 'sum') return vals.reduce((a,b)=>a+b,0);
+        if (cfg.agg === 'mean') return vals.reduce((a,b)=>a+b,0)/vals.length;
+        return rows.length;
+      });
+      const yBar = aggSeries(cfg.y);
+      const yLine = aggSeries(cfg.y2);
+
+      fig.data.push({ x: xs, y: yBar, type: 'bar', name: `${cfg.agg}(${cfg.y})` });
+      const lineTrace = { x: xs, y: yLine, type: 'scatter', mode: 'lines+markers', name: `${cfg.agg}(${cfg.y2})` };
+      if (cfg.dualAxis) { lineTrace.yaxis = 'y2'; fig.layout.yaxis2 = { overlaying: 'y', side: 'right' }; }
+      fig.data.push(lineTrace);
+      fig.layout.xaxis = { title: cfg.x };
+    }
+
+    else if (cfg.type === 'heatmap') {
+      const M = makePivotMatrix(filtered, cfg.x, cfg.yCat, cfg.y, cfg.agg);
+      fig.data.push({ z: M.z, x: M.cols, y: M.rows, type: 'heatmap', colorscale: 'Viridis' });
+      fig.layout.xaxis = { title: cfg.yCat };
+      fig.layout.yaxis = { title: cfg.x };
+    }
+
+    else if (cfg.type === 'funnel') {
+      const g = groupBy(filtered, [cfg.x]);
+      const labels = Array.from(g.map.keys()).map(k => k.split('¦')[0]);
+      const values = labels.map(l => agg(g.map.get(String(l)) || []));
+      const sorted = labels.map((l,i)=>({l, v: values[i]})).sort((a,b)=>b.v-a.v);
+      fig.data.push({ type: 'funnel', y: sorted.map(s=>s.l), x: sorted.map(s=>s.v) });
+    }
+
+    Plotly.newPlot(el, fig.data, fig.layout, { responsive: true });
+  }
+
+  // ===================== Inspector logic =====================
+  function updateInspectorSummary() {
+    id('sumTotalRows').textContent    = (rawData?.length ?? 0).toLocaleString();
+    id('sumTotalCols').textContent    = (columns?.length ?? 0).toLocaleString();
+    id('sumFilteredRows').textContent = (filtered?.length ?? 0).toLocaleString();
+
+    if (!dateCol) { id('sumDateRange').textContent = '—'; return; }
+
+    const rowsForRange = (filtered && Array.isArray(filtered)) ? filtered : rawData;
+    const dates = rowsForRange
+      .map(r => parseValidDate(r[dateCol]))
+      .filter(Boolean)
+      .sort((a,b) => a - b);
+
+    id('sumDateRange').textContent =
+      dates.length ? `${toISO(dates[0])} → ${toISO(dates[dates.length-1])}` : '—';
+  }
+
+  function rebuildInspectorColumnList() {
+    const wrap = id('inspectorList');
+    wrap.innerHTML = '';
+    if (!columns?.length) return;
+
+    const frag = document.createDocumentFragment();
+    columns.forEach(col => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = col;
+      btn.dataset.col = col;
+      frag.appendChild(btn);
     });
-    const yBar = aggSeries(cfg.y);
-    const yLine = aggSeries(cfg.y2);
+    wrap.appendChild(frag);
 
-    fig.data.push({ x: xs, y: yBar, type: 'bar', name: `${cfg.agg}(${cfg.y})` });
-    const lineTrace = { x: xs, y: yLine, type: 'scatter', mode: 'lines+markers', name: `${cfg.agg}(${cfg.y2})` };
-    if (cfg.dualAxis) { lineTrace.yaxis = 'y2'; fig.layout.yaxis2 = { overlaying: 'y', side: 'right' }; }
-    fig.data.push(lineTrace);
-    fig.layout.xaxis = { title: cfg.x };
-  }
+    wrap.onclick = (e) => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      inspectorSelectedField = btn.dataset.col;
+      wrap.querySelectorAll('button').forEach(b =>
+        b.classList.toggle('active', b === btn)
+      );
+      showFieldStats(inspectorSelectedField);
+    };
 
-  else if (cfg.type === 'heatmap') {
-    // Heatmap of agg(Y) across X (rows) vs YCat (columns)
-    const M = makePivotMatrix(filtered, cfg.x, cfg.yCat, cfg.y, cfg.agg);
-    fig.data.push({ z: M.z, x: M.cols, y: M.rows, type: 'heatmap', colorscale: 'Viridis' });
-    fig.layout.xaxis = { title: cfg.yCat };
-    fig.layout.yaxis = { title: cfg.x };
-  }
-
-  else if (cfg.type === 'funnel') {
-    // Funnel with categories on Y and aggregated numeric width on X
-    const g = groupBy(filtered, [cfg.x]);
-    const labels = Array.from(g.map.keys()).map(k => k.split('¦')[0]);
-    const values = labels.map(l => agg(g.map.get(String(l)) || []));
-    // sort descending
-    const sorted = labels.map((l,i)=>({l, v: values[i]})).sort((a,b)=>b.v-a.v);
-    fig.data.push({ type: 'funnel', y: sorted.map(s=>s.l), x: sorted.map(s=>s.v) });
-  }
-
-  Plotly.newPlot(el, fig.data, fig.layout, { responsive: true });
-}
-
-
-// ===================== Inspector logic =====================
-function updateInspectorSummary() {
-  // Totals
-  id('sumTotalRows').textContent    = (rawData?.length ?? 0).toLocaleString();
-  id('sumTotalCols').textContent    = (columns?.length ?? 0).toLocaleString();
-  id('sumFilteredRows').textContent = (filtered?.length ?? 0).toLocaleString();
-
-  // If we don't have a detected date column, show a dash
-  if (!dateCol) { id('sumDateRange').textContent = '—'; return; }
-
-  // Use only the currently filtered rows when computing the date range.
-  // If the filtered set is empty (i.e. no rows fall within the selected
-  // interval) then we'll display a dash for the date range rather than
-  // reverting back to the full dataset.  Previously this fallback caused the
-  // summary to show the overall data span even when no rows matched the
-  // filter, leading to confusion.  Always rely on the `filtered` array.
-  const rowsForRange = (filtered && Array.isArray(filtered)) ? filtered : rawData;
-
-  // Build sorted list of dates using the safe parser to exclude invalid or
-  // out‑of‑range dates. Without this guard, artefacts like 1970/2030 would
-  // incorrectly expand the reported range.
-  const dates = rowsForRange
-    .map(r => parseValidDate(r[dateCol]))
-    .filter(Boolean)
-    .sort((a,b) => a - b);
-
-  id('sumDateRange').textContent =
-    dates.length ? `${toISO(dates[0])} → ${toISO(dates[dates.length-1])}` : '—';
-}
-
-function rebuildInspectorColumnList() {
-  const wrap = id('inspectorList');
-  wrap.innerHTML = '';
-  if (!columns?.length) return;
-
-  // Build buttons
-  const frag = document.createDocumentFragment();
-  columns.forEach(col => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.textContent = col;
-    btn.dataset.col = col;
-    frag.appendChild(btn);
-  });
-  wrap.appendChild(frag);
-
-  // Single click listener for all buttons (works even after rebuilds)
-  wrap.onclick = (e) => {
-    const btn = e.target.closest('button');
-    if (!btn) return;
-    inspectorSelectedField = btn.dataset.col;
-    wrap.querySelectorAll('button').forEach(b =>
-      b.classList.toggle('active', b === btn)
-    );
+    inspectorSelectedField = columns[0];
+    const firstBtn = wrap.querySelector('button');
+    if (firstBtn) firstBtn.classList.add('active');
     showFieldStats(inspectorSelectedField);
-  };
+  }
 
-  // Preselect first column
-  inspectorSelectedField = columns[0];
-  const firstBtn = wrap.querySelector('button');
-  if (firstBtn) firstBtn.classList.add('active');
-  showFieldStats(inspectorSelectedField);
-}
+  function showFieldStats(col) {
+    if (!col) return;
+    id('fieldName').textContent = col;
 
-function showFieldStats(col) {
-  if (!col) return;
-  id('fieldName').textContent = col;
+    const vals = (filtered || []).map(r => r[col]);
+    const nonNull = vals.filter(v => v !== null && v !== undefined && v !== '');
 
-  // Use current FILTERED rows
-  const vals = (filtered || []).map(r => r[col]);
-  const nonNull = vals.filter(v => v !== null && v !== undefined && v !== '');
+    const isNumeric = numericCols.includes(col);
+    const isDate = (col === dateCol);
 
-  // Type detection
-      const isNumeric = numericCols.includes(col);
-      /* Determine if a column should be treated as a date.  The previous
-         implementation attempted to parse each sample value with the Date
-         constructor and checked `!Number.isNaN(new Date(v))`.  However,
-         `Number.isNaN()` only tests numeric values.  When passed an
-         `Invalid Date` object (which is not a number) it incorrectly
-         returns false, causing virtually any string to appear parseable.
-         This led to categorical fields like "standort" being misidentified
-         as dates and showing the wrong summary (e.g. min/max dates of
-         `—`).  To avoid this, only treat the detected date column as a
-         date.  All other fields will be handled as numeric or
-         categorical/text based on `numericCols` above. */
-      const isDate = (col === dateCol);
+    const fmtLocal = (x, d=3) =>
+      (x === undefined || x === null || Number.isNaN(x)) ? '—'
+        : Number(x).toLocaleString(undefined, { maximumFractionDigits: d });
 
-  // Helpers
-  const fmt = (x, d=3) =>
-    (x === undefined || x === null || Number.isNaN(x)) ? '—'
-      : Number(x).toLocaleString(undefined, { maximumFractionDigits: d });
+    const percent = (num, den) =>
+      (den ? (100 * num / den) : 0).toLocaleString(undefined, { maximumFractionDigits: 1 }) + '%';
 
-  const percent = (num, den) =>
-    (den ? (100 * num / den) : 0).toLocaleString(undefined, { maximumFractionDigits: 1 }) + '%';
+    const topN = (arr, n=5) => {
+      const m = new Map();
+      arr.forEach(v => m.set(v, (m.get(v)||0)+1));
+      return [...m.entries()].sort((a,b) => b[1]-a[1]).slice(0, n);
+    };
 
-  const topN = (arr, n=5) => {
-    const m = new Map();
-    arr.forEach(v => m.set(v, (m.get(v)||0)+1));
-    return [...m.entries()].sort((a,b) => b[1]-a[1]).slice(0, n);
-  };
+    const qtile = (sorted, q) => {
+      if (!sorted.length) return NaN;
+      const pos = (sorted.length - 1) * q;
+      const base = Math.floor(pos);
+      const rest = pos - base;
+      return (sorted[base+1] !== undefined)
+        ? sorted[base] + rest * (sorted[base+1] - sorted[base])
+        : sorted[base];
+    };
 
-  const qtile = (sorted, q) => {
-    if (!sorted.length) return NaN;
-    const pos = (sorted.length - 1) * q;
+    let html = '';
+
+    const asStr = nonNull.map(v => String(v));
+    const totalCount = vals.length;
+    let distribution = [];
+    if (isNumeric) {
+      const nums = nonNull.map(Number).filter(v => !Number.isNaN(v));
+      if (nums.length) {
+        const minVal = Math.min(...nums);
+        const maxVal = Math.max(...nums);
+        const binCount = 5;
+        let width = (maxVal - minVal) / binCount;
+        if (width === 0) width = 1;
+        const bins = Array(binCount).fill(0);
+        const labels = [];
+        for (let i = 0; i < binCount; i++) {
+          const start = minVal + width * i;
+          const end   = (i === binCount - 1) ? maxVal : minVal + width * (i + 1);
+          labels.push(`${fmtLocal(start)}–${fmtLocal(end)}`);
+        }
+        nums.forEach(v => {
+          let idx = Math.floor((v - minVal) / width);
+          if (idx < 0) idx = 0;
+          if (idx >= binCount) idx = binCount - 1;
+          bins[idx]++;
+        });
+        distribution = labels.map((lab, i) => ({ label: lab, count: bins[i] }));
+        distribution = distribution.filter(item => item.count > 0);
+      }
+    } else {
+      const m = new Map();
+      asStr.forEach(v => m.set(v, (m.get(v) || 0) + 1));
+      const entries = [...m.entries()].sort((a,b) => b[1] - a[1]);
+      const top = entries.slice(0, 5);
+      const otherCount = entries.slice(5).reduce((s, [,c]) => s + c, 0);
+      distribution = top.map(([label, count]) => ({ label, count }));
+      if (otherCount > 0) distribution.push({ label: 'Other', count: otherCount });
+    }
+    html += `
+      <div class="mb-2">
+        <h6 class="mb-1">Data Distribution Overview</h6>
+        <table class="table table-sm mb-2">
+          <thead><tr><th>Value</th><th class="text-end">Share</th></tr></thead>
+          <tbody>
+            ${distribution.map(row => `<tr><td>${row.label}</td><td class="text-end">${percent(row.count, totalCount)}</td></tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    const filled = nonNull.length;
+    const uniqueCount = new Set(asStr).size;
+    const avgLen = asStr.length ? (asStr.reduce((s, v) => s + v.length, 0) / asStr.length) : 0;
+    const avgLenDisplay = (avgLen && !Number.isNaN(avgLen)) ? fmtLocal(avgLen, 2) : '—';
+    html += `
+      <div class="mb-2">
+        <h6 class="mb-1">Data Quality Metrics</h6>
+        <table class="table table-sm mb-2">
+          <tbody>
+            <tr><th class="text-muted">Filled percentage</th><td>${percent(filled, vals.length)}</td></tr>
+            <tr><th class="text-muted">Filled values</th><td>${filled.toLocaleString()}</td></tr>
+            <tr><th class="text-muted">Avg. Length</th><td>${avgLenDisplay}</td></tr>
+            <tr><th class="text-muted">Unique Items</th><td>${uniqueCount.toLocaleString()}</td></tr>
+            <tr><th class="text-muted">Uniqueness</th><td>${percent(uniqueCount, filled)}</td></tr>
+          </tbody>
+        </table>
+      </div>
+    `;
+
+    if (isNumeric) {
+      const nums = nonNull.map(Number).filter(v => !Number.isNaN(v)).sort((a,b)=>a-b);
+      const n = nums.length;
+      const mean = n ? nums.reduce((a,b)=>a+b,0)/n : 0;
+      const std = (n>1) ? Math.sqrt(nums.reduce((s,v)=>s+(v-mean)**2,0)/(n-1)) : 0;
+      const zeros = nums.filter(v => v === 0).length;
+      const rsd = mean !== 0 ? (std/mean)*100 : 0;
+
+      html += `
+        <div>
+          <h6 class="mb-1">Summary Statistics</h6>
+          <table class="table table-sm mb-0">
+            <tbody>
+              <tr><th class="text-muted">Mean</th><td>${fmtLocal(mean)}</td></tr>
+              <tr><th class="text-muted">Min</th><td>${fmtLocal(nums[0])}</td></tr>
+              <tr><th class="text-muted">Max</th><td>${fmtLocal(nums[n-1])}</td></tr>
+              <tr><th class="text-muted">Std Dev</th><td>${fmtLocal(std)}</td></tr>
+              <tr><th class="text-muted">Relative Std Dev</th><td>${fmtLocal(rsd,1)}%</td></tr>
+              <tr><th class="text-muted">Zero Values</th><td>${zeros.toLocaleString()} (${percent(zeros, n)})</td></tr>
+              <tr><th class="text-muted">25%</th><td>${fmtLocal(qtile(nums, 0.25))}</td></tr>
+              <tr><th class="text-muted">50% (Median)</th><td>${fmtLocal(qtile(nums, 0.50))}</td></tr>
+              <tr><th class="text-muted">75%</th><td>${fmtLocal(qtile(nums, 0.75))}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      `;
+    } else if (isDate) {
+      const dates = nonNull.map(v => new Date(v)).filter(d => !isNaN(d)).sort((a,b)=>a-b);
+      const uniq = new Set(dates.map(d => d.getTime()));
+      html += `
+        <div>
+          <h6 class="mb-1">Summary (Date)</h6>
+          <table class="table table-sm mb-0">
+            <tbody>
+              <tr><th class="text-muted">Count</th><td>${dates.length.toLocaleString()}</td></tr>
+              <tr><th class="text-muted">Unique</th><td>${uniq.size.toLocaleString()}</td></tr>
+              <tr><th class="text-muted">Min</th><td>${dates.length ? toISO(dates[0]) : '—'}</td></tr>
+              <tr><th class="text-muted">Max</th><td>${dates.length ? toISO(dates[dates.length-1]) : '—'}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      `;
+    } else {
+      const counts = new Map();
+      asStr.forEach(v => counts.set(v, (counts.get(v) || 0) + 1));
+      let topVal = '—', topFreq = 0;
+      for (const [k, v] of counts.entries()) if (v > topFreq) { topVal = k; topFreq = v; }
+      const lengths = asStr.map(v => v.length);
+      const minLen = lengths.length ? Math.min(...lengths) : 0;
+      const maxLen = lengths.length ? Math.max(...lengths) : 0;
+
+      html += `
+        <div>
+          <h6 class="mb-1">Summary (Categorical/Text)</h6>
+          <table class="table table-sm mb-0">
+            <tbody>
+              <tr><th class="text-muted">Count</th><td>${asStr.length.toLocaleString()}</td></tr>
+              <tr><th class="text-muted">Unique</th><td>${counts.size.toLocaleString()}</td></tr>
+              <tr><th class="text-muted">Top</th><td>${topVal}</td></tr>
+              <tr><th class="text-muted">Freq</th><td>${topFreq.toLocaleString()} (${percent(topFreq, asStr.length)})</td></tr>
+              <tr><th class="text-muted">Min Length</th><td>${minLen.toLocaleString()}</td></tr>
+              <tr><th class="text-muted">Max Length</th><td>${maxLen.toLocaleString()}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    id('fieldStats').innerHTML = html;
+  }
+
+  function fmt(x) {
+    if (x === undefined || x === null || Number.isNaN(x)) return '—';
+    return Number(x).toLocaleString(undefined, { maximumFractionDigits: 3 });
+  }
+  function quantile(sortedNums, q) {
+    if (!sortedNums.length) return NaN;
+    const pos = (sortedNums.length - 1) * q;
     const base = Math.floor(pos);
     const rest = pos - base;
-    return (sorted[base+1] !== undefined)
-      ? sorted[base] + rest * (sorted[base+1] - sorted[base])
-      : sorted[base];
-  };
-
-  // Build HTML
-  let html = '';
-
-  // 1) Distribution
-  const asStr = nonNull.map(v => String(v));
-  const totalCount = vals.length;
-  let distribution = [];
-  if (isNumeric) {
-    // Numeric: bin into 5 ranges across the observed min and max
-    const nums = nonNull.map(Number).filter(v => !Number.isNaN(v));
-    if (nums.length) {
-      const minVal = Math.min(...nums);
-      const maxVal = Math.max(...nums);
-      const binCount = 5;
-      let width = (maxVal - minVal) / binCount;
-      // handle zero width (all values equal) by assigning width 1
-      if (width === 0) width = 1;
-      const bins = Array(binCount).fill(0);
-      const labels = [];
-      for (let i = 0; i < binCount; i++) {
-        const start = minVal + width * i;
-        const end   = (i === binCount - 1) ? maxVal : minVal + width * (i + 1);
-        labels.push(`${fmt(start)}–${fmt(end)}`);
-      }
-      nums.forEach(v => {
-        let idx = Math.floor((v - minVal) / width);
-        if (idx < 0) idx = 0;
-        if (idx >= binCount) idx = binCount - 1;
-        bins[idx]++;
-      });
-      distribution = labels.map((lab, i) => ({ label: lab, count: bins[i] }));
-      // Remove zero-count bins to avoid clutter
-      distribution = distribution.filter(item => item.count > 0);
+    if (sortedNums[base+1] !== undefined) {
+      return sortedNums[base] + rest * (sortedNums[base+1] - sortedNums[base]);
     }
-  } else {
-    // Categorical: top 5 categories + "Other"
-    const m = new Map();
-    asStr.forEach(v => m.set(v, (m.get(v) || 0) + 1));
-    const entries = [...m.entries()].sort((a,b) => b[1] - a[1]);
-    const top = entries.slice(0, 5);
-    const otherCount = entries.slice(5).reduce((s, [,c]) => s + c, 0);
-    distribution = top.map(([label, count]) => ({ label, count }));
-    if (otherCount > 0) distribution.push({ label: 'Other', count: otherCount });
-  }
-  html += `
-    <div class="mb-2">
-      <h6 class="mb-1">Data Distribution Overview</h6>
-      <table class="table table-sm mb-2">
-        <thead><tr><th>Value</th><th class="text-end">Share</th></tr></thead>
-        <tbody>
-          ${distribution.map(row => `<tr><td>${row.label}</td><td class="text-end">${percent(row.count, totalCount)}</td></tr>`).join('')}
-        </tbody>
-      </table>
-    </div>
-  `;
-
-  // 2) Quality metrics
-  const filled = nonNull.length;
-  const uniqueCount = new Set(asStr).size;
-  // Average length: string length for categorical or number length for numeric
-  const avgLen = asStr.length ? (asStr.reduce((s, v) => s + v.length, 0) / asStr.length) : 0;
-  const avgLenDisplay = (avgLen && !Number.isNaN(avgLen)) ? fmt(avgLen, 2) : '—';
-  html += `
-    <div class="mb-2">
-      <h6 class="mb-1">Data Quality Metrics</h6>
-      <table class="table table-sm mb-2">
-        <tbody>
-          <tr><th class="text-muted">Filled percentage</th><td>${percent(filled, vals.length)}</td></tr>
-          <tr><th class="text-muted">Filled values</th><td>${filled.toLocaleString()}</td></tr>
-          <tr><th class="text-muted">Avg. Length</th><td>${avgLenDisplay}</td></tr>
-          <tr><th class="text-muted">Unique Items</th><td>${uniqueCount.toLocaleString()}</td></tr>
-          <tr><th class="text-muted">Uniqueness</th><td>${percent(uniqueCount, filled)}</td></tr>
-        </tbody>
-      </table>
-    </div>
-  `;
-
-  // 3) Summary (type specific)
-  if (isNumeric) {
-    const nums = nonNull.map(Number).filter(v => !Number.isNaN(v)).sort((a,b)=>a-b);
-    const n = nums.length;
-    const mean = n ? nums.reduce((a,b)=>a+b,0)/n : 0;
-    const std = (n>1) ? Math.sqrt(nums.reduce((s,v)=>s+(v-mean)**2,0)/(n-1)) : 0;
-    const zeros = nums.filter(v => v === 0).length;
-    const rsd = mean !== 0 ? (std/mean)*100 : 0;
-
-    html += `
-      <div>
-        <h6 class="mb-1">Summary Statistics</h6>
-        <table class="table table-sm mb-0">
-          <tbody>
-            <tr><th class="text-muted">Mean</th><td>${fmt(mean)}</td></tr>
-            <tr><th class="text-muted">Min</th><td>${fmt(nums[0])}</td></tr>
-            <tr><th class="text-muted">Max</th><td>${fmt(nums[n-1])}</td></tr>
-            <tr><th class="text-muted">Std Dev</th><td>${fmt(std)}</td></tr>
-            <tr><th class="text-muted">Relative Std Dev</th><td>${fmt(rsd,1)}%</td></tr>
-            <tr><th class="text-muted">Zero Values</th><td>${zeros.toLocaleString()} (${percent(zeros, n)})</td></tr>
-            <tr><th class="text-muted">25%</th><td>${fmt(qtile(nums, 0.25))}</td></tr>
-            <tr><th class="text-muted">50% (Median)</th><td>${fmt(qtile(nums, 0.50))}</td></tr>
-            <tr><th class="text-muted">75%</th><td>${fmt(qtile(nums, 0.75))}</td></tr>
-          </tbody>
-        </table>
-      </div>
-    `;
-  } else if (isDate) {
-    const dates = nonNull.map(v => new Date(v)).filter(d => !isNaN(d)).sort((a,b)=>a-b);
-    const uniq = new Set(dates.map(d => d.getTime()));
-    html += `
-      <div>
-        <h6 class="mb-1">Summary (Date)</h6>
-        <table class="table table-sm mb-0">
-          <tbody>
-            <tr><th class="text-muted">Count</th><td>${dates.length.toLocaleString()}</td></tr>
-            <tr><th class="text-muted">Unique</th><td>${uniq.size.toLocaleString()}</td></tr>
-            <tr><th class="text-muted">Min</th><td>${dates.length ? toISO(dates[0]) : '—'}</td></tr>
-            <tr><th class="text-muted">Max</th><td>${dates.length ? toISO(dates[dates.length-1]) : '—'}</td></tr>
-          </tbody>
-        </table>
-      </div>
-    `;
-  } else {
-    // categorical / text
-    const counts = new Map();
-    asStr.forEach(v => counts.set(v, (counts.get(v) || 0) + 1));
-    let topVal = '—', topFreq = 0;
-    for (const [k, v] of counts.entries()) if (v > topFreq) { topVal = k; topFreq = v; }
-    // Compute min/max category string length
-    const lengths = asStr.map(v => v.length);
-    const minLen = lengths.length ? Math.min(...lengths) : 0;
-    const maxLen = lengths.length ? Math.max(...lengths) : 0;
-
-    html += `
-      <div>
-        <h6 class="mb-1">Summary (Categorical/Text)</h6>
-        <table class="table table-sm mb-0">
-          <tbody>
-            <tr><th class="text-muted">Count</th><td>${asStr.length.toLocaleString()}</td></tr>
-            <tr><th class="text-muted">Unique</th><td>${counts.size.toLocaleString()}</td></tr>
-            <tr><th class="text-muted">Top</th><td>${topVal}</td></tr>
-            <tr><th class="text-muted">Freq</th><td>${topFreq.toLocaleString()} (${percent(topFreq, asStr.length)})</td></tr>
-            <tr><th class="text-muted">Min Length</th><td>${minLen.toLocaleString()}</td></tr>
-            <tr><th class="text-muted">Max Length</th><td>${maxLen.toLocaleString()}</td></tr>
-          </tbody>
-        </table>
-      </div>
-    `;
+    return sortedNums[base];
   }
 
-  id('fieldStats').innerHTML = html;
-}
+  // ----------------------------
+  // Utilities
+  // ----------------------------
+  const id = (s) => document.getElementById(s);
+  const toISO = (d) => new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().split('T')[0];
+  const uniqueNonEmpty = (arr) => Array.from(new Set(arr.map(v => v===null||v===undefined?'' : String(v)).filter(s => s !== ''))).sort();
 
-function fmt(x) {
-  if (x === undefined || x === null || Number.isNaN(x)) return '—';
-  return Number(x).toLocaleString(undefined, { maximumFractionDigits: 3 });
-}
-function quantile(sortedNums, q) {
-  if (!sortedNums.length) return NaN;
-  const pos = (sortedNums.length - 1) * q;
-  const base = Math.floor(pos);
-  const rest = pos - base;
-  if (sortedNums[base+1] !== undefined) {
-    return sortedNums[base] + rest * (sortedNums[base+1] - sortedNums[base]);
+  function parseValidDate(v) {
+    const d = new Date(v);
+    if (Number.isNaN(d.getTime())) return null;
+    const y = d.getUTCFullYear();
+    return (y >= 2019 && y <= 2024) ? d : null;
   }
-  return sortedNums[base];
-}
-  
-    // ----------------------------
-    // Utilities
-    // ----------------------------
-    const id = (s) => document.getElementById(s);
-    const toISO = (d) => new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().split('T')[0];
-    const uniqueNonEmpty = (arr) => Array.from(new Set(arr.map(v => v===null||v===undefined?'' : String(v)).filter(s => s !== ''))).sort();
 
-    /**
-     * Safely parse a date value. Returns a Date object if the input can be
-     * converted to a valid date and the year falls within an acceptable
-     * window (2000–2050). If the value is invalid or out‑of‑range this
-     * returns null. Using this helper prevents bogus dates such as 1970/2030
-     * from creeping into our date range calculations.
-     * @param {any} v
-     * @returns {Date|null}
-     */
-    function parseValidDate(v) {
-      const d = new Date(v);
-      if (Number.isNaN(d.getTime())) return null;
-      const y = d.getUTCFullYear();
-      /*
-       * Only accept dates that fall within the actual study period.  The MUSPAD
-       * dataset spans roughly 2020 → 2024; occasional parsing artefacts like
-       * 1970, 2015 or 2030 values sneak into the CSV and should not be used
-       * when computing the filter bounds or date‑based summaries.  Restrict
-       * the acceptable year window accordingly so that outliers are ignored.
-       */
-      return (y >= 2019 && y <= 2024) ? d : null;
-    }
-
-    function appendOption(sel, value, label) {
+  function appendOption(sel, value, label) {
+    const o = document.createElement('option');
+    o.value = value; o.textContent = label ?? value;
+    sel.appendChild(o);
+  }
+  function fillMultiSelect(sel, values) {
+    sel.innerHTML = '';
+    for (const v of values) {
       const o = document.createElement('option');
-      o.value = value; o.textContent = label ?? value;
+      o.value = v; o.textContent = v; o.selected = true;
       sel.appendChild(o);
     }
-    function fillMultiSelect(sel, values) {
-      sel.innerHTML = '';
-      for (const v of values) {
-        const o = document.createElement('option');
-        o.value = v; o.textContent = v; o.selected = true;
-        sel.appendChild(o);
-      }
+  }
+  function selectAll(sel){ for (const o of sel.options) o.selected = true; sel.dispatchEvent(new Event('change')); }
+  function clearAll(sel){ for (const o of sel.options) o.selected = false; sel.dispatchEvent(new Event('change')); }
+
+  function toggle(panelId) {
+    const el = id(panelId);
+    el.classList.toggle('active');
+  }
+  function show(panelId, on=true) {
+    const el = id(panelId);
+    if (on) el.classList.add('active'); else el.classList.remove('active');
+  }
+  function openModal(){ id('modal').style.display = 'grid'; }
+  function closeModal(){ id('modal').style.display = 'none'; }
+
+  function downloadCSV(filename, headers, rows) {
+    const esc = (v) => {
+      if (v === null || v === undefined) return '';
+      const s = String(v);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
+    };
+    const csv = [headers.map(esc).join(',')]
+      .concat(rows.map(row => row.map(esc).join(',')))
+      .join('\n');
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(a.href);
+  }
+  </script>
+
+  <!-- ==================== Global Filters Modal (your inserted block) ==================== -->
+  <style>
+    #panelFilters{ display:none; }
+    .filters-modal-backdrop {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
     }
-    function selectAll(sel){ for (const o of sel.options) o.selected = true; sel.dispatchEvent(new Event('change')); }
-    function clearAll(sel){ for (const o of sel.options) o.selected = false; sel.dispatchEvent(new Event('change')); }
-
-    function toggle(panelId) {
-      const el = id(panelId);
-      el.classList.toggle('active');
+    .filters-modal {
+      background: #fff;
+      width: 80%;
+      max-width: 1000px;
+      max-height: 90%;
+      display: flex;
+      flex-direction: column;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
     }
-    function show(panelId, on=true) {
-      const el = id(panelId);
-      if (on) el.classList.add('active'); else el.classList.remove('active');
+    .filters-modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem;
+      border-bottom: 1px solid #eee;
     }
-    function openModal(){ id('modal').style.display = 'grid'; }
-    function closeModal(){ id('modal').style.display = 'none'; }
-
-
-    function downloadCSV(filename, headers, rows) {
-      const esc = (v) => {
-        if (v === null || v === undefined) return '';
-        const s = String(v);
-        return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
-      };
-      const csv = [headers.map(esc).join(',')]
-        .concat(rows.map(row => row.map(esc).join(',')))
-        .join('\n');
-      const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(a.href);
+    .filters-modal-body {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
     }
+    .filters-modal-footer {
+      padding: 1rem;
+      border-top: 1px solid #eee;
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.5rem;
+    }
+    .filters-field-list {
+      width: 30%;
+      overflow-y: auto;
+      border-right: 1px solid #eee;
+      padding: 1rem;
+    }
+    .filters-field-list .field-item {
+      display: flex;
+      align-items: center;
+      margin-bottom: 0.5rem;
+      cursor: pointer;
+    }
+    .filters-field-list .field-item .badge {
+      width: 0.5rem;
+      height: 0.5rem;
+      border-radius: 50%;
+      margin-right: 0.5rem;
+    }
+    .filters-field-list .field-item .count {
+      margin-left: auto;
+      font-size: 0.8rem;
+      color: #555;
+    }
+    .filters-field-panel {
+      flex: 1;
+      padding: 1rem;
+      overflow-y: auto;
+      background: #f5f7e7;
+    }
+    .filters-field-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    .filters-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+    .filters-chip {
+      padding: 0.25rem 0.5rem;
+      border-radius: 12px;
+      background: #e6f4ea;
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+    .filters-chip.selected { background: #c8e6c9; }
+  </style>
 
-    <style>
-  #panelFilters{ display:none; }
-  /* Global Filters Modal Styles */
-  .filters-modal-backdrop {
-    position: fixed;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    background: rgba(0,0,0,0.5);
-    display: none;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-  }
-  .filters-modal {
-    background: #fff;
-    width: 80%;
-    max-width: 1000px;
-    max-height: 90%;
-    display: flex;
-    flex-direction: column;
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-  }
-  .filters-modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1rem;
-    border-bottom: 1px solid #eee;
-  }
-  .filters-modal-body {
-    flex: 1;
-    display: flex;
-    overflow: hidden;
-  }
-  .filters-modal-footer {
-    padding: 1rem;
-    border-top: 1px solid #eee;
-    display: flex;
-    justify-content: flex-end;
-    gap: 0.5rem;
-  }
-  .filters-field-list {
-    width: 30%;
-    overflow-y: auto;
-    border-right: 1px solid #eee;
-    padding: 1rem;
-  }
-  .filters-field-list .field-item {
-    display: flex;
-    align-items: center;
-    margin-bottom: 0.5rem;
-    cursor: pointer;
-  }
-  .filters-field-list .field-item .badge {
-    width: 0.5rem;
-    height: 0.5rem;
-    border-radius: 50%;
-    margin-right: 0.5rem;
-  }
-  .filters-field-list .field-item .count {
-    margin-left: auto;
-    font-size: 0.8rem;
-    color: #555;
-  }
-  .filters-field-panel {
-    flex: 1;
-    padding: 1rem;
-    overflow-y: auto;
-    background: #f5f7e7;
-  }
-  .filters-field-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-  }
-  .filters-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    margin-top: 0.5rem;
-  }
-  .filters-chip {
-    padding: 0.25rem 0.5rem;
-    border-radius: 12px;
-    background: #e6f4ea;
-    font-size: 0.8rem;
-    cursor: pointer;
-  }
-  .filters-chip.selected {
-    background: #c8e6c9;
-  }
-</style>
-
-<div id="filters-backdrop" class="filters-modal-backdrop" aria-modal="true" role="dialog" aria-label="Global Filters">
-  <div class="filters-modal">
-    <div class="filters-modal-header">
-      <h5>Global Filters</h5>
-      <button aria-label="Close" onclick="closeFiltersModal()">&times;</button>
-    </div>
-    <div class="filters-modal-body">
-      <div class="filters-field-list" id="filters-list">
-        <!-- Fields will be populated dynamically -->
+  <div id="filters-backdrop" class="filters-modal-backdrop" aria-modal="true" role="dialog" aria-label="Global Filters">
+    <div class="filters-modal">
+      <div class="filters-modal-header">
+        <h5>Global Filters</h5>
+        <button aria-label="Close" onclick="closeFiltersModal()">&times;</button>
       </div>
-      <div class="filters-field-panel" id="filters-panel">
-        <div class="filters-field-header">
-          <span id="field-name">Field Name</span>
-          <button aria-label="Settings">&#9881;</button>
-        </div>
-        <div class="filters-controls">
-          <input type="text" placeholder="Search" id="filter-search" style="margin-right:.5rem;">
-          <select id="filter-sort">
-            <option value="count">Sort by Count</option>
-            <option value="az">A → Z</option>
-            <option value="za">Z → A</option>
-          </select>
-          <select id="filter-op" style="margin-left:.5rem;">
-            <option value="includes">Includes</option>
-            <option value="excludes">Excludes</option>
-            <option value="contains">Contains</option>
-            <option value="startswith">Starts with</option>
-            <option value="endswith">Ends with</option>
-          </select>
-        </div>
-        <div class="filters-chips" id="filter-chips">
-          <!-- chips inserted by JS -->
+      <div class="filters-modal-body">
+        <div class="filters-field-list" id="filters-list"></div>
+        <div class="filters-field-panel" id="filters-panel">
+          <div class="filters-field-header">
+            <span id="field-name">Field Name</span>
+            <button aria-label="Settings">&#9881;</button>
+          </div>
+          <div class="filters-controls">
+            <input type="text" placeholder="Search" id="filter-search" style="margin-right:.5rem;">
+            <select id="filter-sort">
+              <option value="count">Sort by Count</option>
+              <option value="az">A → Z</option>
+              <option value="za">Z → A</option>
+            </select>
+            <select id="filter-op" style="margin-left:.5rem;">
+              <option value="includes">Includes</option>
+              <option value="excludes">Excludes</option>
+              <option value="contains">Contains</option>
+              <option value="startswith">Starts with</option>
+              <option value="endswith">Ends with</option>
+            </select>
+          </div>
+          <div class="filters-chips" id="filter-chips"></div>
         </div>
       </div>
-    </div>
-    <div class="filters-modal-footer">
-      <button onclick="clearAllFilters()">Clear All</button>
-      <button onclick="closeFiltersModal()">Cancel</button>
-      <button onclick="applyFilters()">Apply</button>
+      <div class="filters-modal-footer">
+        <button onclick="clearAllFilters()">Clear All</button>
+        <button onclick="closeFiltersModal()">Cancel</button>
+        <button onclick="applyFilters()">Apply</button>
+      </div>
     </div>
   </div>
-</div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  var originalPanel = document.getElementById('panelFilters');
-  if (originalPanel) {
-    originalPanel.style.display = 'none';
-  }
-  var btn = document.getElementById('btnFilters');
-  if (btn) {
-    btn.addEventListener('click', openFiltersModal);
-  }
-});
+  <script>
+  // Keep your original toggle binding; this adds the modal opener too.
+  document.addEventListener('DOMContentLoaded', function() {
+    var originalPanel = document.getElementById('panelFilters');
+    if (originalPanel) {
+      originalPanel.style.display = 'none';
+    }
+    var btn = document.getElementById('btnFilters');
+    if (btn) {
+      btn.addEventListener('click', openFiltersModal);
+    }
+  });
 
-function openFiltersModal() {
-  var backdrop = document.getElementById('filters-backdrop');
-  if (backdrop) {
-    backdrop.style.display = 'flex';
-    document.body.style.overflow = 'hidden';
-    document.addEventListener('keydown', filtersEscHandler);
+  function openFiltersModal() {
+    var backdrop = document.getElementById('filters-backdrop');
+    if (backdrop) {
+      backdrop.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+      document.addEventListener('keydown', filtersEscHandler);
+    }
   }
-}
-function closeFiltersModal() {
-  var backdrop = document.getElementById('filters-backdrop');
-  if (backdrop) {
-    backdrop.style.display = 'none';
-    document.body.style.overflow = '';
-    document.removeEventListener('keydown', filtersEscHandler);
+  function closeFiltersModal() {
+    var backdrop = document.getElementById('filters-backdrop');
+    if (backdrop) {
+      backdrop.style.display = 'none';
+      document.body.style.overflow = '';
+      document.removeEventListener('keydown', filtersEscHandler);
+    }
   }
-}
-function filtersEscHandler(e) {
-  if (e.key === 'Escape') {
-    closeFiltersModal();
+  function filtersEscHandler(e) {
+    if (e.key === 'Escape') {
+      closeFiltersModal();
+    }
   }
-}
-function clearAllFilters() {
-  // clear filter selections
-}
-function applyFilters() {
-  // apply filter selections
-  closeFiltersModal();
-}
-</script>
-
-   
+  function clearAllFilters() {
+    // placeholder – keeps behavior unchanged
+  }
   </script>
-  
-</
-  >
+
+</body>
 </html>
