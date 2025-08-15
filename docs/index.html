@@ -571,9 +571,10 @@
         if (!isNaN(d)) {
           parsed++;
         const y = d.getUTCFullYear();
-        // Accept dates only inside a reasonable window (2000–2050).
-        // Otherwise things like 1970/2030 (Unix epoch defaults or parsing artefacts) will pollute our detection.
-        if (y >= 2000 && y <= 2050) withinRange++;
+        // Accept dates only inside the true study window (2019–2024).  Reject
+        // out‑of‑range years (e.g. 1970, 2015, 2030) so that the date column
+        // scorer isn’t skewed by bogus values.
+        if (y >= 2019 && y <= 2024) withinRange++;
         }
       }
       const rate = vals.length ? parsed / vals.length : 0;
@@ -1369,7 +1370,14 @@ function quantile(sortedNums, q) {
       const d = new Date(v);
       if (Number.isNaN(d.getTime())) return null;
       const y = d.getUTCFullYear();
-      return (y >= 2000 && y <= 2050) ? d : null;
+      /*
+       * Only accept dates that fall within the actual study period.  The MUSPAD
+       * dataset spans roughly 2020 → 2024; occasional parsing artefacts like
+       * 1970, 2015 or 2030 values sneak into the CSV and should not be used
+       * when computing the filter bounds or date‑based summaries.  Restrict
+       * the acceptable year window accordingly so that outliers are ignored.
+       */
+      return (y >= 2019 && y <= 2024) ? d : null;
     }
 
     function appendOption(sel, value, label) {
