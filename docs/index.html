@@ -115,8 +115,11 @@
   display: flex;
   flex-direction: column;
   gap: .75rem;
-  max-height: 60vh;
-  overflow: hidden;
+          max-height: 70vh; /* increased to allow more vertical space for inspector */
+  
+  
+      overflow-y: auto; /* enable vertical scrolling in inspector */
+  
 }
 
 /* Blocks inside inspector */
@@ -1362,7 +1365,8 @@ function quantile(sortedNums, q) {
      * converted to a valid date and the year falls within an acceptable
      * window (2000–2050). If the value is invalid or out‑of‑range this
      * returns null. Using this helper prevents bogus dates such as 1970/2030
-     * from creeping into our date range calculations.
+         
+    
      * @param {any} v
      * @returns {Date|null}
      */
@@ -1377,7 +1381,8 @@ function quantile(sortedNums, q) {
        * when computing the filter bounds or date‑based summaries.  Restrict
        * the acceptable year window accordingly so that outliers are ignored.
        */
-      return (y >= 2019 && y <= 2024) ? d : null;
+          return (y >= 2019 && y <= 2025) ? d : null; /* accept years 2019-2025 inclusive */
+      
     }
 
     function appendOption(sel, value, label) {
