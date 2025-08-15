@@ -94,7 +94,97 @@
     }
     #modal .grid { display: grid; gap: .75rem; }
     #modal .actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: .75rem; }
-  </style>
+
+/* ===== Inspector panel styles START ===== */
+
+/* Data panel two-column layout */
+#dataLayout {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 1rem;
+  min-height: 300px;
+}
+
+/* Right inspector panel */
+#inspector {
+  background: #fff;
+  border: 1px solid #e1e1e1;
+  border-radius: 8px;
+  padding: .75rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,.06);
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+  max-height: 60vh;
+  overflow: hidden;
+}
+
+/* Blocks inside inspector */
+.inspector-block {
+  border: 1px solid #f0f0f0;
+  border-radius: 6px;
+  padding: .5rem .6rem;
+  background: #fafafa;
+}
+.inspector-title {
+  margin: 0 0 .5rem 0;
+  font-size: .95rem;
+  font-weight: 600;
+}
+
+/* KPI grid */
+.inspector-kpis {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap: .5rem;
+}
+.kpi { background:#fff; border:1px solid #eee; border-radius:6px; padding:.4rem .5rem; }
+.kpi-wide { grid-column: 1 / -1; }
+.kpi-label { font-size:.75rem; color:#6c757d; }
+.kpi-value { font-weight:600; }
+
+/* Column list (scrollable) */
+.inspector-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: .35rem;
+  max-height: 22vh;
+  overflow: auto;
+}
+.inspector-list button {
+  width: 100%;
+  text-align: left;
+  padding: .35rem .5rem;
+  border: 1px solid #e1e1e1;
+  background: #fff;
+  border-radius: 6px;
+  font-size: .9rem;
+  cursor: pointer;
+}
+.inspector-list button:hover { background:#f5f8ff; border-color:#cfe2ff; }
+.inspector-list button.active { background:#e7f1ff; border-color:#9ec5fe; }
+
+/* Field stats area (scrollable if long) */
+#fieldStats {
+  max-height: 22vh;
+  overflow: auto;
+  background:#fff;
+  border:1px solid #eee;
+  border-radius:6px;
+  padding:.5rem;
+}
+
+/* Responsive: stack on small screens */
+@media (max-width: 900px) {
+  #dataLayout {
+    grid-template-columns: 1fr;
+  }
+  #inspector {
+    max-height: none;
+  }
+}
+/* ===== Inspector panel styles END ===== */
+</style>
 </head>
 <body>
   <div id="app">
@@ -134,8 +224,42 @@
       <!-- Data table -->
       <section id="panelData" class="panel" aria-label="Data preview">
         <h5 class="mb-2">Data Preview</h5>
-        <div class="table-responsive" id="tableWrap"></div>
+      
+        <!-- Two-column layout: table left, inspector right -->
+        <div id="dataLayout">
+          <!-- LEFT: data table -->
+          <div class="table-responsive" id="tableWrap"></div>
+      
+          <!-- RIGHT: inspector -->
+          <aside id="inspector" aria-label="Variable Inspector & Dataset Summary">
+            <!-- Top: dataset summary -->
+            <div id="inspectorSummary" class="inspector-block">
+              <h6 class="inspector-title">Dataset summary</h6>
+              <div class="inspector-kpis">
+                <div class="kpi"><div class="kpi-label">Total rows</div><div class="kpi-value" id="sumTotalRows">—</div></div>
+                <div class="kpi"><div class="kpi-label">Total cols</div><div class="kpi-value" id="sumTotalCols">—</div></div>
+                <div class="kpi"><div class="kpi-label">Filtered rows</div><div class="kpi-value" id="sumFilteredRows">—</div></div>
+                <div class="kpi kpi-wide"><div class="kpi-label">Date range</div><div class="kpi-value" id="sumDateRange">—</div></div>
+              </div>
+            </div>
+      
+            <!-- Columns list -->
+            <div id="inspectorCols" class="inspector-block">
+              <h6 class="inspector-title">Columns</h6>
+              <div id="inspectorList" class="inspector-list">
+                <!-- populated by JS: one <button> per column -->
+              </div>
+            </div>
+      
+            <!-- Field details -->
+            <div id="inspectorDetails" class="inspector-block">
+              <h6 class="inspector-title"><span id="fieldName">Select a column</span></h6>
+              <div id="fieldStats">Choose a column from the list to see statistics.</div>
+            </div>
+          </aside>
+        </div>
       </section>
+
 
       <!-- Settings -->
       <section id="panelSettings" class="panel" aria-label="Settings">
@@ -378,10 +502,16 @@
             detectColumns();
             populateFilters();
             populateBuilderSelects();
+            
+            // Inspector: build list + summary once we know columns
+            rebuildInspectorColumnList();
+            updateInspectorSummary();
+            
             // Start with data visible & some starter charts
             show('panelData', true);
             applyFilters();
             autoStarterCharts();
+
           },
           error: (err) => {
             console.error('Papa error:', err);
@@ -590,6 +720,12 @@
 
       updateTable();
       charts.forEach(drawChart);
+      
+      // Inspector: recompute summary + current field stats (on filtered)
+      updateInspectorSummary();
+      if (inspectorSelectedField) {
+        showFieldStats(inspectorSelectedField);
+      }    
     }
 
     function updateTable() {
@@ -927,8 +1063,132 @@
 }
 
 
+// ===================== Inspector logic =====================
+let inspectorSelectedField = null;
 
-    
+function updateInspectorSummary() {
+  // Totals
+  id('sumTotalRows').textContent    = (rawData?.length ?? 0).toLocaleString();
+  id('sumTotalCols').textContent    = (columns?.length ?? 0).toLocaleString();
+  id('sumFilteredRows').textContent = (filtered?.length ?? 0).toLocaleString();
+
+  // Date range (dataset-level, uses rawData)
+  if (!dateCol) {
+    id('sumDateRange').textContent = '—';
+    return;
+  }
+  const dates = (rawData || [])
+    .map(r => new Date(r[dateCol]))
+    .filter(d => !isNaN(d))
+    .sort((a,b)=>a-b);
+  if (!dates.length) {
+    id('sumDateRange').textContent = '—';
+    return;
+  }
+  id('sumDateRange').textContent = `${toISO(dates[0])} → ${toISO(dates[dates.length-1])}`;
+}
+
+function rebuildInspectorColumnList() {
+  const wrap = id('inspectorList');
+  wrap.innerHTML = '';
+  if (!columns?.length) return;
+
+  columns.forEach(col => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = col;
+    btn.dataset.col = col;
+    btn.addEventListener('click', () => {
+      inspectorSelectedField = col;
+      // set active state
+      wrap.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.col === col));
+      showFieldStats(col);
+    });
+    wrap.appendChild(btn);
+  });
+
+  // Preselect first column
+  if (!inspectorSelectedField && columns.length) {
+    inspectorSelectedField = columns[0];
+    const firstBtn = wrap.querySelector('button');
+    if (firstBtn) firstBtn.classList.add('active');
+    showFieldStats(inspectorSelectedField);
+  }
+}
+
+function showFieldStats(col) {
+  if (!col) return;
+  id('fieldName').textContent = col;
+
+  // Work on the CURRENT filtered rows
+  const values = (filtered || []).map(r => r[col]);
+  const nonNull = values.filter(v => v !== null && v !== undefined && v !== '');
+
+  // Type detection using what we already know
+  const isNumeric = numericCols.includes(col);
+  const isDate    = (col === dateCol) || sampleValues(col, 30).some(v => !isNaN(new Date(v)));
+
+  let html = '<table class="table table-sm mb-0"><tbody>';
+
+  if (isNumeric) {
+    const nums = nonNull.map(Number).filter(v => !Number.isNaN(v)).sort((a,b)=>a-b);
+    const count = nums.length;
+    const mean  = count ? (nums.reduce((a,b)=>a+b,0) / count) : 0;
+    const std   = (count > 1) ? Math.sqrt(nums.reduce((s,v)=>s+Math.pow(v-mean,2),0) / (count-1)) : 0;
+
+    html += row('count', count.toLocaleString());
+    html += row('mean',  fmt(mean));
+    html += row('std',   fmt(std));
+    html += row('min',   fmt(nums[0]));
+    html += row('25%',   fmt(quantile(nums, 0.25)));
+    html += row('50%',   fmt(quantile(nums, 0.50)));
+    html += row('75%',   fmt(quantile(nums, 0.75)));
+    html += row('max',   fmt(nums[nums.length-1]));
+  } else if (isDate) {
+    const dates = nonNull.map(v => new Date(v)).filter(d => !isNaN(d)).sort((a,b)=>a-b);
+    const uniq  = new Set(dates.map(d => d.getTime()));
+    html += row('count',  dates.length.toLocaleString());
+    html += row('unique', uniq.size.toLocaleString());
+    html += row('min',    dates.length ? toISO(dates[0]) : '—');
+    html += row('max',    dates.length ? toISO(dates[dates.length-1]) : '—');
+  } else {
+    const asStr = nonNull.map(v => String(v));
+    const count = asStr.length;
+    const uniqSet = new Map(); // value -> freq
+    asStr.forEach(v => uniqSet.set(v, (uniqSet.get(v) || 0) + 1));
+    let top = '—', freq = 0;
+    for (const [k,v] of uniqSet.entries()) {
+      if (v > freq) { top = k; freq = v; }
+    }
+    html += row('count',  count.toLocaleString());
+    html += row('unique', uniqSet.size.toLocaleString());
+    html += row('top',    top);
+    html += row('freq',   freq.toLocaleString());
+  }
+
+  html += '</tbody></table>';
+  id('fieldStats').innerHTML = html;
+
+  function row(label, value) {
+    return `<tr><th scope="row" class="text-muted" style="width:40%">${label}</th><td>${value ?? '—'}</td></tr>`;
+  }
+}
+
+function fmt(x) {
+  if (x === undefined || x === null || Number.isNaN(x)) return '—';
+  return Number(x).toLocaleString(undefined, { maximumFractionDigits: 3 });
+}
+function quantile(sortedNums, q) {
+  if (!sortedNums.length) return NaN;
+  const pos = (sortedNums.length - 1) * q;
+  const base = Math.floor(pos);
+  const rest = pos - base;
+  if (sortedNums[base+1] !== undefined) {
+    return sortedNums[base] + rest * (sortedNums[base+1] - sortedNums[base]);
+  }
+  return sortedNums[base];
+}
+  
     // ----------------------------
     // Utilities
     // ----------------------------
