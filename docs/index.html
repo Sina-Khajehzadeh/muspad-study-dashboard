@@ -374,6 +374,7 @@
 
   function wireUI() {
     // Sidebar toggles
+    id('btnFilters').addEventListener('click', openFiltersModal);
     id('btnData').addEventListener('click', () => toggle('panelData'));
     id('btnSettings').addEventListener('click', () => toggle('panelSettings'));
     id('btnAdd').addEventListener('click', () => {
@@ -382,57 +383,72 @@
     });
 
     // Date change
-    id('startDate').addEventListener('change', applyFilters);
-    id('endDate').addEventListener('change', applyFilters);
+    const startDateEl = id('startDate');
+    const endDateEl = id('endDate');
+    if (startDateEl) startDateEl.addEventListener('change', applyFilters);
+    if (endDateEl) endDateEl.addEventListener('change', applyFilters);
 
     // Modal controls
-    id('btnCancel').addEventListener('click', closeModal);
-    id('btnCreate').addEventListener('click', () => {
+    const btnCancel = id('btnCancel');
+    const btnCreate = id('btnCreate');
+    const modal = id('modal');
+    
+    if (btnCancel) btnCancel.addEventListener('click', closeModal);
+    if (btnCreate) btnCreate.addEventListener('click', () => {
       const cfg = {
-        type:    id('fldType').value,
-        x:       id('fldX').value || null,
-        y:       id('fldY').value || null,
-        y2:      id('fldY2').value || null,
-        yCat:    id('fldYCat').value || null,
-        color:   id('fldColor').value || null,
-        size:    id('fldSize').value || null,
-        agg:     id('fldAgg').value || 'count',
-        dualAxis:    id('chkDualAxis').checked,
-        histOverlay:id('chkHistOverlay').checked
+        type:    id('fldType')?.value || 'bar',
+        x:       id('fldX')?.value || null,
+        y:       id('fldY')?.value || null,
+        y2:      id('fldY2')?.value || null,
+        yCat:    id('fldYCat')?.value || null,
+        color:   id('fldColor')?.value || null,
+        size:    id('fldSize')?.value || null,
+        agg:     id('fldAgg')?.value || 'count',
+        dualAxis:    id('chkDualAxis')?.checked || false,
+        histOverlay:id('chkHistOverlay')?.checked || false
       };
       addChart(cfg);
       closeModal();
     });
 
     // Close builder by clicking backdrop
-    id('modal').addEventListener('click', (e) => {
-      if (e.target === id('modal')) closeModal();
-    });
+    if (modal) {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+      });
+    }
 
     // Update builder visibility when chart type changes
-    if (id('fldType')) {
-      id('fldType').addEventListener('change', updateBuilderVisibility);
+    const fldType = id('fldType');
+    if (fldType) {
+      fldType.addEventListener('change', updateBuilderVisibility);
       updateBuilderVisibility();
     }
 
     // Download filtered CSV
-    id('btnDownloadFiltered').addEventListener('click', () => {
-      if (!filtered.length) {
-        alert('No rows in the current filter.');
-        return;
-      }
-      downloadCSV('filtered_data.csv', columns, filtered.map(r => columns.map(c => r[c])));
-    });
+    const btnDownload = id('btnDownloadFiltered');
+    if (btnDownload) {
+      btnDownload.addEventListener('click', () => {
+        if (!filtered.length) {
+          alert('No rows in the current filter.');
+          return;
+        }
+        downloadCSV('filtered_data.csv', columns, filtered.map(r => columns.map(c => r[c])));
+      });
+    }
   }
 
   // ----------------------------
   // Builder field visibility
   // ----------------------------
   function updateBuilderVisibility() {
-    const type = id('fldType').value;
+    const typeEl = id('fldType');
+    if (!typeEl) return;
+    
+    const type = typeEl.value;
     const show = (selector, on) => {
       document.querySelectorAll(selector).forEach(el => {
-        el.style.display = on ? '' : 'none';
+        if (el) el.style.display = on ? '' : 'none';
       });
     };
     show('[data-role="needsNumeric"]', !['pie','heatmap','pivot','datatable','funnel'].includes(type));
@@ -1033,6 +1049,8 @@ function initGlobalFilters() {
   // ----------------------------
   function populateFilters() {
     const container = id('filter-container');
+    if (!container) return;
+    
     container.innerHTML = '';
 
     categoricalCols.forEach(col => {
@@ -1084,22 +1102,27 @@ function initGlobalFilters() {
     });
 
     if (dateCol) {
-      const dates = rawData
-        .map(r => parseValidDate(r[dateCol]))
-        .filter(Boolean)
-        .sort((a,b) => a - b);
+      const startDateEl = id('startDate');
+      const endDateEl = id('endDate');
+      
+      if (startDateEl && endDateEl) {
+        const dates = rawData
+          .map(r => parseValidDate(r[dateCol]))
+          .filter(Boolean)
+          .sort((a,b) => a - b);
 
-      if (dates.length) {
-        const minISO = toISO(dates[0]);
-        const maxISO = toISO(dates[dates.length-1]);
-        id('startDate').min = minISO;
-        id('startDate').max = maxISO;
-        id('endDate').min   = minISO;
-        id('endDate').max   = maxISO;
-        id('startDate').dataset.col = dateCol;
-        id('endDate').dataset.col   = dateCol;
-        id('startDate').value = minISO;
-        id('endDate').value   = maxISO;
+        if (dates.length) {
+          const minISO = toISO(dates[0]);
+          const maxISO = toISO(dates[dates.length-1]);
+          startDateEl.min = minISO;
+          startDateEl.max = maxISO;
+          endDateEl.min   = minISO;
+          endDateEl.max   = maxISO;
+          startDateEl.dataset.col = dateCol;
+          endDateEl.dataset.col   = dateCol;
+          startDateEl.value = minISO;
+          endDateEl.value   = maxISO;
+        }
       }
     }
   }
@@ -1108,13 +1131,23 @@ function initGlobalFilters() {
     const xSel = id('fldX'), ySel = id('fldY'), cSel = id('fldColor');
     const y2Sel = id('fldY2'), yCatSel = id('fldYCat'), sizeSel = id('fldSize');
 
-    [xSel, ySel, cSel, y2Sel, yCatSel, sizeSel].forEach(s => s.innerHTML = '');
+    [xSel, ySel, cSel, y2Sel, yCatSel, sizeSel].forEach(s => {
+      if (s) s.innerHTML = '';
+    });
 
     const cats = categoricalCols.length ? categoricalCols : columns;
     const nums = numericCols.length ? numericCols : columns;
 
-    cats.forEach(c => { appendOption(xSel, c); appendOption(yCatSel, c); appendOption(cSel, c); });
-    nums.forEach(c => { appendOption(ySel, c); appendOption(y2Sel, c); appendOption(sizeSel, c); });
+    cats.forEach(c => { 
+      if (xSel) appendOption(xSel, c); 
+      if (yCatSel) appendOption(yCatSel, c); 
+      if (cSel) appendOption(cSel, c); 
+    });
+    nums.forEach(c => { 
+      if (ySel) appendOption(ySel, c); 
+      if (y2Sel) appendOption(y2Sel, c); 
+      if (sizeSel) appendOption(sizeSel, c); 
+    });
 
     updateBuilderVisibility();
   }
@@ -1123,17 +1156,22 @@ function initGlobalFilters() {
   // Filtering + table
   // ----------------------------
   function applyFilters() {
-    const s = id('startDate').value ? new Date(id('startDate').value) : null;
-    const e = id('endDate').value ? new Date(id('endDate').value) : null;
-
+    const startDateEl = id('startDate');
+    const endDateEl = id('endDate');
     const filterContainer = id('filter-container');
-    const filterSelects = filterContainer.querySelectorAll('select[data-col]');
+    
+    const s = startDateEl?.value ? new Date(startDateEl.value) : null;
+    const e = endDateEl?.value ? new Date(endDateEl.value) : null;
+
     const filterMap = {};
-    filterSelects.forEach(sel => {
-      const col = sel.dataset.col;
-      const selected = Array.from(sel.selectedOptions).map(o => String(o.value));
-      filterMap[col] = selected;
-    });
+    if (filterContainer) {
+      const filterSelects = filterContainer.querySelectorAll('select[data-col]');
+      filterSelects.forEach(sel => {
+        const col = sel.dataset.col;
+        const selected = Array.from(sel.selectedOptions).map(o => String(o.value));
+        filterMap[col] = selected;
+      });
+    }
 
     filtered = rawData.filter(r => {
       if (dateCol && (s || e)) {
@@ -1162,6 +1200,8 @@ function initGlobalFilters() {
 
   function updateTable() {
     const wrap = id('tableWrap');
+    if (!wrap) return;
+    
     wrap.innerHTML = '';
     if (!filtered.length) {
       wrap.innerHTML = '<div class="text-muted">No data to display</div>';
@@ -1475,11 +1515,19 @@ function initGlobalFilters() {
 
   // ===================== Inspector logic =====================
   function updateInspectorSummary() {
-    id('sumTotalRows').textContent    = (rawData?.length ?? 0).toLocaleString();
-    id('sumTotalCols').textContent    = (columns?.length ?? 0).toLocaleString();
-    id('sumFilteredRows').textContent = (filtered?.length ?? 0).toLocaleString();
+    const totalRowsEl = id('sumTotalRows');
+    const totalColsEl = id('sumTotalCols');
+    const filteredRowsEl = id('sumFilteredRows');
+    const dateRangeEl = id('sumDateRange');
+    
+    if (totalRowsEl) totalRowsEl.textContent = (rawData?.length ?? 0).toLocaleString();
+    if (totalColsEl) totalColsEl.textContent = (columns?.length ?? 0).toLocaleString();
+    if (filteredRowsEl) filteredRowsEl.textContent = (filtered?.length ?? 0).toLocaleString();
 
-    if (!dateCol) { id('sumDateRange').textContent = '—'; return; }
+    if (!dateCol || !dateRangeEl) { 
+      if (dateRangeEl) dateRangeEl.textContent = '—'; 
+      return; 
+    }
 
     const rowsForRange = (filtered && Array.isArray(filtered)) ? filtered : rawData;
     const dates = rowsForRange
@@ -1487,12 +1535,14 @@ function initGlobalFilters() {
       .filter(Boolean)
       .sort((a,b) => a - b);
 
-    id('sumDateRange').textContent =
+    dateRangeEl.textContent =
       dates.length ? `${toISO(dates[0])} → ${toISO(dates[dates.length-1])}` : '—';
   }
 
   function rebuildInspectorColumnList() {
     const wrap = id('inspectorList');
+    if (!wrap) return;
+    
     wrap.innerHTML = '';
     if (!columns?.length) return;
 
@@ -1524,7 +1574,12 @@ function initGlobalFilters() {
 
   function showFieldStats(col) {
     if (!col) return;
-    id('fieldName').textContent = col;
+    
+    const fieldNameEl = id('fieldName');
+    const fieldStatsEl = id('fieldStats');
+    
+    if (fieldNameEl) fieldNameEl.textContent = col;
+    if (!fieldStatsEl) return;
 
     const vals = (filtered || []).map(r => r[col]);
     const nonNull = vals.filter(v => v !== null && v !== undefined && v !== '');
@@ -1692,7 +1747,7 @@ function initGlobalFilters() {
       `;
     }
 
-    id('fieldStats').innerHTML = html;
+    fieldStatsEl.innerHTML = html;
   }
 
   function fmt(x) {
@@ -1725,6 +1780,7 @@ function initGlobalFilters() {
   }
 
   function appendOption(sel, value, label) {
+    if (!sel) return;
     const o = document.createElement('option');
     o.value = value; o.textContent = label ?? value;
     sel.appendChild(o);
@@ -1742,14 +1798,23 @@ function initGlobalFilters() {
 
   function toggle(panelId) {
     const el = id(panelId);
-    el.classList.toggle('active');
+    if (el) el.classList.toggle('active');
   }
   function show(panelId, on=true) {
     const el = id(panelId);
-    if (on) el.classList.add('active'); else el.classList.remove('active');
+    if (el) {
+      if (on) el.classList.add('active'); 
+      else el.classList.remove('active');
+    }
   }
-  function openModal(){ id('modal').style.display = 'grid'; }
-  function closeModal(){ id('modal').style.display = 'none'; }
+  function openModal(){ 
+    const modal = id('modal');
+    if (modal) modal.style.display = 'grid'; 
+  }
+  function closeModal(){ 
+    const modal = id('modal');
+    if (modal) modal.style.display = 'none'; 
+  }
 
   function downloadCSV(filename, headers, rows) {
     const esc = (v) => {
@@ -1789,98 +1854,24 @@ function initGlobalFilters() {
     #filters-backdrop.show {
       display: flex !important;
     }
+    
+    /* Remove conflicting styles */
     .filters-modal-backdrop {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      background: rgba(0,0,0,0.5);
-      display: none;
-      justify-content: center;
-      align-items: center;
-      z-index: 1000;
+      display: none !important;
     }
-    .filters-modal {
+    
+    /* Additional styles for better modal appearance */
+    #filters-panel {
       background: #fff;
-      width: 80%;
-      max-width: 1000px;
-      max-height: 90%;
-      display: flex;
-      flex-direction: column;
-      border-radius: 8px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+      border-radius: 10px;
+      box-shadow: 0 12px 40px rgba(0,0,0,.2);
+      max-height: 90vh;
+      overflow: auto;
     }
-    .filters-modal-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 1rem;
-      border-bottom: 1px solid #eee;
-    }
-    .filters-modal-body {
-      flex: 1;
-      display: flex;
-      overflow: hidden;
-    }
-    .filters-modal-footer {
-      padding: 1rem;
-      border-top: 1px solid #eee;
-      display: flex;
-      justify-content: flex-end;
-      gap: 0.5rem;
-    }
-    .filters-field-list {
-      width: 30%;
-      overflow-y: auto;
-      border-right: 1px solid #eee;
-      padding: 1rem;
-    }
-    .filters-field-list .field-item {
-      display: flex;
-      align-items: center;
-      margin-bottom: 0.5rem;
-      cursor: pointer;
-    }
-    .filters-field-list .field-item .badge {
-      width: 0.5rem;
-      height: 0.5rem;
-      border-radius: 50%;
-      margin-right: 0.5rem;
-    }
-    .filters-field-list .field-item .count {
-      margin-left: auto;
-      font-size: 0.8rem;
-      color: #555;
-    }
-    .filters-field-panel {
-      flex: 1;
-      padding: 1rem;
-      overflow-y: auto;
-      background: #f5f7e7;
-    }
-    .filters-field-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1rem;
-    }
-    .filters-chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-      margin-top: 0.5rem;
-    }
-    .filters-chip {
-      padding: 0.25rem 0.5rem;
-      border-radius: 12px;
-      background: #e6f4ea;
-      font-size: 0.8rem;
-      cursor: pointer;
-    }
-    .filters-chip.selected { background: #c8e6c9; }
   </style>
 
 <!-- Global Filters: Backdrop + Panel -->
-<div id="filters-backdrop" style="position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:1000; align-items:center; justify-content:center;">
+<div id="filters-backdrop">
   <div id="filters-panel" style="position:relative; max-width:1100px; background:#fff; border-radius:10px; box-shadow:0 12px 40px rgba(0,0,0,.2); padding:16px; max-height:90vh; overflow:auto;">
     <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
       <h3 style="margin:0; font-weight:700;">Global Filters</h3>
