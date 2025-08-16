@@ -641,6 +641,8 @@ function gf_initUI() {
 
 function gf_renderFieldList(group, needle) {
   const wrap = document.getElementById('gf-field-list');
+  if (!wrap) return;
+  
   wrap.innerHTML = '';
   const list = [];
   for (const col of columns) {
@@ -661,19 +663,28 @@ function gf_renderFieldList(group, needle) {
 }
 
 function gf_showField(col) {
-  document.getElementById('gf-chip-wrap').style.display='none';
-  document.getElementById('gf-num-wrap').style.display='none';
-  document.getElementById('gf-date-wrap').style.display='none';
-  document.getElementById('gf-help').style.display = col ? 'none' : 'block';
-  document.getElementById('gf-active-field').textContent = col || '(Select a field)';
+  const chipWrap = document.getElementById('gf-chip-wrap');
+  const numWrap = document.getElementById('gf-num-wrap');
+  const dateWrap = document.getElementById('gf-date-wrap');
+  const help = document.getElementById('gf-help');
+  const activeField = document.getElementById('gf-active-field');
+  
+  if (chipWrap) chipWrap.style.display='none';
+  if (numWrap) numWrap.style.display='none';
+  if (dateWrap) dateWrap.style.display='none';
+  if (help) help.style.display = col ? 'none' : 'block';
+  if (activeField) activeField.textContent = col || '(Select a field)';
 
   if (!col) return;
   const meta = GF.meta[col];
-  const sort = document.getElementById('gf-sort').value;
-  const filterText = (document.getElementById('gf-value-search').value||'').toLowerCase();
+  const sortSelect = document.getElementById('gf-sort');
+  const valueSearch = document.getElementById('gf-value-search');
+  const sort = sortSelect ? sortSelect.value : 'count';
+  const filterText = (valueSearch ? valueSearch.value : '').toLowerCase();
 
   if (meta.type==='cat') {
     const box = document.getElementById('gf-chip-wrap');
+    if (!box) return;
     box.innerHTML = '';
     let items = meta.uniques.slice();
     if (filterText) items = items.filter(x=>String(x.v).toLowerCase().includes(filterText));
@@ -723,6 +734,7 @@ function gf_showField(col) {
 
   } else if (meta.type==='num') {
     const wrap = document.getElementById('gf-num-wrap');
+    if (!wrap) return;
     wrap.style.display='flex';
     const s = GF.state[col] || {type:'num', min:meta.min, max:meta.max, includeEmpty:false};
     GF.state[col] = s;
@@ -732,21 +744,29 @@ function gf_showField(col) {
     const maxEl = document.getElementById('gf-num-max');
     const sMin = document.getElementById('gf-num-slider-min');
     const sMax = document.getElementById('gf-num-slider-max');
-    [sMin, sMax].forEach(sl=>{ sl.min = meta.min; sl.max = meta.max; sl.step='1'; });
-    minEl.value = s.min ?? meta.min; maxEl.value = s.max ?? meta.max;
-    sMin.value = minEl.value; sMax.value = maxEl.value;
+    
+    if (sMin && sMax) {
+      [sMin, sMax].forEach(sl=>{ sl.min = meta.min; sl.max = meta.max; sl.step='1'; });
+    }
+    if (minEl) minEl.value = s.min ?? meta.min;
+    if (maxEl) maxEl.value = s.max ?? meta.max;
+    if (sMin) sMin.value = minEl ? minEl.value : s.min ?? meta.min;
+    if (sMax) sMax.value = maxEl ? maxEl.value : s.max ?? meta.max;
 
     const sync = ()=>{
+      if (!minEl || !maxEl || !sMin || !sMax) return;
       let a = Number(minEl.value), b = Number(maxEl.value);
       if (a > b) [a,b] = [b,a];
       s.min = a; s.max = b;
       sMin.value = a; sMax.value = b;
     };
-    minEl.oninput = sync; maxEl.oninput = sync;
-    sMin.oninput = (e)=>{ minEl.value = e.target.value; sync(); };
-    sMax.oninput = (e)=>{ maxEl.value = e.target.value; sync(); };
+    if (minEl) minEl.oninput = sync;
+    if (maxEl) maxEl.oninput = sync;
+    if (sMin) sMin.oninput = (e)=>{ if (minEl) minEl.value = e.target.value; sync(); };
+    if (sMax) sMax.oninput = (e)=>{ if (maxEl) maxEl.value = e.target.value; sync(); };
 
-    const bins = document.getElementById('gf-num-bins'); bins.innerHTML='';
+    const bins = document.getElementById('gf-num-bins');
+    if (bins) bins.innerHTML='';
     const binCount = 7;
     const width = (meta.max - meta.min) / binCount || 1;
     for (let i=0;i<binCount;i++){
@@ -760,12 +780,12 @@ function gf_showField(col) {
       chip.className='badge bg-light text-dark';
       chip.style.cursor='pointer'; chip.style.margin='2px';
       chip.textContent = `${a}–${b}  ${cnt.toLocaleString()}`;
-      chip.onclick = ()=>{ minEl.value=a; maxEl.value=b; sync(); };
-      bins.appendChild(chip);
+      chip.onclick = ()=>{ if (minEl) minEl.value=a; if (maxEl) maxEl.value=b; sync(); };
+      if (bins) bins.appendChild(chip);
     }
     const empty = document.getElementById('gf-num-empty');
-    empty.innerHTML='';
-    if (meta.empties>0){
+    if (empty) empty.innerHTML='';
+    if (meta.empties>0 && empty){
       const chk = document.createElement('input'); chk.type='checkbox'; chk.checked=!!s.includeEmpty;
       chk.onchange = ()=>{ s.includeEmpty = chk.checked; };
       const lbl = document.createElement('label'); lbl.style.marginLeft='6px'; lbl.textContent = `[EMPTY] ${meta.empties.toLocaleString()}`;
@@ -775,6 +795,7 @@ function gf_showField(col) {
 
   } else { // date
     const wrap = document.getElementById('gf-date-wrap');
+    if (!wrap) return;
     wrap.style.display='block';
     const s = GF.state[col] || {type:'date', period:'quarter', buckets:new Set(), includeEmpty:false, start:null, end:null};
     GF.state[col] = s;
@@ -782,12 +803,13 @@ function gf_showField(col) {
     const periodEl = document.getElementById('gf-date-period');
     const startEl  = document.getElementById('gf-date-start');
     const endEl    = document.getElementById('gf-date-end');
-    periodEl.value = s.period;
-    periodEl.onchange = ()=>{ s.period = periodEl.value; gf_showField(col); };
-    startEl.onchange = ()=>{ s.start = startEl.value||null; };
-    endEl.onchange   = ()=>{ s.end   = endEl.value||null; };
+    if (periodEl) periodEl.value = s.period;
+    if (periodEl) periodEl.onchange = ()=>{ s.period = periodEl.value; gf_showField(col); };
+    if (startEl) startEl.onchange = ()=>{ s.start = startEl.value||null; };
+    if (endEl) endEl.onchange   = ()=>{ s.end   = endEl.value||null; };
 
-    const bucketBox = document.getElementById('gf-date-buckets'); bucketBox.innerHTML='';
+    const bucketBox = document.getElementById('gf-date-buckets');
+    if (bucketBox) bucketBox.innerHTML='';
     const all = [];
     if (s.period==='quarter') {
       // already precomputed: keys like "Q4 2020"
@@ -807,11 +829,12 @@ function gf_showField(col) {
       chip.style.margin='4px';
       chip.textContent = `${name}  ${count.toLocaleString()}`;
       chip.onclick = ()=>{ onSet.has(name)? onSet.delete(name) : onSet.add(name); gf_showField(col); };
-      bucketBox.appendChild(chip);
+      if (bucketBox) bucketBox.appendChild(chip);
     });
 
-    const empty = document.getElementById('gf-date-empty'); empty.innerHTML='';
-    if (GF.meta[col].empties>0){
+    const empty = document.getElementById('gf-date-empty');
+    if (empty) empty.innerHTML='';
+    if (GF.meta[col].empties>0 && empty){
       const chk = document.createElement('input'); chk.type='checkbox'; chk.checked=!!s.includeEmpty;
       chk.onchange = ()=>{ s.includeEmpty = chk.checked; };
       const lbl = document.createElement('label'); lbl.style.marginLeft='6px'; lbl.textContent = `[EMPTY] ${GF.meta[col].empties.toLocaleString()}`;
