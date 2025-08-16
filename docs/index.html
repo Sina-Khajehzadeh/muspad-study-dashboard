@@ -501,22 +501,18 @@
   }
   
   function loadCSV() {
-    // Immediately generate sample data for testing
-    console.log('Loading sample data for immediate testing...');
-    generateSampleData();
-    
-    // Optional: Try to load real CSV data in background
+    // Try to load real CSV data first
     const urls = [
-      'data/df3_full_for_pivot.csv',
-      'https://sina-khajehzadeh.github.io/muspad-study-dashboard/data/df3_full_for_pivot.csv',
       'https://raw.githubusercontent.com/Sina-Khajehzadeh/muspad-study-dashboard/main/docs/data/df3_full_for_pivot.csv',
-      'https://cdn.jsdelivr.net/gh/Sina-Khajehzadeh/muspad-study-dashboard/docs/data/df3_full_for_pivot.csv'
+      'https://sina-khajehzadeh.github.io/muspad-study-dashboard/data/df3_full_for_pivot.csv',
+      'data/df3_full_for_pivot.csv'
     ];
 
     let idx = 0;
     const tryNext = () => {
       if (idx >= urls.length) {
-        console.log('All CSV sources failed. Using sample data.');
+        console.log('All CSV sources failed. Using sample data as fallback.');
+        generateSampleData();
         return;
       }
       const url = urls[idx++];
@@ -567,8 +563,8 @@
       });
     };
     
-    // Try loading CSV in background (non-blocking)
-    setTimeout(tryNext, 100);
+    // Start loading CSV immediately
+    tryNext();
   }
 
   // ----------------------------
