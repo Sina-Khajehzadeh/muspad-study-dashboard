@@ -87,8 +87,12 @@
 
     /* Modal */
     #modal {
-   
-      position: fixed; inset: 0; display: none; place-items: center; background: rgba(0,0,0,.45); z-index: 1000;
+      position: fixed; 
+      inset: 0; 
+      display: none; 
+      place-items: center; 
+      background: rgba(0,0,0,.45); 
+      z-index: 1000;
       padding: 1rem;
     }
     #modal .sheet {
@@ -490,11 +494,396 @@
 
           show('panelData', true);
           applyFilters();
+          
+/* ===== Global Filter Panel – compact implementation ===== */
+
+let GF = {
+  state: {},         // { fieldKey: {type:'cat'|'num'|'date', ...selection...} }
+  meta: {},          // { fieldKey: {type, empties, uniques:[{v,count}], min,max, domainDates:[...]} }
+  activeField: null, // string
+  _group: 'all'      // current group filter
+};
+
+function gf_inferType(values) {
+  // decide cat/num/date
+  let n = 0, d = 0, c = 0;
+  for (const v of values) {
+    if (v === null || v === undefined || v === '') continue;
+    const s = String(v).trim();
+    if (s === '') continue;
+    const num = Number(s);
+    if (!Number.isNaN(num) && isFinite(num)) { n++; continue; }
+    const dt = new Date(s);
+    if (!isNaN(dt.getTime())) { d++; continue; }
+    c++;
+    if (n + d + c > 30) break;
+  }
+  if (n && !d && !c) return 'num';
+  if (d && !n && !c) return 'date';
+  // tie-break: many dashboards prefer treating mixed as categories
+  if (n > d && n > c) return 'num';
+  if (d > n && d > c) return 'date';
+  return 'cat';
+}
+
+function gf_buildMeta() {
+  GF.meta = {};
+  const N = rawData.length;
+  columns.forEach(col => {
+    const vals = rawData.map(r => r[col]);
+    const type = gf_inferType(vals);
+    const m = GF.meta[col] = { type, empties:0, uniques:[], min:null, max:null, buckets:{} };
+    const counts = new Map();
+    for (const v0 of vals) {
+      let v = v0;
+      if (v === undefined || v === null || String(v).trim() === '') { m.empties++; continue; }
+      if (type === 'num') {
+        const num = Number(v);
+        if (!Number.isNaN(num) && isFinite(num)) {
+          if (m.min === null || num < m.min) m.min = num;
+          if (m.max === null || num > m.max) m.max = num;
+          v = num;
+        } else { m.empties++; continue; }
+      } else if (type === 'date') {
+        const dt = new Date(v);
+        if (isNaN(dt.getTime())) { m.empties++; continue; }
+        v = dt.toISOString().slice(0,10); // YYYY-MM-DD
+      } else {
+        v = String(v);
+      }
+      counts.set(v, (counts.get(v) || 0) + 1);
+    }
+    m.uniques = [...counts.entries()].map(([v,count])=>({v,count}));
+    // precompute date buckets
+    if (type === 'date') {
+      const toQuarter = (iso) => {
+        const y = Number(iso.slice(0,4));
+        const m = Number(iso.slice(5,7));
+        const q = Math.floor((m-1)/3)+1;
+        return `Q${q} ${y}`;
+      };
+      const toYear = (iso) => iso.slice(0,4);
+      const toMonth = (iso) => iso.slice(0,7); // YYYY-MM
+      for (const {v,count} of m.uniques) {
+        const q = toQuarter(v); m.buckets[q] = (m.buckets[q]||0)+count;
+        const y = toYear(v);    m.buckets[y] = (m.buckets[y]||0)+count;
+        const mo = toMonth(v);  m.buckets[mo] = (m.buckets[mo]||0)+count;
+      }
+    }
+  });
+}
+
+function openFiltersModal() {
+  const el = document.getElementById('filters-backdrop');
+  if (el) {
+    el.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+    // left list
+    gf_renderFieldList('all', '');
+    // right pane
+    gf_showField(null);
+  }
+}
+function closeFiltersModal() {
+  const el = document.getElementById('filters-backdrop');
+  if (el) {
+    el.style.display = 'none';
+    document.body.style.overflow = '';
+  }
+}
+
+function gf_initUI() {
+  // hook your existing sidebar filter icon (id="btnFilters" in your code)
+  const btn = document.getElementById('btnFilters') || document.querySelector('[data-action="filters"]');
+  if (btn) btn.addEventListener('click', openFiltersModal);
+
+  const cancelBtn = document.getElementById('gf-cancel');
+  const clearBtn = document.getElementById('gf-clear-all');
+  const applyBtn = document.getElementById('gf-apply');
+  
+  if (cancelBtn) cancelBtn.onclick = closeFiltersModal;
+  if (clearBtn) clearBtn.onclick = () => { 
+    GF.state = {}; 
+    gf_renderFieldList(GF._group||'all', document.getElementById('gf-field-search').value||''); 
+    gf_showField(GF.activeField); 
+  };
+  if (applyBtn) applyBtn.onclick = () => { 
+    gf_applyToDashboard(); 
+    closeFiltersModal(); 
+  };
+
+  // groups
+  const groupButtons = document.querySelectorAll('#gf-groups button');
+  groupButtons.forEach(b=>{
+    b.onclick = ()=>{
+      groupButtons.forEach(x=>x.classList.remove('active'));
+      b.classList.add('active');
+      GF._group = b.dataset.group;
+      gf_renderFieldList(GF._group, document.getElementById('gf-field-search').value||'');
+    };
+  });
+
+  // search fields
+  const fieldSearch = document.getElementById('gf-field-search');
+  if (fieldSearch) {
+    fieldSearch.oninput = (e)=>{
+      gf_renderFieldList(GF._group||'all', e.target.value||'');
+    };
+  }
+
+  // sort/search on values
+  const sortSelect = document.getElementById('gf-sort');
+  const valueSearch = document.getElementById('gf-value-search');
+  
+  if (sortSelect) sortSelect.onchange = ()=> gf_showField(GF.activeField);
+  if (valueSearch) valueSearch.oninput = ()=> gf_showField(GF.activeField);
+}
+
+function gf_renderFieldList(group, needle) {
+  const wrap = document.getElementById('gf-field-list');
+  wrap.innerHTML = '';
+  const list = [];
+  for (const col of columns) {
+    const t = GF.meta[col]?.type || 'cat';
+    if (group!=='all' && ((group==='cat'&&t!=='cat')||(group==='num'&&t!=='num')||(group==='date'&&t!=='date'))) continue;
+    if (needle && !col.toLowerCase().includes(needle.toLowerCase())) continue;
+    list.push({col, t});
+  }
+  list.sort((a,b)=>a.col.localeCompare(b.col));
+  for (const {col,t} of list) {
+    const a = document.createElement('div');
+    a.className = 'list-group-item list-group-item-action';
+    a.style.cursor = 'pointer';
+    a.textContent = `${col}  ·  ${t}`;
+    a.onclick = ()=>{ GF.activeField = col; gf_showField(col); };
+    wrap.appendChild(a);
+  }
+}
+
+function gf_showField(col) {
+  document.getElementById('gf-chip-wrap').style.display='none';
+  document.getElementById('gf-num-wrap').style.display='none';
+  document.getElementById('gf-date-wrap').style.display='none';
+  document.getElementById('gf-help').style.display = col ? 'none' : 'block';
+  document.getElementById('gf-active-field').textContent = col || '(Select a field)';
+
+  if (!col) return;
+  const meta = GF.meta[col];
+  const sort = document.getElementById('gf-sort').value;
+  const filterText = (document.getElementById('gf-value-search').value||'').toLowerCase();
+
+  if (meta.type==='cat') {
+    const box = document.getElementById('gf-chip-wrap');
+    box.innerHTML = '';
+    let items = meta.uniques.slice();
+    if (filterText) items = items.filter(x=>String(x.v).toLowerCase().includes(filterText));
+    if (sort==='count') items.sort((a,b)=>b.count-a.count);
+    if (sort==='az') items.sort((a,b)=>String(a.v).localeCompare(String(b.v)));
+    if (sort==='za') items.sort((a,b)=>String(b.v).localeCompare(String(a.v)));
+
+    const current = GF.state[col]?.include || new Set();
+    const toggle = (val)=>{
+      if (!GF.state[col]) GF.state[col] = {type:'cat', include:new Set(), includeEmpty:false};
+      if (current.has(val)) current.delete(val); else current.add(val);
+      gf_showField(col);
+    };
+
+    items.forEach(({v,count})=>{
+      const chip = document.createElement('button');
+      chip.className = 'btn btn-sm ' + (current.has(v)?'btn-primary':'btn-outline-secondary');
+      chip.style.margin='4px';
+      chip.textContent = `${v}  ${count.toLocaleString()}`;
+      chip.onclick = ()=>toggle(v);
+      box.appendChild(chip);
+    });
+    // [EMPTY]
+    if (meta.empties>0) {
+      const chip = document.createElement('button');
+      const on = !!GF.state[col]?.includeEmpty;
+      chip.className = 'btn btn-sm ' + (on?'btn-warning':'btn-outline-secondary');
+      chip.style.margin='4px';
+      chip.textContent = `[EMPTY]  ${meta.empties.toLocaleString()}`;
+      chip.onclick = ()=>{
+        if (!GF.state[col]) GF.state[col] = {type:'cat', include:new Set(), includeEmpty:false};
+        GF.state[col].includeEmpty = !GF.state[col].includeEmpty;
+        gf_showField(col);
+      };
+      box.appendChild(chip);
+    }
+    // select all/none
+    const tools = document.createElement('div');
+    tools.style.marginTop='8px';
+    const allBtn = document.createElement('button'); allBtn.className='btn btn-xs btn-light'; allBtn.textContent='Select All';
+    allBtn.onclick = ()=>{ GF.state[col]={type:'cat', include:new Set(items.map(x=>x.v)), includeEmpty:GF.state[col]?.includeEmpty||false}; gf_showField(col); };
+    const noneBtn = document.createElement('button'); noneBtn.className='btn btn-xs btn-light'; noneBtn.style.marginLeft='6px'; noneBtn.textContent='Deselect All';
+    noneBtn.onclick = ()=>{ GF.state[col]={type:'cat', include:new Set(), includeEmpty:false}; gf_showField(col); };
+    tools.appendChild(allBtn); tools.appendChild(noneBtn); box.appendChild(tools);
+
+    box.style.display='flex';
+
+  } else if (meta.type==='num') {
+    const wrap = document.getElementById('gf-num-wrap');
+    wrap.style.display='flex';
+    const s = GF.state[col] || {type:'num', min:meta.min, max:meta.max, includeEmpty:false};
+    GF.state[col] = s;
+
+    // set inputs/sliders
+    const minEl = document.getElementById('gf-num-min');
+    const maxEl = document.getElementById('gf-num-max');
+    const sMin = document.getElementById('gf-num-slider-min');
+    const sMax = document.getElementById('gf-num-slider-max');
+    [sMin, sMax].forEach(sl=>{ sl.min = meta.min; sl.max = meta.max; sl.step='1'; });
+    minEl.value = s.min ?? meta.min; maxEl.value = s.max ?? meta.max;
+    sMin.value = minEl.value; sMax.value = maxEl.value;
+
+    const sync = ()=>{
+      let a = Number(minEl.value), b = Number(maxEl.value);
+      if (a > b) [a,b] = [b,a];
+      s.min = a; s.max = b;
+      sMin.value = a; sMax.value = b;
+    };
+    minEl.oninput = sync; maxEl.oninput = sync;
+    sMin.oninput = (e)=>{ minEl.value = e.target.value; sync(); };
+    sMax.oninput = (e)=>{ maxEl.value = e.target.value; sync(); };
+
+    const bins = document.getElementById('gf-num-bins'); bins.innerHTML='';
+    const binCount = 7;
+    const width = (meta.max - meta.min) / binCount || 1;
+    for (let i=0;i<binCount;i++){
+      const a = Math.round(meta.min + i*width);
+      const b = Math.round(i===binCount-1? meta.max : meta.min + (i+1)*width);
+      const cnt = rawData.reduce((acc,r)=>{
+        const v = Number(r[col]);
+        return acc + ((isFinite(v) && v>=a && v<=b) ? 1 : 0);
+      },0);
+      const chip = document.createElement('span');
+      chip.className='badge bg-light text-dark';
+      chip.style.cursor='pointer'; chip.style.margin='2px';
+      chip.textContent = `${a}–${b}  ${cnt.toLocaleString()}`;
+      chip.onclick = ()=>{ minEl.value=a; maxEl.value=b; sync(); };
+      bins.appendChild(chip);
+    }
+    const empty = document.getElementById('gf-num-empty');
+    empty.innerHTML='';
+    if (meta.empties>0){
+      const chk = document.createElement('input'); chk.type='checkbox'; chk.checked=!!s.includeEmpty;
+      chk.onchange = ()=>{ s.includeEmpty = chk.checked; };
+      const lbl = document.createElement('label'); lbl.style.marginLeft='6px'; lbl.textContent = `[EMPTY] ${meta.empties.toLocaleString()}`;
+      const wrapDiv = document.createElement('div'); wrapDiv.appendChild(chk); wrapDiv.appendChild(lbl);
+      empty.appendChild(wrapDiv);
+    }
+
+  } else { // date
+    const wrap = document.getElementById('gf-date-wrap');
+    wrap.style.display='block';
+    const s = GF.state[col] || {type:'date', period:'quarter', buckets:new Set(), includeEmpty:false, start:null, end:null};
+    GF.state[col] = s;
+
+    const periodEl = document.getElementById('gf-date-period');
+    const startEl  = document.getElementById('gf-date-start');
+    const endEl    = document.getElementById('gf-date-end');
+    periodEl.value = s.period;
+    periodEl.onchange = ()=>{ s.period = periodEl.value; gf_showField(col); };
+    startEl.onchange = ()=>{ s.start = startEl.value||null; };
+    endEl.onchange   = ()=>{ s.end   = endEl.value||null; };
+
+    const bucketBox = document.getElementById('gf-date-buckets'); bucketBox.innerHTML='';
+    const all = [];
+    if (s.period==='quarter') {
+      // already precomputed: keys like "Q4 2020"
+      for (const k in GF.meta[col].buckets) if (k.startsWith('Q')) all.push([k, GF.meta[col].buckets[k]]);
+      all.sort((a,b)=>a[0].localeCompare(b[0]));
+    } else if (s.period==='year') {
+      for (const k in GF.meta[col].buckets) if (/^\d{4}$/.test(k)) all.push([k, GF.meta[col].buckets[k]]);
+      all.sort((a,b)=>a[0].localeCompare(b[0]));
+    } else {
+      for (const k in GF.meta[col].buckets) if (/^\d{4}-\d{2}$/.test(k)) all.push([k, GF.meta[col].buckets[k]]);
+      all.sort((a,b)=>a[0].localeCompare(b[0]));
+    }
+    const onSet = s.buckets;
+    all.forEach(([name,count])=>{
+      const chip = document.createElement('button');
+      chip.className = 'btn btn-sm ' + (onSet.has(name)?'btn-primary':'btn-outline-secondary');
+      chip.style.margin='4px';
+      chip.textContent = `${name}  ${count.toLocaleString()}`;
+      chip.onclick = ()=>{ onSet.has(name)? onSet.delete(name) : onSet.add(name); gf_showField(col); };
+      bucketBox.appendChild(chip);
+    });
+
+    const empty = document.getElementById('gf-date-empty'); empty.innerHTML='';
+    if (GF.meta[col].empties>0){
+      const chk = document.createElement('input'); chk.type='checkbox'; chk.checked=!!s.includeEmpty;
+      chk.onchange = ()=>{ s.includeEmpty = chk.checked; };
+      const lbl = document.createElement('label'); lbl.style.marginLeft='6px'; lbl.textContent = `[EMPTY] ${GF.meta[col].empties.toLocaleString()}`;
+      const wrapDiv = document.createElement('div'); wrapDiv.appendChild(chk); wrapDiv.appendChild(lbl);
+      empty.appendChild(wrapDiv);
+    }
+  }
+}
+
+function gf_applyToDashboard() {
+  // Combine GF.state with your current filtering
+  filtered = rawData.filter(row=>{
+    for (const [col, sel] of Object.entries(GF.state)) {
+      const v0 = row[col];
+      const empty = (v0===null || v0===undefined || String(v0).trim()==='');
+
+      if (sel.type==='cat') {
+        const hit = sel.include.has(String(v0));
+        if (!hit && !(empty && sel.includeEmpty)) return false;
+      }
+      else if (sel.type==='num') {
+        if (empty) { if (!sel.includeEmpty) return false; }
+        else {
+          const num = Number(v0);
+          if (Number.isNaN(num) || num < sel.min || num > sel.max) return false;
+        }
+      }
+      else if (sel.type==='date') {
+        if (empty) { if (!sel.includeEmpty) return false; }
+        else {
+          const iso = new Date(v0).toISOString().slice(0,10);
+          if (sel.start && iso < sel.start) return false;
+          if (sel.end && iso > sel.end) return false;
+          if (sel.buckets && sel.buckets.size){
+            // accept values matching any selected bucket for the chosen period
+            const y  = iso.slice(0,4);
+            const ym = iso.slice(0,7);
+            const q  = `Q${Math.floor((Number(iso.slice(5,7))-1)/3)+1} ${y}`;
+            const key = sel.period==='quarter'? q : (sel.period==='year'? y : ym);
+            if (!sel.buckets.has(key)) return false;
+          }
+        }
+      }
+    }
+    return true;
+  });
+
+  // Your existing update calls
+  updateTable();
+  charts.forEach(drawChart);
+  updateInspectorSummary();
+}
+
+// call once *after* rawData/columns are set
+function initGlobalFilters() {
+  gf_buildMeta();
+  gf_initUI();
+}
+
+/* Wire it: call this once the CSV is parsed and you set rawData + columns */
+// This is now called in the loadCSV complete callback
           autoStarterCharts();
+          initGlobalFilters();
         },
         error: (err) => {
           console.error('Papa error:', err);
           tryNext();
+        },
+        complete: (res) => {
+          if (res.errors && res.errors.length > 0) {
+            console.warn('CSV parsing warnings:', res.errors);
+          }
         }
       });
     };
@@ -1397,44 +1786,86 @@
     .filters-chip.selected { background: #c8e6c9; }
   </style>
 
-  <div id="filters-backdrop" class="filters-modal-backdrop" aria-modal="true" role="dialog" aria-label="Global Filters">
-    <div class="filters-modal">
-      <div class="filters-modal-header">
-        <h5>Global Filters</h5>
-        <button aria-label="Close" onclick="closeFiltersModal()">&times;</button>
+<!-- Global Filters: Backdrop + Panel -->
+<div id="filters-backdrop" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:1000;">
+  <div id="filters-panel" style="position:relative; margin:6rem auto; max-width:1100px; background:#fff; border-radius:10px; box-shadow:0 12px 40px rgba(0,0,0,.2); padding:16px;">
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+      <h3 style="margin:0; font-weight:700;">Global Filters</h3>
+      <div style="margin-left:auto; display:flex; gap:8px;">
+        <button id="gf-clear-all" class="btn btn-sm btn-outline-secondary">Clear All</button>
+        <button id="gf-cancel" class="btn btn-sm btn-light">Cancel</button>
+        <button id="gf-apply" class="btn btn-sm btn-primary">Apply</button>
       </div>
-      <div class="filters-modal-body">
-        <div class="filters-field-list" id="filters-list"></div>
-        <div class="filters-field-panel" id="filters-panel">
-          <div class="filters-field-header">
-            <span id="field-name">Field Name</span>
-            <button aria-label="Settings">&#9881;</button>
-          </div>
-          <div class="filters-controls">
-            <input type="text" placeholder="Search" id="filter-search" style="margin-right:.5rem;">
-            <select id="filter-sort">
+    </div>
+
+    <div style="display:grid; grid-template-columns:260px 1fr; gap:12px; min-height:520px;">
+      <!-- Left: groups + fields -->
+      <div style="border:1px solid #eee; border-radius:8px; padding:10px;">
+        <input id="gf-field-search" placeholder="Search fields…" class="form-control form-control-sm" style="margin-bottom:8px;">
+        <div style="font-size:12px; color:#888; margin:6px 0;">Groups</div>
+        <div id="gf-groups" style="display:flex; gap:6px; margin-bottom:8px; flex-wrap:wrap;">
+          <button data-group="all" class="btn btn-xs btn-outline-secondary active">All</button>
+          <button data-group="cat" class="btn btn-xs btn-outline-secondary">Categories</button>
+          <button data-group="num" class="btn btn-xs btn-outline-secondary">Numerical</button>
+          <button data-group="date" class="btn btn-xs btn-outline-secondary">Dates</button>
+        </div>
+        <div style="font-size:12px; color:#888; margin:6px 0;">Fields</div>
+        <div id="gf-field-list" style="max-height:400px; overflow:auto;"></div>
+      </div>
+
+      <!-- Right: value UI -->
+      <div style="border:1px solid #eee; border-radius:8px; padding:10px;">
+        <div id="gf-field-header" style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+          <strong id="gf-active-field" style="font-size:14px;">(Select a field)</strong>
+          <div style="margin-left:auto; display:flex; gap:8px;">
+            <select id="gf-sort" class="form-select form-select-sm" title="Sort">
               <option value="count">Sort by Count</option>
               <option value="az">A → Z</option>
               <option value="za">Z → A</option>
             </select>
-            <select id="filter-op" style="margin-left:.5rem;">
-              <option value="includes">Includes</option>
-              <option value="excludes">Excludes</option>
-              <option value="contains">Contains</option>
-              <option value="startswith">Starts with</option>
-              <option value="endswith">Ends with</option>
-            </select>
+            <input id="gf-value-search" class="form-control form-control-sm" placeholder="Search values">
           </div>
-          <div class="filters-chips" id="filter-chips"></div>
         </div>
-      </div>
-      <div class="filters-modal-footer">
-        <button onclick="clearAllFilters()">Clear All</button>
-        <button onclick="closeFiltersModal()">Cancel</button>
-        <button onclick="applyFilters()">Apply</button>
+
+        <!-- Categorical chips -->
+        <div id="gf-chip-wrap" style="display:none; gap:8px; flex-wrap:wrap;"></div>
+
+        <!-- Numerical controls -->
+        <div id="gf-num-wrap" style="display:none; gap:12px;">
+          <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
+            <label class="form-label form-label-sm" style="margin:0;">Range</label>
+            <input id="gf-num-min" type="number" class="form-control form-control-sm" style="max-width:120px;">
+            <span>–</span>
+            <input id="gf-num-max" type="number" class="form-control form-control-sm" style="max-width:120px;">
+          </div>
+          <input id="gf-num-slider-min" type="range">
+          <input id="gf-num-slider-max" type="range">
+          <div id="gf-num-bins" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;"></div>
+          <div id="gf-num-empty" style="margin-top:6px;"></div>
+        </div>
+
+        <!-- Date controls -->
+        <div id="gf-date-wrap" style="display:none;">
+          <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
+            <select id="gf-date-period" class="form-select form-select-sm" style="max-width:180px;">
+              <option value="quarter">Quarters</option>
+              <option value="year">Years</option>
+              <option value="month">Months</option>
+            </select>
+            <input id="gf-date-start" type="date" class="form-control form-control-sm">
+            <span>→</span>
+            <input id="gf-date-end" type="date" class="form-control form-control-sm">
+          </div>
+          <div id="gf-date-buckets" style="display:flex; gap:8px; flex-wrap:wrap;"></div>
+          <div id="gf-date-empty" style="margin-top:6px;"></div>
+        </div>
+
+        <div id="gf-help" style="color:#888;">Pick a field on the left to configure its filter.</div>
       </div>
     </div>
   </div>
+</div>
+
 
   <script>
   // Keep your original toggle binding; this adds the modal opener too.
