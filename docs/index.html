@@ -554,15 +554,9 @@
         error: (err) => {
           console.error('Papa error:', err);
           tryNext();
-        },
-        complete: (res) => {
-          if (res.errors && res.errors.length > 0) {
-            console.warn('CSV parsing warnings:', res.errors);
-          }
         }
       });
-    };
-    
+     
     // Start loading CSV immediately
     tryNext();
   }
@@ -1952,87 +1946,6 @@
     </div>
   </div>
 </div>
-
-<!-- Global Filters: Backdrop + Panel -->
-<div id="filters-backdrop">
-  <div id="filters-panel" style="position:relative; max-width:1100px; background:#fff; border-radius:10px; box-shadow:0 12px 40px rgba(0,0,0,.2); padding:16px; max-height:90vh; overflow:auto;">
-    <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
-      <h3 style="margin:0; font-weight:700;">Global Filters</h3>
-      <div style="margin-left:auto; display:flex; gap:8px;">
-        <button id="gf-clear-all" class="btn btn-sm btn-outline-secondary">Clear All</button>
-        <button id="gf-cancel" class="btn btn-sm btn-light">Cancel</button>
-        <button id="gf-apply" class="btn btn-sm btn-primary">Apply</button>
-      </div>
-    </div>
-
-    <div style="display:grid; grid-template-columns:260px 1fr; gap:12px; min-height:520px;">
-      <!-- Left: groups + fields -->
-      <div style="border:1px solid #eee; border-radius:8px; padding:10px;">
-        <input id="gf-field-search" placeholder="Search fields…" class="form-control form-control-sm" style="margin-bottom:8px;">
-        <div style="font-size:12px; color:#888; margin:6px 0;">Groups</div>
-        <div id="gf-groups" style="display:flex; gap:6px; margin-bottom:8px; flex-wrap:wrap;">
-          <button data-group="all" class="btn btn-xs btn-outline-secondary active">All</button>
-          <button data-group="cat" class="btn btn-xs btn-outline-secondary">Categories</button>
-          <button data-group="num" class="btn btn-xs btn-outline-secondary">Numerical</button>
-          <button data-group="date" class="btn btn-xs btn-outline-secondary">Dates</button>
-        </div>
-        <div style="font-size:12px; color:#888; margin:6px 0;">Fields</div>
-        <div id="gf-field-list" style="max-height:400px; overflow:auto;"></div>
-      </div>
-
-      <!-- Right: value UI -->
-      <div style="border:1px solid #eee; border-radius:8px; padding:10px;">
-        <div id="gf-field-header" style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
-          <strong id="gf-active-field" style="font-size:14px;">(Select a field)</strong>
-          <div style="margin-left:auto; display:flex; gap:8px;">
-            <select id="gf-sort" class="form-select form-select-sm" title="Sort">
-              <option value="count">Sort by Count</option>
-              <option value="az">A → Z</option>
-              <option value="za">Z → A</option>
-            </select>
-            <input id="gf-value-search" class="form-control form-control-sm" placeholder="Search values">
-          </div>
-        </div>
-
-        <!-- Categorical chips -->
-        <div id="gf-chip-wrap" style="display:none; gap:8px; flex-wrap:wrap;"></div>
-
-        <!-- Numerical controls -->
-        <div id="gf-num-wrap" style="display:none; gap:12px;">
-          <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
-            <label class="form-label form-label-sm" style="margin:0;">Range</label>
-            <input id="gf-num-min" type="number" class="form-control form-control-sm" style="max-width:120px;">
-            <span>–</span>
-            <input id="gf-num-max" type="number" class="form-control form-control-sm" style="max-width:120px;">
-          </div>
-          <input id="gf-num-slider-min" type="range">
-          <input id="gf-num-slider-max" type="range">
-          <div id="gf-num-bins" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;"></div>
-          <div id="gf-num-empty" style="margin-top:6px;"></div>
-        </div>
-
-        <!-- Date controls -->
-        <div id="gf-date-wrap" style="display:none;">
-          <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
-            <select id="gf-date-period" class="form-select form-select-sm" style="max-width:180px;">
-              <option value="quarter">Quarters</option>
-              <option value="year">Years</option>
-              <option value="month">Months</option>
-            </select>
-            <input id="gf-date-start" type="date" class="form-control form-control-sm">
-            <span>→</span>
-            <input id="gf-date-end" type="date" class="form-control form-control-sm">
-          </div>
-          <div id="gf-date-buckets" style="display:flex; gap:8px; flex-wrap:wrap;"></div>
-          <div id="gf-date-empty" style="margin-top:6px;"></div>
-        </div>
-
-        <div id="gf-help" style="color:#888;">Pick a field on the left to configure its filter.</div>
-      </div>
-    </div>
-  </div>
-</div>
-
 
 </body>
 </html>
