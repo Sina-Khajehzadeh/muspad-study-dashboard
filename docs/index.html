@@ -1,2035 +1,717 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MUSPAD Dynamic Dashboard</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MUSPAD Dynamic Dashboard</title>
 
-  <!-- Bootstrap CSS + Icons (no SRI to avoid integrity mismatches) -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+<script src="https://cdn.plot.ly/plotly-2.25.2.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
-  <!-- Plotly.js for charts + PapaParse for CSV -->
-  <script src="https://cdn.plot.ly/plotly-2.25.2.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Crect width='64' height='64' fill='%23007bff'/%3E%3Ctext x='50%25' y='54%25' font-size='42' text-anchor='middle' fill='white'%3EM%3C/text%3E%3C/svg%3E"/>
 
-  <!-- Tiny inline favicon to avoid 404 -->
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Crect width='64' height='64' fill='%23007bff'/%3E%3Ctext x='50%25' y='54%25' font-size='42' text-anchor='middle' fill='white'%3EM%3C/text%3E%3C/svg%3E"/>
-
-  
-  <style>
-    :root {
-      --sidebar-w: 50px;
-      --card-min: 400px;
-    }
-    * { box-sizing: border-box; }
-    body { margin: 0; font-family: Arial, Helvetica, sans-serif; overflow: hidden; }
-    #app { display: flex; height: 100vh; overflow: hidden; }
-
-    /* Sidebar */
-    #sidebar {
-      width: var(--sidebar-w);
-      background: #f5f5f5;
-      border-right: 1px solid #e1e1e1;
-      display: flex; flex-direction: column; align-items: center; gap: .75rem;
-      padding: .75rem .25rem;
-    }
-    #sidebar button {
-      width: 36px; height: 36px; border: 0; background: transparent; border-radius: 8px;
-      display: grid; place-items: center; font-size: 1.25rem; color: #333; cursor: pointer;
-    }
-    #sidebar button:hover { background: #e9ecef; color: #0d6efd; }
-
-    /* Main column */
-    #main { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
-
-    /* Header */
-    #header {
-      display: flex; align-items: center; gap: 1rem;
-      padding: .5rem 1rem; border-bottom: 1px solid #e1e1e1; background: #fff;
-    }
-    #title { margin: 0; font-size: 1.5rem; font-weight: 600; }
-    #loadedBadge { font-size: .9rem; color: #6c757d; }
-    .header-spacer { flex: 1; }
-    .date-range { display: flex; gap: .5rem; }
-
-    /* Panels */
-    .panel { display: none; background: #f8f9fa; border-bottom: 1px solid #e1e1e1; padding: .75rem 1rem; overflow: auto; }
-    .panel.active { display: block; }
-    .panel h5 { margin-bottom: .75rem; }
-
-    .filter-row { display: grid; grid-template-columns: 1fr auto auto; gap: .5rem; align-items: start; }
-    .filter-actions .btn { white-space: nowrap; }
-
-    /* Grid */
-    #grid {
-      flex: 1; overflow: auto; padding: 1rem;
-      display: flex; flex-wrap: wrap; gap: 1rem;
-    }
-    .card-chart {
-      width: calc(50% - .5rem);
-      min-width: var(--card-min);
-      background: #fff; border: 1px solid #e1e1e1; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,.06);
-    }
-    .card-chart .card-header {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: .5rem .75rem; border-bottom: 1px solid #eee;
-    }
-    .card-chart .card-header h6 { margin: 0; font-size: 1rem; font-weight: 600; }
-    .card-chart .remove { border: 0; background: transparent; color: #6c757d; font-size: 1.1rem; }
-    .card-chart .remove:hover { color: #dc3545; }
-    .card-chart .plot { height: 320px; padding: .5rem; }
-
-    @media (max-width: 800px) {
-      .card-chart { width: 100%; min-width: 100%; }
-    }
-
-    /* Modal */
-    #modal {
-      position: fixed; 
-      inset: 0; 
-      display: none; 
-      place-items: center; 
-      background: rgba(0,0,0,.45); 
-      z-index: 1000;
-      padding: 1rem;
-    }
-    #modal .sheet {
-      width: min(600px, 100%); background: #fff; border-radius: 10px; padding: 1rem 1rem 1.25rem;
-      box-shadow: 0 8px 24px rgba(0,0,0,.2);
-    }
-    #modal .grid { display: grid; gap: .75rem; }
-    #modal .actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: .75rem; }
-
-    /* ===== Inspector panel styles START ===== */
-    #dataLayout {
-      display: grid;
-      grid-template-columns: 1fr 360px;
-      gap: 1rem;
-      min-height: 300px;
-    }
-
-    /* Right inspector panel */
-    #inspector {
-      background: #fff;
-      border: 1px solid #e1e1e1;
-      border-radius: 8px;
-      padding: .75rem;
-      box-shadow: 0 2px 4px rgba(0,0,0,.06);
-      display: flex;
-      flex-direction: column;
-      gap: .75rem;
-      max-height: 70vh;
-      overflow-y: auto;
-    }
-
-    /* Blocks inside inspector */
-    .inspector-block {
-      border: 1px solid #f0f0f0;
-      border-radius: 6px;
-      padding: .5rem .6rem;
-      background: #fafafa;
-    }
-    .inspector-title {
-      margin: 0 0 .5rem 0;
-      font-size: .95rem;
-      font-weight: 600;
-    }
-
-    /* KPI grid */
-    .inspector-kpis {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0,1fr));
-      gap: .5rem;
-    }
-    .kpi { background:#fff; border:1px solid #eee; border-radius:6px; padding:.4rem .5rem; }
-    .kpi-wide { grid-column: 1 / -1; }
-    .kpi-label { font-size:.75rem; color:#6c757d; }
-    .kpi-value { font-weight:600; }
-
-    /* Column list (scrollable) */
-    .inspector-list {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: .35rem;
-      max-height: 22vh;
-      overflow: auto;
-    }
-    .inspector-list button {
-      width: 100%;
-      text-align: left;
-      padding: .35rem .5rem;
-      border: 1px solid #e1e1e1;
-      background: #fff;
-      border-radius: 6px;
-      font-size: .9rem;
-      cursor: pointer;
-    }
-    .inspector-list button:hover { background:#f5f8ff; border-color:#cfe2ff; }
-    .inspector-list button.active { background:#e7f1ff; border-color:#9ec5fe; }
-
-    /* Field stats area */
-    #fieldStats {
-      max-height: auto;
-      overflow: auto;
-      background:#fff;
-      border:1px solid #eee;
-      border-radius:6px;
-      padding:.5rem;
-    }
-
-    /* Responsive */
-    @media (max-width: 900px) {
-      #dataLayout { grid-template-columns: 1fr; }
-      #inspector { max-height: none; }
-    }
-    /* ===== Inspector panel styles END ===== */
-  </style>
+<style>
+  :root { --sidebar-w: 50px; --card-min: 400px; }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Arial,Helvetica,sans-serif;overflow:hidden}
+  #app{display:flex;height:100vh;overflow:hidden}
+  #sidebar{width:var(--sidebar-w);background:#f5f5f5;border-right:1px solid #e1e1e1;display:flex;flex-direction:column;align-items:center;gap:.75rem;padding:.75rem .25rem}
+  #sidebar button{width:36px;height:36px;border:0;background:transparent;border-radius:8px;display:grid;place-items:center;font-size:1.25rem;color:#333;cursor:pointer}
+  #sidebar button:hover{background:#e9ecef;color:#0d6efd}
+  #main{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
+  #header{display:flex;align-items:center;gap:1rem;padding:.5rem 1rem;border-bottom:1px solid #e1e1e1;background:#fff}
+  #title{margin:0;font-size:1.5rem;font-weight:600}
+  #loadedBadge{font-size:.9rem;color:#6c757d}
+  .header-spacer{flex:1}
+  .panel{display:none;background:#f8f9fa;border-bottom:1px solid #e1e1e1;padding:.75rem 1rem;overflow:auto}
+  .panel.active{display:block}
+  #grid{flex:1;overflow:auto;padding:1rem;display:flex;flex-wrap:wrap;gap:1rem}
+  .card-chart{width:calc(50% - .5rem);min-width:var(--card-min);background:#fff;border:1px solid #e1e1e1;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.06)}
+  .card-chart .card-header{display:flex;align-items:center;justify-content:space-between;padding:.5rem .75rem;border-bottom:1px solid #eee}
+  .card-chart .plot{height:320px;padding:.5rem}
+  @media (max-width:800px){.card-chart{width:100%;min-width:100%}}
+  #dataLayout{display:grid;grid-template-columns:1fr 360px;gap:1rem;min-height:300px}
+  #inspector{background:#fff;border:1px solid #e1e1e1;border-radius:8px;padding:.75rem;box-shadow:0 2px 4px rgba(0,0,0,.06);display:flex;flex-direction:column;gap:.75rem;max-height:70vh;overflow-y:auto}
+  .inspector-block{border:1px solid #f0f0f0;border-radius:6px;padding:.5rem .6rem;background:#fafafa}
+  .inspector-kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.5rem}
+  .kpi{background:#fff;border:1px solid #eee;border-radius:6px;padding:.4rem .5rem}
+  .kpi-wide{grid-column:1/-1}
+  .inspector-list{display:grid;gap:.35rem;max-height:22vh;overflow:auto}
+  .inspector-list button{width:100%;text-align:left;padding:.35rem .5rem;border:1px solid #e1e1e1;background:#fff;border-radius:6px;font-size:.9rem;cursor:pointer}
+  .inspector-list button.active{background:#e7f1ff;border-color:#9ec5fe}
+  #modal{position:fixed;inset:0;display:none;place-items:center;background:rgba(0,0,0,.45);z-index:1000;padding:1rem}
+  #modal .sheet{width:min(600px,100%);background:#fff;border-radius:10px;padding:1rem 1rem 1.25rem;box-shadow:0 8px 24px rgba(0,0,0,.2)}
+  /* Global Filters modal */
+  #filters-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center}
+  #filters-backdrop.show{display:flex!important}
+  #filters-panel{background:#fff;border-radius:10px;box-shadow:0 12px 40px rgba(0,0,0,.2);max-height:90vh;overflow:auto;max-width:1100px;padding:16px}
+</style>
 </head>
 <body>
-  <div id="app">
-    <!-- Sidebar -->
-    <aside id="sidebar" aria-label="Toolbar">
-      <button id="btnFilters" title="Filters" aria-label="Filters"><i class="bi bi-funnel-fill"></i></button>
-      <button id="btnData" title="Data table" aria-label="Data"><i class="bi bi-table"></i></button>
-      <button id="btnSettings" title="Settings" aria-label="Settings"><i class="bi bi-gear-fill"></i></button>
-      <button id="btnAdd" title="Add chart" aria-label="Add chart"><i class="bi bi-plus-lg"></i></button>
-    </aside>
+<div id="app">
+  <aside id="sidebar" aria-label="Toolbar">
+    <button id="btnFilters" title="Filters" aria-label="Filters"><i class="bi bi-funnel-fill"></i></button>
+    <button id="btnData" title="Data table" aria-label="Data"><i class="bi bi-table"></i></button>
+    <button id="btnSettings" title="Settings" aria-label="Settings"><i class="bi bi-gear-fill"></i></button>
+    <button id="btnAdd" title="Add chart" aria-label="Add chart"><i class="bi bi-plus-lg"></i></button>
+  </aside>
 
-    <!-- Main -->
-    <main id="main">
-      <header id="header">
-        <h1 id="title">MUSPAD Dynamic Dashboard</h1>
-        <span id="loadedBadge" aria-live="polite"></span>
-        <div class="header-spacer"></div>
+  <main id="main">
+    <header id="header">
+      <h1 id="title">MUSPAD Dynamic Dashboard</h1>
+      <span id="loadedBadge" aria-live="polite"></span>
+      <div class="header-spacer"></div>
+      <div class="date-range" style="display:none">
+        <input type="date" id="startDate" aria-label="Start date">
+        <input type="date" id="endDate" aria-label="End date">
+      </div>
+      <button id="btnDownloadFiltered" type="button" class="btn btn-sm btn-outline-primary">Download filtered CSV</button>
+    </header>
 
-        <!-- Date range (kept hidden) -->
-        <div class="date-range" style="display:none">
-          <input type="date" id="startDate" aria-label="Start date">
-          <input type="date" id="endDate" aria-label="End date">
-        </div>
+    <section id="panelFilters" class="panel" aria-label="Filters">
+      <h5 class="mb-3">Filters</h5>
+      <div id="filter-container"></div>
+    </section>
 
-        <button id="btnDownloadFiltered" type="button" class="btn btn-sm btn-outline-primary">
-          Download filtered CSV
-        </button>
-      </header>
-
-      <!-- Filters -->
-      <section id="panelFilters" class="panel" aria-label="Filters">
-        <h5 class="mb-3">Filters</h5>
-        <div id="filter-container"></div>
-      </section>
-
-      <!-- Data table -->
-      <section id="panelData" class="panel" aria-label="Data preview">
-        <h5 class="mb-2">Data Preview</h5>
-
-        <div id="dataLayout">
-          <!-- LEFT: data table -->
-          <div class="table-responsive" id="tableWrap"></div>
-
-          <!-- RIGHT: inspector -->
-          <aside id="inspector" aria-label="Variable Inspector & Dataset Summary">
-            <div id="inspectorSummary" class="inspector-block">
-              <h6 class="inspector-title">Dataset summary</h6>
-              <div class="inspector-kpis">
-                <div class="kpi"><div class="kpi-label">Total rows</div><div class="kpi-value" id="sumTotalRows">—</div></div>
-                <div class="kpi"><div class="kpi-label">Total cols</div><div class="kpi-value" id="sumTotalCols">—</div></div>
-                <div class="kpi"><div class="kpi-label">Filtered rows</div><div class="kpi-value" id="sumFilteredRows">—</div></div>
-                <div class="kpi kpi-wide"><div class="kpi-label">Date range</div><div class="kpi-value" id="sumDateRange">—</div></div>
-              </div>
+    <section id="panelData" class="panel active" aria-label="Data preview">
+      <h5 class="mb-2">Data Preview</h5>
+      <div id="dataLayout">
+        <div class="table-responsive" id="tableWrap"></div>
+        <aside id="inspector" aria-label="Variable Inspector & Dataset Summary">
+          <div id="inspectorSummary" class="inspector-block">
+            <h6 class="inspector-title">Dataset summary</h6>
+            <div class="inspector-kpis">
+              <div class="kpi"><div class="kpi-label">Total rows</div><div class="kpi-value" id="sumTotalRows">—</div></div>
+              <div class="kpi"><div class="kpi-label">Total cols</div><div class="kpi-value" id="sumTotalCols">—</div></div>
+              <div class="kpi"><div class="kpi-label">Filtered rows</div><div class="kpi-value" id="sumFilteredRows">—</div></div>
+              <div class="kpi kpi-wide"><div class="kpi-label">Date range</div><div class="kpi-value" id="sumDateRange">—</div></div>
             </div>
+          </div>
+          <div id="inspectorCols" class="inspector-block">
+            <h6 class="inspector-title">Columns</h6>
+            <div id="inspectorList" class="inspector-list"></div>
+          </div>
+          <div id="inspectorDetails" class="inspector-block">
+            <h6 class="inspector-title"><span id="fieldName">Select a column</span></h6>
+            <div id="fieldStats">Choose a column from the list to see statistics.</div>
+          </div>
+        </aside>
+      </div>
+    </section>
 
-            <div id="inspectorCols" class="inspector-block">
-              <h6 class="inspector-title">Columns</h6>
-              <div id="inspectorList" class="inspector-list"></div>
-            </div>
+    <section id="panelSettings" class="panel" aria-label="Settings">
+      <h5>Settings</h5>
+      <p class="text-muted mb-0">Add theme/layout options here as needed.</p>
+    </section>
 
-            <div id="inspectorDetails" class="inspector-block">
-              <h6 class="inspector-title"><span id="fieldName">Select a column</span></h6>
-              <div id="fieldStats">Choose a column from the list to see statistics.</div>
-            </div>
-          </aside>
-        </div>
-      </section>
+    <section id="grid" aria-label="Charts"></section>
+  </main>
+</div>
 
-      <!-- Settings -->
-      <section id="panelSettings" class="panel" aria-label="Settings">
-        <h5>Settings</h5>
-        <p class="text-muted mb-0">Add theme/layout options here as needed.</p>
-      </section>
-
-      <!-- Chart grid -->
-      <section id="grid" aria-label="Charts"></section>
-    </main>
+<!-- Chart Builder Modal -->
+<div id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="sheet">
+    <h5 id="modalTitle" class="mb-3">Create chart</h5>
+    <div class="grid">
+      <div>
+        <label class="form-label">Chart type</label>
+        <select id="fldType" class="form-select">
+          <option value="bar">Column / Bar</option>
+          <option value="barline">Bar + Line (combo)</option>
+          <option value="pie">Pie Chart</option>
+          <option value="timeseries">Time Series</option>
+          <option value="line">Line Plot</option>
+          <option value="heatmap">Heatmap</option>
+          <option value="funnel">Funnel Chart</option>
+          <option value="scatter">Scatter Plot</option>
+          <option value="bubble">Bubble Chart</option>
+          <option value="box">Box Plot</option>
+          <option value="pivot">Pivot Table</option>
+          <option value="datatable">Data Table</option>
+        </select>
+      </div>
+      <div><label class="form-label">X / Row / Category</label><select id="fldX" class="form-select"></select></div>
+      <div data-role="needsNumeric"><label class="form-label">Y / Value (numeric)</label><select id="fldY" class="form-select"></select></div>
+      <div data-role="needsSecondCat"><label class="form-label">Column (2nd category)</label><select id="fldYCat" class="form-select"></select></div>
+      <div data-role="needsColor"><label class="form-label">Color / Group</label><select id="fldColor" class="form-select"></select></div>
+      <div data-role="needsAgg"><label class="form-label">Aggregation</label><select id="fldAgg" class="form-select"><option value="count">Count</option><option value="sum">Sum</option><option value="mean">Mean</option></select></div>
+      <div data-role="needsY2"><label class="form-label">Y2 (numeric)</label><select id="fldY2" class="form-select"></select></div>
+      <div data-role="needsSize"><label class="form-label">Size (numeric)</label><select id="fldSize" class="form-select"></select></div>
+      <div data-role="comboToggles">
+        <div class="form-check"><input class="form-check-input" type="checkbox" id="chkDualAxis"><label class="form-check-label" for="chkDualAxis">Use dual Y-axis (Bar+Line)</label></div>
+        <div class="form-check" data-role="histToggle"><input class="form-check-input" type="checkbox" id="chkHistOverlay"><label class="form-check-label" for="chkHistOverlay">Add histogram overlay</label></div>
+      </div>
+    </div>
+    <div class="actions">
+      <button id="btnCancel" class="btn btn-outline-secondary">Cancel</button>
+      <button id="btnCreate" class="btn btn-primary">Create</button>
+    </div>
   </div>
+</div>
 
-  <!-- Chart Builder Modal -->
-  <div id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-    <div class="sheet">
-      <h5 id="modalTitle" class="mb-3">Create chart</h5>
+<!-- Global Filters (single instance) -->
+<div id="filters-backdrop">
+  <div id="filters-panel">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;">
+      <h3 style="margin:0;font-weight:700;">Global Filters</h3>
+      <div style="margin-left:auto;display:flex;gap:8px;">
+        <button id="gf-clear-all" class="btn btn-sm btn-outline-secondary">Clear All</button>
+        <button id="gf-cancel" class="btn btn-sm btn-light">Cancel</button>
+        <button id="gf-apply" class="btn btn-sm btn-primary">Apply</button>
+      </div>
+    </div>
 
-      <!-- BASIC FIELDS -->
-      <div class="grid">
-        <div>
-          <label class="form-label">Chart type</label>
-          <select id="fldType" class="form-select">
-            <option value="bar">Column / Bar</option>
-            <option value="barline">Bar + Line (combo)</option>
-            <option value="pie">Pie Chart</option>
-            <option value="timeseries">Time Series</option>
-            <option value="line">Line Plot</option>
-            <option value="heatmap">Heatmap</option>
-            <option value="funnel">Funnel Chart</option>
-            <option value="scatter">Scatter Plot</option>
-            <option value="bubble">Bubble Chart</option>
-            <option value="box">Box Plot</option>
-            <option value="pivot">Pivot Table</option>
-            <option value="datatable">Data Table</option>
-          </select>
+    <div style="display:grid;grid-template-columns:260px 1fr;gap:12px;min-height:520px;">
+      <div style="border:1px solid #eee;border-radius:8px;padding:10px;">
+        <input id="gf-field-search" placeholder="Search fields…" class="form-control form-control-sm" style="margin-bottom:8px;">
+        <div style="font-size:12px;color:#888;margin:6px 0;">Groups</div>
+        <div id="gf-groups" style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
+          <button data-group="all" class="btn btn-xs btn-outline-secondary active">All</button>
+          <button data-group="cat" class="btn btn-xs btn-outline-secondary">Categories</button>
+          <button data-group="num" class="btn btn-xs btn-outline-secondary">Numerical</button>
+          <button data-group="date" class="btn btn-xs btn-outline-secondary">Dates</button>
         </div>
-
-        <div>
-          <label class="form-label">X / Row / Category</label>
-          <select id="fldX" class="form-select"></select>
-        </div>
-
-        <div data-role="needsNumeric">
-          <label class="form-label">Y / Value (numeric)</label>
-          <select id="fldY" class="form-select"></select>
-        </div>
-
-        <div data-role="needsSecondCat">
-          <label class="form-label">Column (2nd category) — for Heatmap / Pivot</label>
-          <select id="fldYCat" class="form-select"></select>
-        </div>
-
-        <div data-role="needsColor">
-          <label class="form-label">Color / Group (optional)</label>
-          <select id="fldColor" class="form-select"></select>
-        </div>
-
-        <div data-role="needsAgg">
-          <label class="form-label">Aggregation</label>
-          <select id="fldAgg" class="form-select">
-            <option value="count">Count</option>
-            <option value="sum">Sum</option>
-            <option value="mean">Mean</option>
-          </select>
-        </div>
-
-        <div data-role="needsY2">
-          <label class="form-label">Y2 (numeric) — for Bar+Line</label>
-          <select id="fldY2" class="form-select"></select>
-        </div>
-
-        <div data-role="needsSize">
-          <label class="form-label">Size (numeric) — for Bubble</label>
-          <select id="fldSize" class="form-select"></select>
-        </div>
-
-        <div data-role="comboToggles">
-          <div class="form-check">
-            <input class="form-check-input" type="checkbox" id="chkDualAxis">
-            <label class="form-check-label" for="chkDualAxis">Use dual Y-axis (Bar+Line)</label>
-          </div>
-          <div class="form-check" data-role="histToggle">
-            <input class="form-check-input" type="checkbox" id="chkHistOverlay">
-            <label class="form-check-label" for="chkHistOverlay">Add histogram overlay (Line / Box)</label>
-          </div>
-        </div>
+        <div style="font-size:12px;color:#888;margin:6px 0;">Fields</div>
+        <div id="gf-field-list" style="max-height:400px;overflow:auto;"></div>
       </div>
 
-      <div class="actions">
-        <button id="btnCancel" class="btn btn-outline-secondary">Cancel</button>
-        <button id="btnCreate" class="btn btn-primary">Create</button>
+      <div style="border:1px solid #eee;border-radius:8px;padding:10px;">
+        <div id="gf-field-header" style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+          <strong id="gf-active-field" style="font-size:14px;">(Select a field)</strong>
+          <div style="margin-left:auto;display:flex;gap:8px;">
+            <select id="gf-sort" class="form-select form-select-sm" title="Sort">
+              <option value="count">Sort by Count</option>
+              <option value="az">A → Z</option>
+              <option value="za">Z → A</option>
+            </select>
+            <input id="gf-value-search" class="form-control form-control-sm" placeholder="Search values">
+          </div>
+        </div>
+
+        <div id="gf-chip-wrap" style="display:none;gap:8px;flex-wrap:wrap;"></div>
+        <div id="gf-num-wrap" style="display:none;gap:12px;">
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+            <label class="form-label form-label-sm" style="margin:0;">Range</label>
+            <input id="gf-num-min" type="number" class="form-control form-control-sm" style="max-width:120px;">
+            <span>–</span>
+            <input id="gf-num-max" type="number" class="form-control form-control-sm" style="max-width:120px;">
+          </div>
+          <input id="gf-num-slider-min" type="range">
+          <input id="gf-num-slider-max" type="range">
+          <div id="gf-num-bins" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;"></div>
+          <div id="gf-num-empty" style="margin-top:6px;"></div>
+        </div>
+
+        <div id="gf-date-wrap" style="display:none;">
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+            <select id="gf-date-period" class="form-select form-select-sm" style="max-width:180px;">
+              <option value="quarter">Quarters</option>
+              <option value="year">Years</option>
+              <option value="month">Months</option>
+            </select>
+            <input id="gf-date-start" type="date" class="form-control form-control-sm">
+            <span>→</span>
+            <input id="gf-date-end" type="date" class="form-control form-control-sm">
+          </div>
+          <div id="gf-date-buckets" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+          <div id="gf-date-empty" style="margin-top:6px;"></div>
+        </div>
+
+        <div id="gf-help" style="color:#888;">Pick a field on the left to configure its filter.</div>
       </div>
     </div>
   </div>
+</div>
 
-  <!-- ==================== Main App Script ==================== -->
-  <script>
-  // ----------------------------
-  // Global state
-  // ----------------------------
-  let rawData = [];
-  let filtered = [];
-  let columns = [];
-  let charts = [];
-  let dateCol = null;
-  let ageCol  = null;
-  let empCol  = null;
-  let numericCols = [];
-  let categoricalCols = [];
-  let inspectorSelectedField = null;
+<script>
+/* ---------------- State ---------------- */
+let rawData = [], filtered = [], columns = [], charts = [];
+let dateCol = null, ageCol = null, empCol = null;
+let numericCols = [], categoricalCols = [];
+let inspectorSelectedField = null;
 
-  // ----------------------------
-  // Boot
-  // ----------------------------
-  document.addEventListener('DOMContentLoaded', () => {
-    wireUI();
-    loadCSV();
-  });
+/* --------------- Global Filters core (GLOBAL scope) --------------- */
+const GF = { state:{}, meta:{}, activeField:null, _group:'all' };
 
-  function wireUI() {
-    // Sidebar toggles
-    id('btnFilters').addEventListener('click', openFiltersModal);
-    id('btnData').addEventListener('click', () => toggle('panelData'));
-    id('btnSettings').addEventListener('click', () => toggle('panelSettings'));
-    id('btnAdd').addEventListener('click', () => {
-      updateBuilderVisibility();
-      openModal();
-    });
-
-    // Date change
-    const startDateEl = id('startDate');
-    const endDateEl = id('endDate');
-    if (startDateEl) startDateEl.addEventListener('change', applyFilters);
-    if (endDateEl) endDateEl.addEventListener('change', applyFilters);
-
-    // Modal controls
-    const btnCancel = id('btnCancel');
-    const btnCreate = id('btnCreate');
-    const modal = id('modal');
-    
-    if (btnCancel) btnCancel.addEventListener('click', closeModal);
-    if (btnCreate) btnCreate.addEventListener('click', () => {
-      const cfg = {
-        type:    id('fldType')?.value || 'bar',
-        x:       id('fldX')?.value || null,
-        y:       id('fldY')?.value || null,
-        y2:      id('fldY2')?.value || null,
-        yCat:    id('fldYCat')?.value || null,
-        color:   id('fldColor')?.value || null,
-        size:    id('fldSize')?.value || null,
-        agg:     id('fldAgg')?.value || 'count',
-        dualAxis:    id('chkDualAxis')?.checked || false,
-        histOverlay:id('chkHistOverlay')?.checked || false
-      };
-      addChart(cfg);
-      closeModal();
-    });
-
-    // Close builder by clicking backdrop
-    if (modal) {
-      modal.addEventListener('click', (e) => {
-        if (e.target === modal) closeModal();
-      });
-    }
-
-    // Update builder visibility when chart type changes
-    const fldType = id('fldType');
-    if (fldType) {
-      fldType.addEventListener('change', updateBuilderVisibility);
-      updateBuilderVisibility();
-    }
-
-    // Download filtered CSV
-    const btnDownload = id('btnDownloadFiltered');
-    if (btnDownload) {
-      btnDownload.addEventListener('click', () => {
-        if (!filtered.length) {
-          alert('No rows in the current filter.');
-          return;
-        }
-        downloadCSV('filtered_data.csv', columns, filtered.map(r => columns.map(c => r[c])));
-      });
-    }
+function gf_inferType(values){
+  let n=0,d=0,c=0;
+  for(const v of values){
+    if(v===null||v===undefined||v==='') continue;
+    const s=String(v).trim(); if(s==='') continue;
+    const num=Number(s); if(!Number.isNaN(num)&&isFinite(num)){n++;continue;}
+    const dt=new Date(s); if(!isNaN(dt.getTime())){d++;continue;}
+    c++; if(n+d+c>30) break;
   }
-
-  // ----------------------------
-  // Builder field visibility
-  // ----------------------------
-  function updateBuilderVisibility() {
-    const typeEl = id('fldType');
-    if (!typeEl) return;
-    
-    const type = typeEl.value;
-    const show = (selector, on) => {
-      document.querySelectorAll(selector).forEach(el => {
-        if (el) el.style.display = on ? '' : 'none';
-      });
-    };
-    show('[data-role="needsNumeric"]', !['pie','heatmap','pivot','datatable','funnel'].includes(type));
-    show('[data-role="needsAgg"]', !['scatter','bubble','box','datatable','pivot'].includes(type));
-    show('[data-role="needsColor"]', ['bar','line','scatter','bubble','box','barline'].includes(type));
-    show('[data-role="needsSecondCat"]', ['heatmap','pivot'].includes(type));
-    show('[data-role="needsY2"]', type === 'barline');
-    show('[data-role="needsSize"]', type === 'bubble');
-    show('[data-role="comboToggles"]', ['barline','line','box'].includes(type));
-    show('[data-role="histToggle"]', ['line','box'].includes(type));
-  }
-
-  // ----------------------------
-  // Data loading (with fallbacks)
-  // ----------------------------
-  
-  function generateSampleData() {
-    const sampleData = [];
-    const categories = ['Category A', 'Category B', 'Category C', 'Category D'];
-    const regions = ['North', 'South', 'East', 'West'];
-    const dates = ['2023-01-01', '2023-02-01', '2023-03-01', '2023-04-01', '2023-05-01'];
-    
-    for (let i = 0; i < 100; i++) {
-      sampleData.push({
-        id: i + 1,
-        category: categories[Math.floor(Math.random() * categories.length)],
-        region: regions[Math.floor(Math.random() * regions.length)],
-        value: Math.floor(Math.random() * 1000) + 100,
-        date: dates[Math.floor(Math.random() * dates.length)],
-        score: Math.random() * 100
-      });
-    }
-    
-    rawData = sampleData;
-    columns = Object.keys(sampleData[0]);
-    id('loadedBadge').textContent = `Loaded ${rawData.length.toLocaleString()} rows • ${columns.length} columns (Sample Data)`;
-
-    detectColumns();
-    populateFilters();
-    populateBuilderSelects();
-
-    rebuildInspectorColumnList();
-    updateInspectorSummary();
-
-    show('panelData', true);
-    applyFilters();
-    
-    autoStarterCharts();
-    initGlobalFilters();
-  }
-  
-  function loadCSV() {
-    const urls = [
-      'data/df3_full_for_pivot.csv',
-      'https://sina-khajehzadeh.github.io/muspad-study-dashboard/data/df3_full_for_pivot.csv',
-      'https://raw.githubusercontent.com/Sina-Khajehzadeh/muspad-study-dashboard/main/docs/data/df3_full_for_pivot.csv',
-      'https://cdn.jsdelivr.net/gh/Sina-Khajehzadeh/muspad-study-dashboard/docs/data/df3_full_for_pivot.csv'
-    ];
-
-    let idx = 0;
-    const tryNext = () => {
-      if (idx >= urls.length) {
-        console.log('Failed to load CSV from all sources. Using sample data.');
-        // Generate sample data for testing
-        generateSampleData();
-        return;
-      }
-      const url = urls[idx++];
-      console.log('Loading data from', url);
-      Papa.parse(url, {
-        download: true,
-        header: true,
-        skipEmptyLines: true,
-        dynamicTyping: true,
-        worker: false,
-        delimiter: "",
-        transformHeader: (h) => (h || '').replace(/^\uFEFF/, '').trim(),
-        complete: (res) => {
-          if (!res || !Array.isArray(res.data) || res.data.length === 0) {
-            console.warn('Parsed but empty. Trying next source…');
-            tryNext();
-            return;
-          }
-          rawData = res.data;
-          columns = (res.meta && res.meta.fields && res.meta.fields.length)
-            ? res.meta.fields
-            : Object.keys(rawData[0] || {});
-          id('loadedBadge').textContent = `Loaded ${rawData.length.toLocaleString()} rows • ${columns.length} columns`;
-
-          detectColumns();
-          populateFilters();
-          populateBuilderSelects();
-
-          rebuildInspectorColumnList();
-          updateInspectorSummary();
-
-          show('panelData', true);
-          applyFilters();
-          
-/* ===== Global Filter Panel – compact implementation ===== */
-
-let GF = {
-  state: {},         // { fieldKey: {type:'cat'|'num'|'date', ...selection...} }
-  meta: {},          // { fieldKey: {type, empties, uniques:[{v,count}], min,max, domainDates:[...]} }
-  activeField: null, // string
-  _group: 'all'      // current group filter
-};
-
-function gf_inferType(values) {
-  // decide cat/num/date
-  let n = 0, d = 0, c = 0;
-  for (const v of values) {
-    if (v === null || v === undefined || v === '') continue;
-    const s = String(v).trim();
-    if (s === '') continue;
-    const num = Number(s);
-    if (!Number.isNaN(num) && isFinite(num)) { n++; continue; }
-    const dt = new Date(s);
-    if (!isNaN(dt.getTime())) { d++; continue; }
-    c++;
-    if (n + d + c > 30) break;
-  }
-  if (n && !d && !c) return 'num';
-  if (d && !n && !c) return 'date';
-  // tie-break: many dashboards prefer treating mixed as categories
-  if (n > d && n > c) return 'num';
-  if (d > n && d > c) return 'date';
+  if(n && !d && !c) return 'num';
+  if(d && !n && !c) return 'date';
+  if(n>d && n>c) return 'num';
+  if(d>n && d>c) return 'date';
   return 'cat';
 }
-
-function gf_buildMeta() {
-  GF.meta = {};
-  const N = rawData.length;
-  columns.forEach(col => {
-    const vals = rawData.map(r => r[col]);
+function gf_buildMeta(){
+  GF.meta={};
+  columns.forEach(col=>{
+    const vals = rawData.map(r=>r[col]);
     const type = gf_inferType(vals);
-    const m = GF.meta[col] = { type, empties:0, uniques:[], min:null, max:null, buckets:{} };
+    const m = GF.meta[col] = {type, empties:0, uniques:[], min:null, max:null, buckets:{}};
     const counts = new Map();
-    for (const v0 of vals) {
-      let v = v0;
-      if (v === undefined || v === null || String(v).trim() === '') { m.empties++; continue; }
-      if (type === 'num') {
-        const num = Number(v);
-        if (!Number.isNaN(num) && isFinite(num)) {
-          if (m.min === null || num < m.min) m.min = num;
-          if (m.max === null || num > m.max) m.max = num;
-          v = num;
-        } else { m.empties++; continue; }
-      } else if (type === 'date') {
-        const dt = new Date(v);
-        if (isNaN(dt.getTime())) { m.empties++; continue; }
-        v = dt.toISOString().slice(0,10); // YYYY-MM-DD
-      } else {
-        v = String(v);
+    for(let v0 of vals){
+      let v=v0;
+      if(v===undefined||v===null||String(v).trim()===''){m.empties++;continue;}
+      if(type==='num'){
+        const num=Number(v);
+        if(!Number.isNaN(num)&&isFinite(num)){ if(m.min===null||num<m.min)m.min=num; if(m.max===null||num>m.max)m.max=num; v=num; }
+        else { m.empties++; continue; }
+      }else if(type==='date'){
+        const dt=new Date(v); if(isNaN(dt.getTime())){m.empties++;continue;}
+        v=dt.toISOString().slice(0,10);
+      }else{
+        v=String(v);
       }
-      counts.set(v, (counts.get(v) || 0) + 1);
+      counts.set(v,(counts.get(v)||0)+1);
     }
-    m.uniques = [...counts.entries()].map(([v,count])=>({v,count}));
-    // precompute date buckets
-    if (type === 'date') {
-      const toQuarter = (iso) => {
-        const y = Number(iso.slice(0,4));
-        const m = Number(iso.slice(5,7));
-        const q = Math.floor((m-1)/3)+1;
-        return `Q${q} ${y}`;
-      };
-      const toYear = (iso) => iso.slice(0,4);
-      const toMonth = (iso) => iso.slice(0,7); // YYYY-MM
-      for (const {v,count} of m.uniques) {
-        const q = toQuarter(v); m.buckets[q] = (m.buckets[q]||0)+count;
-        const y = toYear(v);    m.buckets[y] = (m.buckets[y]||0)+count;
-        const mo = toMonth(v);  m.buckets[mo] = (m.buckets[mo]||0)+count;
+    m.uniques=[...counts.entries()].map(([v,count])=>({v,count}));
+    if(type==='date'){
+      const toQuarter=iso=>`Q${Math.floor((Number(iso.slice(5,7))-1)/3)+1} ${iso.slice(0,4)}`;
+      for(const {v,count} of m.uniques){
+        const q=toQuarter(v); m.buckets[q]=(m.buckets[q]||0)+count;
+        const y=v.slice(0,4); m.buckets[y]=(m.buckets[y]||0)+count;
+        const mo=v.slice(0,7); m.buckets[mo]=(m.buckets[mo]||0)+count;
       }
     }
   });
 }
-
-function openFiltersModal() {
-  const el = document.getElementById('filters-backdrop');
-  if (el) {
-    el.classList.add('show');
-    document.body.style.overflow = 'hidden';
-    document.addEventListener('keydown', filtersEscHandler);
-    // left list
-    gf_renderFieldList('all', '');
-    // right pane
-    gf_showField(null);
-  }
+function openFiltersModal(){
+  const el=document.getElementById('filters-backdrop');
+  if(!el) return;
+  el.classList.add('show');
+  document.body.style.overflow='hidden';
+  gf_renderFieldList('all','');
+  gf_showField(null);
 }
-function closeFiltersModal() {
-  const el = document.getElementById('filters-backdrop');
-  if (el) {
-    el.classList.remove('show');
-    document.body.style.overflow = '';
-    document.removeEventListener('keydown', filtersEscHandler);
-  }
+function closeFiltersModal(){
+  const el=document.getElementById('filters-backdrop');
+  if(!el) return;
+  el.classList.remove('show');
+  document.body.style.overflow='';
 }
-
-function filtersEscHandler(e) {
-  if (e.key === 'Escape') {
-    closeFiltersModal();
-  }
+function gf_initUI(){
+  const backdrop=document.getElementById('filters-backdrop');
+  if(backdrop){backdrop.addEventListener('click',e=>{if(e.target===backdrop) closeFiltersModal();});}
+  const cancelBtn=document.getElementById('gf-cancel');
+  const clearBtn=document.getElementById('gf-clear-all');
+  const applyBtn=document.getElementById('gf-apply');
+  if(cancelBtn) cancelBtn.onclick=closeFiltersModal;
+  if(clearBtn) clearBtn.onclick=()=>{GF.state={}; gf_renderFieldList(GF._group||'all',document.getElementById('gf-field-search').value||''); gf_showField(GF.activeField);};
+  if(applyBtn) applyBtn.onclick=()=>{ gf_applyToDashboard(); closeFiltersModal(); };
+  const groupButtons=document.querySelectorAll('#gf-groups button');
+  groupButtons.forEach(b=>b.onclick=()=>{groupButtons.forEach(x=>x.classList.remove('active')); b.classList.add('active'); GF._group=b.dataset.group; gf_renderFieldList(GF._group, document.getElementById('gf-field-search').value||'');});
+  const fieldSearch=document.getElementById('gf-field-search');
+  if(fieldSearch) fieldSearch.oninput=e=>gf_renderFieldList(GF._group||'all',e.target.value||'');
+  const sortSelect=document.getElementById('gf-sort');
+  const valueSearch=document.getElementById('gf-value-search');
+  if(sortSelect) sortSelect.onchange=()=>gf_showField(GF.activeField);
+  if(valueSearch) valueSearch.oninput=()=>gf_showField(GF.activeField);
 }
-
-function gf_initUI() {
-  // hook your existing sidebar filter icon (id="btnFilters" in your code)
-  const btn = document.getElementById('btnFilters') || document.querySelector('[data-action="filters"]');
-  if (btn) btn.addEventListener('click', openFiltersModal);
-  
-  // Add click outside to close
-  const backdrop = document.getElementById('filters-backdrop');
-  if (backdrop) {
-    backdrop.addEventListener('click', (e) => {
-      if (e.target === backdrop) {
-        closeFiltersModal();
-      }
-    });
-  }
-
-  const cancelBtn = document.getElementById('gf-cancel');
-  const clearBtn = document.getElementById('gf-clear-all');
-  const applyBtn = document.getElementById('gf-apply');
-  
-  if (cancelBtn) cancelBtn.onclick = closeFiltersModal;
-  if (clearBtn) clearBtn.onclick = () => { 
-    GF.state = {}; 
-    gf_renderFieldList(GF._group||'all', document.getElementById('gf-field-search').value||''); 
-    gf_showField(GF.activeField); 
-  };
-  if (applyBtn) applyBtn.onclick = () => { 
-    gf_applyToDashboard(); 
-    closeFiltersModal(); 
-  };
-
-  // groups
-  const groupButtons = document.querySelectorAll('#gf-groups button');
-  groupButtons.forEach(b=>{
-    b.onclick = ()=>{
-      groupButtons.forEach(x=>x.classList.remove('active'));
-      b.classList.add('active');
-      GF._group = b.dataset.group;
-      gf_renderFieldList(GF._group, document.getElementById('gf-field-search').value||'');
-    };
-  });
-
-  // search fields
-  const fieldSearch = document.getElementById('gf-field-search');
-  if (fieldSearch) {
-    fieldSearch.oninput = (e)=>{
-      gf_renderFieldList(GF._group||'all', e.target.value||'');
-    };
-  }
-
-  // sort/search on values
-  const sortSelect = document.getElementById('gf-sort');
-  const valueSearch = document.getElementById('gf-value-search');
-  
-  if (sortSelect) sortSelect.onchange = ()=> gf_showField(GF.activeField);
-  if (valueSearch) valueSearch.oninput = ()=> gf_showField(GF.activeField);
-}
-
-function gf_renderFieldList(group, needle) {
-  const wrap = document.getElementById('gf-field-list');
-  if (!wrap) return;
-  
-  wrap.innerHTML = '';
-  const list = [];
-  for (const col of columns) {
-    const t = GF.meta[col]?.type || 'cat';
-    if (group!=='all' && ((group==='cat'&&t!=='cat')||(group==='num'&&t!=='num')||(group==='date'&&t!=='date'))) continue;
-    if (needle && !col.toLowerCase().includes(needle.toLowerCase())) continue;
-    list.push({col, t});
+function gf_renderFieldList(group,needle){
+  const wrap=document.getElementById('gf-field-list'); if(!wrap) return;
+  wrap.innerHTML=''; const list=[];
+  for(const col of columns){
+    const t=GF.meta[col]?.type||'cat';
+    if(group!=='all' && ((group==='cat'&&t!=='cat')||(group==='num'&&t!=='num')||(group==='date'&&t!=='date'))) continue;
+    if(needle && !col.toLowerCase().includes(needle.toLowerCase())) continue;
+    list.push({col,t});
   }
   list.sort((a,b)=>a.col.localeCompare(b.col));
-  for (const {col,t} of list) {
-    const a = document.createElement('div');
-    a.className = 'list-group-item list-group-item-action';
-    a.style.cursor = 'pointer';
-    a.textContent = `${col}  ·  ${t}`;
-    a.onclick = ()=>{ GF.activeField = col; gf_showField(col); };
+  for(const {col,t} of list){
+    const a=document.createElement('div'); a.className='list-group-item list-group-item-action'; a.style.cursor='pointer'; a.textContent=`${col} · ${t}`;
+    a.onclick=()=>{GF.activeField=col; gf_showField(col);};
     wrap.appendChild(a);
   }
 }
+function gf_showField(col){
+  const chipWrap=id('gf-chip-wrap'), numWrap=id('gf-num-wrap'), dateWrap=id('gf-date-wrap'), help=id('gf-help'), active=id('gf-active-field');
+  if(chipWrap) chipWrap.style.display='none';
+  if(numWrap) numWrap.style.display='none';
+  if(dateWrap) dateWrap.style.display='none';
+  if(help) help.style.display = col ? 'none' : 'block';
+  if(active) active.textContent = col || '(Select a field)';
+  if(!col) return;
+  const meta=GF.meta[col];
+  const sort=(id('gf-sort')?.value)||'count';
+  const filterText=(id('gf-value-search')?.value||'').toLowerCase();
 
-function gf_showField(col) {
-  const chipWrap = document.getElementById('gf-chip-wrap');
-  const numWrap = document.getElementById('gf-num-wrap');
-  const dateWrap = document.getElementById('gf-date-wrap');
-  const help = document.getElementById('gf-help');
-  const activeField = document.getElementById('gf-active-field');
-  
-  if (chipWrap) chipWrap.style.display='none';
-  if (numWrap) numWrap.style.display='none';
-  if (dateWrap) dateWrap.style.display='none';
-  if (help) help.style.display = col ? 'none' : 'block';
-  if (activeField) activeField.textContent = col || '(Select a field)';
-
-  if (!col) return;
-  const meta = GF.meta[col];
-  const sortSelect = document.getElementById('gf-sort');
-  const valueSearch = document.getElementById('gf-value-search');
-  const sort = sortSelect ? sortSelect.value : 'count';
-  const filterText = (valueSearch ? valueSearch.value : '').toLowerCase();
-
-  if (meta.type==='cat') {
-    const box = document.getElementById('gf-chip-wrap');
-    if (!box) return;
-    box.innerHTML = '';
-    let items = meta.uniques.slice();
-    if (filterText) items = items.filter(x=>String(x.v).toLowerCase().includes(filterText));
-    if (sort==='count') items.sort((a,b)=>b.count-a.count);
-    if (sort==='az') items.sort((a,b)=>String(a.v).localeCompare(String(b.v)));
-    if (sort==='za') items.sort((a,b)=>String(b.v).localeCompare(String(a.v)));
-
-    const current = GF.state[col]?.include || new Set();
-    const toggle = (val)=>{
-      if (!GF.state[col]) GF.state[col] = {type:'cat', include:new Set(), includeEmpty:false};
-      if (current.has(val)) current.delete(val); else current.add(val);
-      gf_showField(col);
-    };
-
+  if(meta.type==='cat'){
+    const box=id('gf-chip-wrap'); if(!box) return; box.innerHTML='';
+    let items=meta.uniques.slice();
+    if(filterText) items=items.filter(x=>String(x.v).toLowerCase().includes(filterText));
+    if(sort==='count') items.sort((a,b)=>b.count-a.count);
+    if(sort==='az') items.sort((a,b)=>String(a.v).localeCompare(String(b.v)));
+    if(sort==='za') items.sort((a,b)=>String(b.v).localeCompare(String(a.v)));
+    const current=GF.state[col]?.include||new Set();
+    const toggle=(val)=>{ if(!GF.state[col]) GF.state[col]={type:'cat',include:new Set(),includeEmpty:false}; current.has(val)?current.delete(val):current.add(val); GF.state[col].include=current; gf_showField(col); };
     items.forEach(({v,count})=>{
-      const chip = document.createElement('button');
-      chip.className = 'btn btn-sm ' + (current.has(v)?'btn-primary':'btn-outline-secondary');
-      chip.style.margin='4px';
-      chip.textContent = `${v}  ${count.toLocaleString()}`;
-      chip.onclick = ()=>toggle(v);
-      box.appendChild(chip);
+      const chip=document.createElement('button'); chip.className='btn btn-sm '+(current.has(v)?'btn-primary':'btn-outline-secondary'); chip.style.margin='4px'; chip.textContent=`${v}  ${count.toLocaleString()}`; chip.onclick=()=>toggle(v); box.appendChild(chip);
     });
-    // [EMPTY]
-    if (meta.empties>0) {
-      const chip = document.createElement('button');
-      const on = !!GF.state[col]?.includeEmpty;
-      chip.className = 'btn btn-sm ' + (on?'btn-warning':'btn-outline-secondary');
-      chip.style.margin='4px';
-      chip.textContent = `[EMPTY]  ${meta.empties.toLocaleString()}`;
-      chip.onclick = ()=>{
-        if (!GF.state[col]) GF.state[col] = {type:'cat', include:new Set(), includeEmpty:false};
-        GF.state[col].includeEmpty = !GF.state[col].includeEmpty;
-        gf_showField(col);
-      };
+    if(meta.empties>0){
+      const chip=document.createElement('button'); const on=!!GF.state[col]?.includeEmpty; chip.className='btn btn-sm '+(on?'btn-warning':'btn-outline-secondary'); chip.style.margin='4px'; chip.textContent=`[EMPTY]  ${meta.empties.toLocaleString()}`;
+      chip.onclick=()=>{ if(!GF.state[col]) GF.state[col]={type:'cat',include:new Set(),includeEmpty:false}; GF.state[col].includeEmpty=!GF.state[col].includeEmpty; gf_showField(col); };
       box.appendChild(chip);
     }
-    // select all/none
-    const tools = document.createElement('div');
-    tools.style.marginTop='8px';
-    const allBtn = document.createElement('button'); allBtn.className='btn btn-xs btn-light'; allBtn.textContent='Select All';
-    allBtn.onclick = ()=>{ GF.state[col]={type:'cat', include:new Set(items.map(x=>x.v)), includeEmpty:GF.state[col]?.includeEmpty||false}; gf_showField(col); };
-    const noneBtn = document.createElement('button'); noneBtn.className='btn btn-xs btn-light'; noneBtn.style.marginLeft='6px'; noneBtn.textContent='Deselect All';
-    noneBtn.onclick = ()=>{ GF.state[col]={type:'cat', include:new Set(), includeEmpty:false}; gf_showField(col); };
+    const tools=document.createElement('div'); tools.style.marginTop='8px';
+    const allBtn=document.createElement('button'); allBtn.className='btn btn-xs btn-light'; allBtn.textContent='Select All';
+    allBtn.onclick=()=>{ GF.state[col]={type:'cat',include:new Set(items.map(x=>x.v)),includeEmpty:GF.state[col]?.includeEmpty||false}; gf_showField(col); };
+    const noneBtn=document.createElement('button'); noneBtn.className='btn btn-xs btn-light'; noneBtn.style.marginLeft='6px'; noneBtn.textContent='Deselect All';
+    noneBtn.onclick=()=>{ GF.state[col]={type:'cat',include:new Set(),includeEmpty:false}; gf_showField(col); };
     tools.appendChild(allBtn); tools.appendChild(noneBtn); box.appendChild(tools);
-
     box.style.display='flex';
-
-  } else if (meta.type==='num') {
-    const wrap = document.getElementById('gf-num-wrap');
-    if (!wrap) return;
-    wrap.style.display='flex';
-    const s = GF.state[col] || {type:'num', min:meta.min, max:meta.max, includeEmpty:false};
-    GF.state[col] = s;
-
-    // set inputs/sliders
-    const minEl = document.getElementById('gf-num-min');
-    const maxEl = document.getElementById('gf-num-max');
-    const sMin = document.getElementById('gf-num-slider-min');
-    const sMax = document.getElementById('gf-num-slider-max');
-    
-    if (sMin && sMax) {
-      [sMin, sMax].forEach(sl=>{ sl.min = meta.min; sl.max = meta.max; sl.step='1'; });
+  } else if(meta.type==='num'){
+    const wrap=id('gf-num-wrap'); if(!wrap) return; wrap.style.display='flex';
+    const s=GF.state[col]||{type:'num',min:meta.min,max:meta.max,includeEmpty:false}; GF.state[col]=s;
+    const minEl=id('gf-num-min'), maxEl=id('gf-num-max'), sMin=id('gf-num-slider-min'), sMax=id('gf-num-slider-max');
+    if(sMin&&sMax){ sMin.min=meta.min; sMin.max=meta.max; sMax.min=meta.min; sMax.max=meta.max; sMin.step=sMax.step='1'; }
+    if(minEl) minEl.value=s.min??meta.min; if(maxEl) maxEl.value=s.max??meta.max;
+    if(sMin) sMin.value=minEl?minEl.value:s.min??meta.min; if(sMax) sMax.value=maxEl?maxEl.value:s.max??meta.max;
+    const sync=()=>{ if(!minEl||!maxEl||!sMin||!sMax) return; let a=Number(minEl.value), b=Number(maxEl.value); if(a>b)[a,b]=[b,a]; s.min=a; s.max=b; sMin.value=a; sMax.value=b; };
+    if(minEl) minEl.oninput=sync; if(maxEl) maxEl.oninput=sync;
+    if(sMin) sMin.oninput=e=>{ if(minEl) minEl.value=e.target.value; sync(); };
+    if(sMax) sMax.oninput=e=>{ if(maxEl) maxEl.value=e.target.value; sync(); };
+    const bins=id('gf-num-bins'); if(bins) bins.innerHTML='';
+    const binCount=7; const width=(meta.max-meta.min)/binCount || 1;
+    for(let i=0;i<binCount;i++){
+      const a=Math.round(meta.min+i*width); const b=Math.round(i===binCount-1?meta.max:meta.min+(i+1)*width);
+      const cnt=rawData.reduce((acc,r)=>{const v=Number(r[col]); return acc+((isFinite(v)&&v>=a&&v<=b)?1:0);},0);
+      const chip=document.createElement('span'); chip.className='badge bg-light text-dark'; chip.style.cursor='pointer'; chip.style.margin='2px'; chip.textContent=`${a}–${b}  ${cnt.toLocaleString()}`; chip.onclick=()=>{ if(minEl) minEl.value=a; if(maxEl) maxEl.value=b; sync(); };
+      if(bins) bins.appendChild(chip);
     }
-    if (minEl) minEl.value = s.min ?? meta.min;
-    if (maxEl) maxEl.value = s.max ?? meta.max;
-    if (sMin) sMin.value = minEl ? minEl.value : s.min ?? meta.min;
-    if (sMax) sMax.value = maxEl ? maxEl.value : s.max ?? meta.max;
-
-    const sync = ()=>{
-      if (!minEl || !maxEl || !sMin || !sMax) return;
-      let a = Number(minEl.value), b = Number(maxEl.value);
-      if (a > b) [a,b] = [b,a];
-      s.min = a; s.max = b;
-      sMin.value = a; sMax.value = b;
-    };
-    if (minEl) minEl.oninput = sync;
-    if (maxEl) maxEl.oninput = sync;
-    if (sMin) sMin.oninput = (e)=>{ if (minEl) minEl.value = e.target.value; sync(); };
-    if (sMax) sMax.oninput = (e)=>{ if (maxEl) maxEl.value = e.target.value; sync(); };
-
-    const bins = document.getElementById('gf-num-bins');
-    if (bins) bins.innerHTML='';
-    const binCount = 7;
-    const width = (meta.max - meta.min) / binCount || 1;
-    for (let i=0;i<binCount;i++){
-      const a = Math.round(meta.min + i*width);
-      const b = Math.round(i===binCount-1? meta.max : meta.min + (i+1)*width);
-      const cnt = rawData.reduce((acc,r)=>{
-        const v = Number(r[col]);
-        return acc + ((isFinite(v) && v>=a && v<=b) ? 1 : 0);
-      },0);
-      const chip = document.createElement('span');
-      chip.className='badge bg-light text-dark';
-      chip.style.cursor='pointer'; chip.style.margin='2px';
-      chip.textContent = `${a}–${b}  ${cnt.toLocaleString()}`;
-      chip.onclick = ()=>{ if (minEl) minEl.value=a; if (maxEl) maxEl.value=b; sync(); };
-      if (bins) bins.appendChild(chip);
-    }
-    const empty = document.getElementById('gf-num-empty');
-    if (empty) empty.innerHTML='';
-    if (meta.empties>0 && empty){
-      const chk = document.createElement('input'); chk.type='checkbox'; chk.checked=!!s.includeEmpty;
-      chk.onchange = ()=>{ s.includeEmpty = chk.checked; };
-      const lbl = document.createElement('label'); lbl.style.marginLeft='6px'; lbl.textContent = `[EMPTY] ${meta.empties.toLocaleString()}`;
-      const wrapDiv = document.createElement('div'); wrapDiv.appendChild(chk); wrapDiv.appendChild(lbl);
-      empty.appendChild(wrapDiv);
-    }
-
+    const empty=id('gf-num-empty'); if(empty){ empty.innerHTML=''; if(meta.empties>0){ const chk=document.createElement('input'); chk.type='checkbox'; chk.checked=!!s.includeEmpty; chk.onchange=()=>{s.includeEmpty=chk.checked;}; const lbl=document.createElement('label'); lbl.style.marginLeft='6px'; lbl.textContent=`[EMPTY] ${meta.empties.toLocaleString()}`; const div=document.createElement('div'); div.appendChild(chk); div.appendChild(lbl); empty.appendChild(div); } }
   } else { // date
-    const wrap = document.getElementById('gf-date-wrap');
-    if (!wrap) return;
-    wrap.style.display='block';
-    const s = GF.state[col] || {type:'date', period:'quarter', buckets:new Set(), includeEmpty:false, start:null, end:null};
-    GF.state[col] = s;
-
-    const periodEl = document.getElementById('gf-date-period');
-    const startEl  = document.getElementById('gf-date-start');
-    const endEl    = document.getElementById('gf-date-end');
-    if (periodEl) periodEl.value = s.period;
-    if (periodEl) periodEl.onchange = ()=>{ s.period = periodEl.value; gf_showField(col); };
-    if (startEl) startEl.onchange = ()=>{ s.start = startEl.value||null; };
-    if (endEl) endEl.onchange   = ()=>{ s.end   = endEl.value||null; };
-
-    const bucketBox = document.getElementById('gf-date-buckets');
-    if (bucketBox) bucketBox.innerHTML='';
-    const all = [];
-    if (s.period==='quarter') {
-      // already precomputed: keys like "Q4 2020"
-      for (const k in GF.meta[col].buckets) if (k.startsWith('Q')) all.push([k, GF.meta[col].buckets[k]]);
-      all.sort((a,b)=>a[0].localeCompare(b[0]));
-    } else if (s.period==='year') {
-      for (const k in GF.meta[col].buckets) if (/^\d{4}$/.test(k)) all.push([k, GF.meta[col].buckets[k]]);
-      all.sort((a,b)=>a[0].localeCompare(b[0]));
-    } else {
-      for (const k in GF.meta[col].buckets) if (/^\d{4}-\d{2}$/.test(k)) all.push([k, GF.meta[col].buckets[k]]);
-      all.sort((a,b)=>a[0].localeCompare(b[0]));
-    }
-    const onSet = s.buckets;
+    const wrap=id('gf-date-wrap'); if(!wrap) return; wrap.style.display='block';
+    const s=GF.state[col]||{type:'date',period:'quarter',buckets:new Set(),includeEmpty:false,start:null,end:null}; GF.state[col]=s;
+    const periodEl=id('gf-date-period'), startEl=id('gf-date-start'), endEl=id('gf-date-end');
+    if(periodEl){periodEl.value=s.period; periodEl.onchange=()=>{s.period=periodEl.value; gf_showField(col);} }
+    if(startEl) startEl.onchange=()=>{s.start=startEl.value||null;};
+    if(endEl) endEl.onchange=()=>{s.end=endEl.value||null;};
+    const bucketBox=id('gf-date-buckets'); if(bucketBox) bucketBox.innerHTML='';
+    const all=[]; const b=GF.meta[col].buckets;
+    const keys=Object.keys(b);
+    const forQ=keys.filter(k=>/^Q[1-4] \d{4}$/.test(k)).sort();
+    const forY=keys.filter(k=>/^\d{4}$/.test(k)).sort();
+    const forM=keys.filter(k=>/^\d{4}-\d{2}$/.test(k)).sort();
+    (s.period==='quarter'?forQ : s.period==='year'?forY : forM).forEach(k=>all.push([k,b[k]]));
+    const onSet=s.buckets;
     all.forEach(([name,count])=>{
-      const chip = document.createElement('button');
-      chip.className = 'btn btn-sm ' + (onSet.has(name)?'btn-primary':'btn-outline-secondary');
-      chip.style.margin='4px';
-      chip.textContent = `${name}  ${count.toLocaleString()}`;
-      chip.onclick = ()=>{ onSet.has(name)? onSet.delete(name) : onSet.add(name); gf_showField(col); };
-      if (bucketBox) bucketBox.appendChild(chip);
+      const chip=document.createElement('button'); chip.className='btn btn-sm '+(onSet.has(name)?'btn-primary':'btn-outline-secondary'); chip.style.margin='4px'; chip.textContent=`${name}  ${count.toLocaleString()}`; chip.onclick=()=>{ onSet.has(name)?onSet.delete(name):onSet.add(name); gf_showField(col); };
+      if(bucketBox) bucketBox.appendChild(chip);
     });
-
-    const empty = document.getElementById('gf-date-empty');
-    if (empty) empty.innerHTML='';
-    if (GF.meta[col].empties>0 && empty){
-      const chk = document.createElement('input'); chk.type='checkbox'; chk.checked=!!s.includeEmpty;
-      chk.onchange = ()=>{ s.includeEmpty = chk.checked; };
-      const lbl = document.createElement('label'); lbl.style.marginLeft='6px'; lbl.textContent = `[EMPTY] ${GF.meta[col].empties.toLocaleString()}`;
-      const wrapDiv = document.createElement('div'); wrapDiv.appendChild(chk); wrapDiv.appendChild(lbl);
-      empty.appendChild(wrapDiv);
-    }
+    const empty=id('gf-date-empty'); if(empty){ empty.innerHTML=''; if(GF.meta[col].empties>0){ const chk=document.createElement('input'); chk.type='checkbox'; chk.checked=!!s.includeEmpty; chk.onchange=()=>{s.includeEmpty=chk.checked;}; const lbl=document.createElement('label'); lbl.style.marginLeft='6px'; lbl.textContent=`[EMPTY] ${GF.meta[col].empties.toLocaleString()}`; const div=document.createElement('div'); div.appendChild(chk); div.appendChild(lbl); empty.appendChild(div);} }
   }
 }
-
-function gf_applyToDashboard() {
-  // Combine GF.state with your current filtering
+function gf_applyToDashboard(){
   filtered = rawData.filter(row=>{
-    for (const [col, sel] of Object.entries(GF.state)) {
-      const v0 = row[col];
-      const empty = (v0===null || v0===undefined || String(v0).trim()==='');
-
-      if (sel.type==='cat') {
-        const hit = sel.include.has(String(v0));
-        if (!hit && !(empty && sel.includeEmpty)) return false;
-      }
-      else if (sel.type==='num') {
-        if (empty) { if (!sel.includeEmpty) return false; }
-        else {
-          const num = Number(v0);
-          if (Number.isNaN(num) || num < sel.min || num > sel.max) return false;
-        }
-      }
-      else if (sel.type==='date') {
-        if (empty) { if (!sel.includeEmpty) return false; }
-        else {
-          const iso = new Date(v0).toISOString().slice(0,10);
-          if (sel.start && iso < sel.start) return false;
-          if (sel.end && iso > sel.end) return false;
-          if (sel.buckets && sel.buckets.size){
-            // accept values matching any selected bucket for the chosen period
-            const y  = iso.slice(0,4);
-            const ym = iso.slice(0,7);
-            const q  = `Q${Math.floor((Number(iso.slice(5,7))-1)/3)+1} ${y}`;
-            const key = sel.period==='quarter'? q : (sel.period==='year'? y : ym);
-            if (!sel.buckets.has(key)) return false;
-          }
-        }
-      }
+    for(const [col,sel] of Object.entries(GF.state)){
+      const v0=row[col]; const empty=(v0===null||v0===undefined||String(v0).trim()==='');
+      if(sel.type==='cat'){ const hit=sel.include?.has(String(v0)); if(!hit && !(empty && sel.includeEmpty)) return false; }
+      else if(sel.type==='num'){ if(empty){ if(!sel.includeEmpty) return false; } else { const num=Number(v0); if(Number.isNaN(num)||num<sel.min||num>sel.max) return false; } }
+      else if(sel.type==='date'){ if(empty){ if(!sel.includeEmpty) return false; } else { const iso=new Date(v0).toISOString().slice(0,10); if(sel.start && iso<sel.start) return false; if(sel.end && iso>sel.end) return false; if(sel.buckets && sel.buckets.size){ const y=iso.slice(0,4); const ym=iso.slice(0,7); const q=`Q${Math.floor((Number(iso.slice(5,7))-1)/3)+1} ${y}`; const key=sel.period==='quarter'?q:(sel.period==='year'?y:ym); if(!sel.buckets.has(key)) return false; } } }
     }
     return true;
   });
+  updateTable(); charts.forEach(drawChart); updateInspectorSummary();
+}
+function initGlobalFilters(){ gf_buildMeta(); gf_initUI(); }
 
-  // Your existing update calls
-  updateTable();
-  charts.forEach(drawChart);
+/* ---------------- Boot ---------------- */
+document.addEventListener('DOMContentLoaded', ()=>{
+  wireUI();
+  loadCSV();
+});
+
+function wireUI(){
+  id('btnFilters').addEventListener('click', openFiltersModal);
+  id('btnData').addEventListener('click', ()=>toggle('panelData'));
+  id('btnSettings').addEventListener('click', ()=>toggle('panelSettings'));
+  id('btnAdd').addEventListener('click', ()=>{updateBuilderVisibility(); openModal();});
+  id('startDate')?.addEventListener('change', applyFilters);
+  id('endDate')?.addEventListener('change', applyFilters);
+  id('btnCancel')?.addEventListener('click', closeModal);
+  id('btnCreate')?.addEventListener('click', ()=>{
+    const cfg={type:id('fldType').value,x:id('fldX').value||null,y:id('fldY').value||null,y2:id('fldY2').value||null,yCat:id('fldYCat').value||null,color:id('fldColor').value||null,size:id('fldSize').value||null,agg:id('fldAgg').value||'count',dualAxis:id('chkDualAxis').checked,histOverlay:id('chkHistOverlay').checked};
+    addChart(cfg); closeModal();
+  });
+  id('modal')?.addEventListener('click', e=>{ if(e.target===id('modal')) closeModal(); });
+  id('fldType')?.addEventListener('change', updateBuilderVisibility);
+  updateBuilderVisibility();
+  id('btnDownloadFiltered')?.addEventListener('click', ()=>{
+    if(!filtered.length){ alert('No rows in the current filter.'); return; }
+    downloadCSV('filtered_data.csv', columns, filtered.map(r=>columns.map(c=>r[c])));
+  });
+}
+
+/* ---------------- Data loading ---------------- */
+function generateSampleData(){
+  const sampleData=[], cats=['Category A','Category B','Category C','Category D'], regions=['North','South','East','West'];
+  for(let i=0;i<120;i++){
+    sampleData.push({ id:i+1, category:cats[Math.floor(Math.random()*cats.length)], region:regions[Math.floor(Math.random()*regions.length)], value:Math.floor(Math.random()*1000)+100, date:`2024-${String((i%12)+1).padStart(2,'0')}-01`, score: Math.round(Math.random()*1000)/10 });
+  }
+  rawData=sampleData; columns=Object.keys(sampleData[0]);
+  id('loadedBadge').textContent=`Loaded ${rawData.length.toLocaleString()} rows • ${columns.length} columns (Sample Data)`;
+  afterDataLoaded();
+}
+function loadCSV(){
+  const urls=[
+    'data/df3_full_for_pivot.csv',
+    'https://sina-khajehzadeh.github.io/muspad-study-dashboard/data/df3_full_for_pivot.csv',
+    'https://raw.githubusercontent.com/Sina-Khajehzadeh/muspad-study-dashboard/main/docs/data/df3_full_for_pivot.csv',
+    'https://cdn.jsdelivr.net/gh/Sina-Khajehzadeh/muspad-study-dashboard/docs/data/df3_full_for_pivot.csv'
+  ];
+  let idx=0;
+  const tryNext=()=>{ if(idx>=urls.length){ console.log('Failed to load CSV from all sources. Using sample data.'); generateSampleData(); return; } parseUrl(urls[idx++]); };
+  function parseUrl(url){
+    Papa.parse(url,{
+      download:true, header:true, skipEmptyLines:true, dynamicTyping:true, worker:false,
+      // delimiter: ",", // (optional) let Papa auto-detect
+      transformHeader:(h)=>(h||'').replace(/^\uFEFF/,'').trim(),
+      complete:(res)=>{
+        if(!res || !Array.isArray(res.data) || res.data.length===0){ console.warn('Parsed but empty. Trying next source…'); tryNext(); return; }
+        if(res.errors && res.errors.length) console.warn('CSV parsing warnings:', res.errors);
+        rawData=res.data;
+        columns=(res.meta && res.meta.fields && res.meta.fields.length) ? res.meta.fields : Object.keys(rawData[0]||{});
+        id('loadedBadge').textContent=`Loaded ${rawData.length.toLocaleString()} rows • ${columns.length} columns`;
+        afterDataLoaded();
+      },
+      error:(err)=>{ console.error('Papa error:', err); tryNext(); }
+    });
+  }
+  tryNext();
+}
+function afterDataLoaded(){
+  detectColumns();
+  populateFilters();
+  populateBuilderSelects();
+  rebuildInspectorColumnList();
   updateInspectorSummary();
+  show('panelData', true);
+  applyFilters();
+  autoStarterCharts();
+  initGlobalFilters();
 }
 
-// call once *after* rawData/columns are set
-function initGlobalFilters() {
-  gf_buildMeta();
-  gf_initUI();
+/* ---------------- Column detection & helpers ---------------- */
+function detectColumns(){
+  const nameHint=/(date|time|_dt|_time|timestamp)/i;
+  const candidates=columns.filter(c=>nameHint.test(c));
+  const ranked=(candidates.length?candidates:columns).map(c=>({col:c,...scoreDateColumn(c)})).filter(s=>s.valid).sort((a,b)=>b.confidence-a.confidence);
+  dateCol = ranked.length ? ranked[0].col : null;
+  const ageCandidates=['age_group','ageGroup','Age_Group','age_group_22_1','age_group_22_2','age_group_23_1','age_group_23_2'];
+  ageCol=ageCandidates.find(c=>columns.includes(c))||null;
+  const empCandidates=['employment_type','employmentType','Employment_Type','X20_21_kurzfragen_employment_type_clean','employment_type_clean','X20_21_langfragen_employment_type_clean'];
+  empCol=empCandidates.find(c=>columns.includes(c))||null;
+  numericCols=columns.filter(c=>looksNumericColumn(c));
+  categoricalCols=columns.filter(c=>looksCategoricalColumn(c));
+}
+function scoreDateColumn(col){
+  const vals=sampleValues(col,300); let parsed=0, withinRange=0;
+  for(const v of vals){ const d=new Date(v); if(!isNaN(d)){ parsed++; const y=d.getUTCFullYear(); if(y>=2019 && y<=2030) withinRange++; } }
+  const rate=vals.length?parsed/vals.length:0; const rangeRate=vals.length?withinRange/vals.length:0;
+  return { valid: rate>=0.7 && rangeRate>=0.7, confidence: (rate+rangeRate)/2 + (/(date|time|timestamp)/i.test(col)?0.1:0) };
+}
+function sampleValues(col,n=200){
+  const arr=[]; const step=Math.max(1, Math.floor(rawData.length/n));
+  for(let i=0;i<rawData.length;i+=step){ const v=rawData[i]?.[col]; if(v!==undefined&&v!==null&&v!=='') arr.push(v); if(arr.length>=n) break; }
+  return arr;
 }
 
-/* Wire it: call this once the CSV is parsed and you set rawData + columns */
-// This is now called in the loadCSV complete callback
-          autoStarterCharts();
-          initGlobalFilters();
-        },
-        error: (err) => {
-          console.error('Papa error:', err);
-          tryNext();
-        },
-        complete: (res) => {
-          if (res.errors && res.errors.length > 0) {
-            console.warn('CSV parsing warnings:', res.errors);
-          }
-        }
-      });
-    };
-    tryNext();
-  }
-
-  // ----------------------------
-  // Column detection
-  // ----------------------------
-  function detectColumns() {
-    const nameHint = /(date|time|_dt|_time|timestamp)/i;
-    const candidates = columns.filter(c => nameHint.test(c));
-    const ranked = (candidates.length ? candidates : columns).map(c => {
-      const score = scoreDateColumn(c);
-      return { col: c, ...score };
-    }).filter(s => s.valid);
-
-    ranked.sort((a,b) => b.confidence - a.confidence);
-    dateCol = ranked.length ? ranked[0].col : null;
-
-    const ageCandidates = [
-      'age_group','ageGroup','Age_Group',
-      'age_group_22_1','age_group_22_2','age_group_23_1','age_group_23_2'
-    ];
-    ageCol = ageCandidates.find(c => columns.includes(c)) || null;
-
-    const empCandidates = [
-      'employment_type','employmentType','Employment_Type',
-      'X20_21_kurzfragen_employment_type_clean','employment_type_clean',
-      'X20_21_langfragen_employment_type_clean'
-    ];
-    empCol = empCandidates.find(c => columns.includes(c)) || null;
-
-    numericCols = columns.filter(c => looksNumericColumn(c));
-    categoricalCols = columns.filter(c => looksCategoricalColumn(c));
-  }
-
-  function scoreDateColumn(col) {
-    const vals = sampleValues(col, 300);
-    let parsed = 0, withinRange = 0;
-    for (const v of vals) {
-      const d = new Date(v);
-      if (!isNaN(d)) {
-        parsed++;
-        const y = d.getUTCFullYear();
-        if (y >= 2019 && y <= 2024) withinRange++;
-      }
-    }
-    const rate = vals.length ? parsed / vals.length : 0;
-    const rangeRate = vals.length ? withinRange / vals.length : 0;
-    const valid = rate >= 0.7 && rangeRate >= 0.7;
-    const confidence = (rate + rangeRate) / 2 + (/(date|time|timestamp)/i.test(col) ? 0.1 : 0);
-    return { valid, confidence };
-  }
-
-  function sampleValues(col, n=200) {
-    const arr = [];
-    const step = Math.max(1, Math.floor(rawData.length / n));
-    for (let i=0; i<rawData.length; i+=step) {
-      const v = rawData[i]?.[col];
-      if (v !== undefined && v !== null && v !== '') arr.push(v);
-      if (arr.length >= n) break;
-    }
-    return arr;
-  }
-
-  // ----------------------------
-  // Populate filters & builder
-  // ----------------------------
-  function populateFilters() {
-    const container = id('filter-container');
-    if (!container) return;
-    
-    container.innerHTML = '';
-
-    categoricalCols.forEach(col => {
-      const values = uniqueNonEmpty(rawData.map(r => r[col]));
-      if (values.length > 50) return;
-      const wrapper = document.createElement('div');
-      wrapper.className = 'mb-3';
-      const label = document.createElement('label');
-      label.className = 'form-label';
-      label.textContent = col;
-      wrapper.appendChild(label);
-      const row = document.createElement('div');
-      row.className = 'filter-row';
-      const select = document.createElement('select');
-      select.className = 'form-select';
-      select.multiple = true;
-      select.size = Math.min(values.length, 6);
-      select.dataset.col = col;
-      values.forEach(v => {
-        const opt = document.createElement('option');
-        opt.value = v;
-        opt.textContent = v;
-        opt.selected = true;
-        select.appendChild(opt);
-      });
-      const actions = document.createElement('div');
-      actions.className = 'filter-actions';
-      const btnSel = document.createElement('button');
-      btnSel.className = 'btn btn-outline-secondary btn-sm';
-      btnSel.textContent = 'Select all';
-      btnSel.addEventListener('click', () => {
-        for (const o of select.options) o.selected = true;
-        select.dispatchEvent(new Event('change'));
-      });
-      const btnClr = document.createElement('button');
-      btnClr.className = 'btn btn-outline-secondary btn-sm';
-      btnClr.textContent = 'Clear';
-      btnClr.addEventListener('click', () => {
-        for (const o of select.options) o.selected = false;
-        select.dispatchEvent(new Event('change'));
-      });
-      actions.appendChild(btnSel);
-      actions.appendChild(btnClr);
-      row.appendChild(select);
-      row.appendChild(actions);
-      wrapper.appendChild(row);
-      container.appendChild(wrapper);
-      select.addEventListener('change', applyFilters);
-    });
-
-    if (dateCol) {
-      const startDateEl = id('startDate');
-      const endDateEl = id('endDate');
-      
-      if (startDateEl && endDateEl) {
-        const dates = rawData
-          .map(r => parseValidDate(r[dateCol]))
-          .filter(Boolean)
-          .sort((a,b) => a - b);
-
-        if (dates.length) {
-          const minISO = toISO(dates[0]);
-          const maxISO = toISO(dates[dates.length-1]);
-          startDateEl.min = minISO;
-          startDateEl.max = maxISO;
-          endDateEl.min   = minISO;
-          endDateEl.max   = maxISO;
-          startDateEl.dataset.col = dateCol;
-          endDateEl.dataset.col   = dateCol;
-          startDateEl.value = minISO;
-          endDateEl.value   = maxISO;
-        }
+/* ---------------- Filters & builder ---------------- */
+function populateFilters(){
+  const container=id('filter-container'); if(!container) return;
+  container.innerHTML='';
+  categoricalCols.forEach(col=>{
+    const values=uniqueNonEmpty(rawData.map(r=>r[col])); if(values.length>50) return;
+    const wrap=document.createElement('div'); wrap.className='mb-3';
+    const label=document.createElement('label'); label.className='form-label'; label.textContent=col; wrap.appendChild(label);
+    const row=document.createElement('div'); row.className='filter-row';
+    const select=document.createElement('select'); select.className='form-select'; select.multiple=true; select.size=Math.min(values.length,6); select.dataset.col=col;
+    values.forEach(v=>{ const o=document.createElement('option'); o.value=v; o.textContent=v; o.selected=true; select.appendChild(o);});
+    const actions=document.createElement('div'); actions.className='filter-actions';
+    const btnSel=document.createElement('button'); btnSel.className='btn btn-outline-secondary btn-sm'; btnSel.textContent='Select all'; btnSel.onclick=()=>{for(const o of select.options) o.selected=true; select.dispatchEvent(new Event('change'));};
+    const btnClr=document.createElement('button'); btnClr.className='btn btn-outline-secondary btn-sm'; btnClr.textContent='Clear'; btnClr.onclick=()=>{for(const o of select.options) o.selected=false; select.dispatchEvent(new Event('change'));};
+    actions.appendChild(btnSel); actions.appendChild(btnClr);
+    row.appendChild(select); row.appendChild(actions); wrap.appendChild(row); container.appendChild(wrap);
+    select.addEventListener('change', applyFilters);
+  });
+  if(dateCol){
+    const startDateEl=id('startDate'), endDateEl=id('endDate');
+    if(startDateEl && endDateEl){
+      const dates=rawData.map(r=>parseValidDate(r[dateCol])).filter(Boolean).sort((a,b)=>a-b);
+      if(dates.length){
+        const minISO=toISO(dates[0]), maxISO=toISO(dates[dates.length-1]);
+        startDateEl.min=minISO; startDateEl.max=maxISO; endDateEl.min=minISO; endDateEl.max=maxISO; startDateEl.value=minISO; endDateEl.value=maxISO;
       }
     }
   }
+}
+function populateBuilderSelects(){
+  const xSel=id('fldX'), ySel=id('fldY'), cSel=id('fldColor'), y2Sel=id('fldY2'), yCatSel=id('fldYCat'), sizeSel=id('fldSize');
+  [xSel,ySel,cSel,y2Sel,yCatSel,sizeSel].forEach(s=>{ if(s) s.innerHTML=''; });
+  const cats=categoricalCols.length?categoricalCols:columns; const nums=numericCols.length?numericCols:columns;
+  cats.forEach(c=>{ if(xSel) appendOption(xSel,c); if(yCatSel) appendOption(yCatSel,c); if(cSel) appendOption(cSel,c); });
+  nums.forEach(c=>{ if(ySel) appendOption(ySel,c); if(y2Sel) appendOption(y2Sel,c); if(sizeSel) appendOption(sizeSel,c); });
+  updateBuilderVisibility();
+}
 
-  function populateBuilderSelects() {
-    const xSel = id('fldX'), ySel = id('fldY'), cSel = id('fldColor');
-    const y2Sel = id('fldY2'), yCatSel = id('fldYCat'), sizeSel = id('fldSize');
+/* ---------------- Filtering + table ---------------- */
+function applyFilters(){
+  const s=id('startDate')?.value?new Date(id('startDate').value):null;
+  const e=id('endDate')?.value?new Date(id('endDate').value):null;
+  const filterSelects=id('filter-container')?.querySelectorAll('select[data-col]')||[];
+  const filterMap={}; filterSelects.forEach(sel=>{ const col=sel.dataset.col; filterMap[col]=Array.from(sel.selectedOptions).map(o=>String(o.value)); });
+  filtered = rawData.filter(r=>{
+    if(dateCol && (s||e)){ const d=parseValidDate(r[dateCol]); if(!d) return false; if(s && d<s) return false; if(e && d>e) return false; }
+    for(const col in filterMap){ const selected=filterMap[col]; if(selected && selected.length && !selected.includes(String(r[col]))) return false; }
+    return true;
+  });
+  updateTable(); charts.forEach(drawChart); updateInspectorSummary(); if(inspectorSelectedField) showFieldStats(inspectorSelectedField);
+}
+function updateTable(){
+  const wrap=id('tableWrap'); if(!wrap) return; wrap.innerHTML='';
+  if(!filtered.length){ wrap.innerHTML='<div class="text-muted">No data to display</div>'; return; }
+  const table=document.createElement('table'); table.className='table table-sm table-striped';
+  const thead=document.createElement('thead'); const trh=document.createElement('tr'); for(const c of columns){ const th=document.createElement('th'); th.textContent=c; trh.appendChild(th); } thead.appendChild(trh);
+  const tbody=document.createElement('tbody'); const rows=filtered.slice(0,100);
+  for(const r of rows){ const tr=document.createElement('tr'); for(const c of columns){ const td=document.createElement('td'); const v=r[c]; td.textContent=(v===undefined||v===null)?'':v; tr.appendChild(td);} tbody.appendChild(tr);}
+  table.appendChild(thead); table.appendChild(tbody); wrap.appendChild(table);
+}
 
-    [xSel, ySel, cSel, y2Sel, yCatSel, sizeSel].forEach(s => {
-      if (s) s.innerHTML = '';
-    });
-
-    const cats = categoricalCols.length ? categoricalCols : columns;
-    const nums = numericCols.length ? numericCols : columns;
-
-    cats.forEach(c => { 
-      if (xSel) appendOption(xSel, c); 
-      if (yCatSel) appendOption(yCatSel, c); 
-      if (cSel) appendOption(cSel, c); 
-    });
-    nums.forEach(c => { 
-      if (ySel) appendOption(ySel, c); 
-      if (y2Sel) appendOption(y2Sel, c); 
-      if (sizeSel) appendOption(sizeSel, c); 
-    });
-
-    updateBuilderVisibility();
+/* ---------------- Starter charts & plotting ---------------- */
+function autoStarterCharts(){
+  const numCols=numericCols, catCols=categoricalCols;
+  const income=['X20_21_langfragen_income','income'].find(c=>columns.includes(c)) || (numCols.length?numCols[0]:null);
+  const age=catCols.find(c=>/age/i.test(c)) || (catCols.length?catCols[0]:null);
+  const emp=catCols.find(c=>/employ|job|work/i.test(c)) || (catCols.length>1?catCols[1]:null);
+  if(emp) addChart({type:'pie',x:emp,y:income||emp,agg:'count'});
+  if(age && income) addChart({type:'bar',x:age,y:income,agg:'mean'});
+  if(dateCol && income) addChart({type:'line',x:dateCol,y:income,agg:'mean'});
+}
+function addChart(cfg){
+  charts.push(cfg);
+  const card=document.createElement('div'); card.className='card-chart';
+  card.innerHTML=`<div class="card-header"><h6>${titleFor(cfg)}</h6><button class="remove" title="Remove"><i class="bi bi-x-lg"></i></button></div><div class="plot"></div>`;
+  id('grid').appendChild(card); cfg._el=card.querySelector('.plot');
+  card.querySelector('.remove').addEventListener('click',()=>{ charts=charts.filter(c=>c!==cfg); card.remove(); });
+  drawChart(cfg);
+}
+function titleFor(cfg){ const t=cfg.type[0].toUpperCase()+cfg.type.slice(1); const parts=[`${t}`]; if(cfg.x) parts.push(`X: ${cfg.x}`); if(cfg.y && cfg.agg) parts.push(`Y: ${cfg.agg}(${cfg.y})`); if(cfg.color) parts.push(`Color: ${cfg.color}`); return parts.join(' · '); }
+function drawChart(cfg){
+  const el=cfg._el; if(!el) return;
+  if(cfg.type==='datatable'){ el.innerHTML=''; const wrap=document.createElement('div'); wrap.className='table-responsive'; el.appendChild(wrap);
+    const table=document.createElement('table'); table.className='table table-sm table-striped';
+    const thead=document.createElement('thead'); const trh=document.createElement('tr'); columns.forEach(c=>{const th=document.createElement('th'); th.textContent=c; trh.appendChild(th);}); thead.appendChild(trh);
+    const tbody=document.createElement('tbody'); (filtered.slice(0,200)).forEach(r=>{const tr=document.createElement('tr'); columns.forEach(c=>{const td=document.createElement('td'); td.textContent=(r[c]??''); tr.appendChild(td);}); tbody.appendChild(tr);});
+    table.appendChild(thead); table.appendChild(tbody); wrap.appendChild(table); return;
   }
-
-  // ----------------------------
-  // Filtering + table
-  // ----------------------------
-  function applyFilters() {
-    const startDateEl = id('startDate');
-    const endDateEl = id('endDate');
-    const filterContainer = id('filter-container');
-    
-    const s = startDateEl?.value ? new Date(startDateEl.value) : null;
-    const e = endDateEl?.value ? new Date(endDateEl.value) : null;
-
-    const filterMap = {};
-    if (filterContainer) {
-      const filterSelects = filterContainer.querySelectorAll('select[data-col]');
-      filterSelects.forEach(sel => {
-        const col = sel.dataset.col;
-        const selected = Array.from(sel.selectedOptions).map(o => String(o.value));
-        filterMap[col] = selected;
-      });
+  if(cfg.type==='pivot'){ const matrix=makePivotMatrix(filtered,cfg.x,cfg.yCat,cfg.y,cfg.agg); el.innerHTML=matrix.html; return; }
+  if(!filtered.length){ el.innerHTML='<div class="text-muted p-2">No data</div>'; return; }
+  const groupBy=(rows,keys)=>{ const map=new Map(); for(const r of rows){ const key=keys.map(k=>String(r[k])).join('¦'); if(!map.has(key)) map.set(key,[]); map.get(key).push(r);} return {map,keys}; };
+  const agg=(rows)=>{ if(cfg.agg==='count') return rows.length; const vals=rows.map(r=>+r[cfg.y]).filter(v=>!Number.isNaN(v)); if(!vals.length) return 0; if(cfg.agg==='sum') return vals.reduce((a,b)=>a+b,0); return vals.reduce((a,b)=>a+b,0)/vals.length; };
+  let fig={data:[],layout:{margin:{l:50,r:20,b:50,t:40},title:titleFor(cfg)}};
+  if(cfg.type==='bar' || cfg.type==='pie'){
+    const by=cfg.color?[cfg.x,cfg.color]:[cfg.x]; const g=groupBy(filtered,by); const xs=new Set(), colors=new Set();
+    for(const k of g.map.keys()){ const parts=k.split('¦'); xs.add(parts[0]); if(cfg.color) colors.add(parts[1]); }
+    const xArr=[...xs], colorArr=cfg.color?[...colors]:[null];
+    if(cfg.type==='bar'){
+      for(const cval of colorArr){ const y=xArr.map(xv=>{ const key=cfg.color?[xv,cval].join('¦'):String(xv); return agg(g.map.get(key)||[]); }); fig.data.push({x:xArr,y,type:'bar',name:cval??'value'}); }
+      fig.layout.barmode='group'; fig.layout.xaxis={title:cfg.x}; if(cfg.y) fig.layout.yaxis={title:`${cfg.agg}(${cfg.y})`};
+    }else{
+      const values=xArr.map(xv=>{ const rows=[...g.map.entries()].filter(([k])=>k.split('¦')[0]==xv).flatMap(([,rows])=>rows); return agg(rows); });
+      fig.data.push({labels:xArr, values, type:'pie', hole:.35});
     }
-
-    filtered = rawData.filter(r => {
-      if (dateCol && (s || e)) {
-        const d = parseValidDate(r[dateCol]);
-        if (!d) return false;
-        if (s && d < s) return false;
-        if (e && d > e) return false;
-      }
-      for (const col in filterMap) {
-        const selected = filterMap[col];
-        if (selected && selected.length) {
-          if (!selected.includes(String(r[col]))) return false;
-        }
-      }
-      return true;
-    });
-
-    updateTable();
-    charts.forEach(drawChart);
-
-    updateInspectorSummary();
-    if (inspectorSelectedField) {
-      showFieldStats(inspectorSelectedField);
-    }
+  } else if(cfg.type==='line' || cfg.type==='timeseries'){
+    const g=groupBy(filtered,[cfg.x]); const xVals=[...g.map.keys()].map(k=>k.split('¦')[0]);
+    const sorted=xVals.slice().sort((a,b)=>{ const da=new Date(a), db=new Date(b); if(!isNaN(da)&&!isNaN(db)) return da-db; const na=+a, nb=+b; if(!Number.isNaN(na)&&!Number.isNaN(nb)) return na-nb; return String(a).localeCompare(String(b));});
+    const yVals=sorted.map(xv=>agg(g.map.get(String(xv))||g.map.get(xv)||[]));
+    fig.data.push({x:sorted,y:yVals,type:'scatter',mode:'lines+markers',name:cfg.y});
+    if(cfg.histOverlay){ const vals=filtered.map(r=>+r[cfg.y]).filter(v=>!Number.isNaN(v)); fig.data.push({x:vals,type:'histogram',opacity:.35,xaxis:'x2',yaxis:'y2',name:'Histogram'}); fig.layout.grid={rows:1,columns:2,pattern:'independent'}; fig.layout.xaxis2={}; fig.layout.yaxis2={}; fig.layout.title+=' · + Histogram'; }
+    fig.layout.xaxis={title:cfg.x}; if(cfg.y) fig.layout.yaxis={title:`${cfg.agg}(${cfg.y})`};
+  } else if(cfg.type==='scatter' || cfg.type==='bubble'){
+    const x=filtered.map(r=>r[cfg.x]), y=filtered.map(r=>r[cfg.y]);
+    const trace={x,y,mode:'markers',type:'scatter',name:cfg.y};
+    if(cfg.type==='bubble' && cfg.size){ const s=filtered.map(r=>+r[cfg.size]); const min=Math.min(...s.filter(v=>!Number.isNaN(v))), max=Math.max(...s.filter(v=>!Number.isNaN(v))); const scaled=s.map(v=>Number.isNaN(v)?5:(10+30*((v-min)/Math.max(1e-9,max-min)))); trace.marker={size:scaled,sizemode:'diameter',opacity:.7}; }
+    if(cfg.color) trace.text=filtered.map(r=>r[cfg.color]); fig.data.push(trace); fig.layout.xaxis={title:cfg.x}; fig.layout.yaxis={title:cfg.y};
+  } else if(cfg.type==='box'){
+    if(!cfg.y){ el.innerHTML='<div class="text-muted p-2">Please select a numeric Y.</div>'; return; }
+    const groups={}; filtered.forEach(r=>{ const key=r[cfg.x]; const val=+r[cfg.y]; if(Number.isNaN(val)) return; (groups[key] ||= []).push(val); });
+    Object.keys(groups).forEach(k=>fig.data.push({y:groups[k],name:String(k),type:'box'})); fig.layout.xaxis={title:cfg.x}; fig.layout.yaxis={title:cfg.y};
+    if(cfg.histOverlay){ const vals=filtered.map(r=>+r[cfg.y]).filter(v=>!Number.isNaN(v)); fig.data.push({x:vals,type:'histogram',opacity:.3,xaxis:'x2',yaxis:'y2',name:'Histogram'}); fig.layout.grid={rows:1,columns:2,pattern:'independent'}; fig.layout.title+=' · + Histogram'; }
+  } else if(cfg.type==='barline'){
+    const g=groupBy(filtered,[cfg.x]); const xs=[...g.map.keys()].map(k=>k.split('¦')[0]).sort((a,b)=>String(a).localeCompare(String(b)));
+    const aggSeries=(yField)=>xs.map(xv=>{ const rows=g.map.get(String(xv))||g.map.get(xv)||[]; if(!yField) return 0; const vals=rows.map(r=>+r[yField]).filter(v=>!Number.isNaN(v)); if(!vals.length) return 0; if(cfg.agg==='sum') return vals.reduce((a,b)=>a+b,0); if(cfg.agg==='mean') return vals.reduce((a,b)=>a+b,0)/vals.length; return rows.length; });
+    const yBar=aggSeries(cfg.y), yLine=aggSeries(cfg.y2);
+    fig.data.push({x:xs,y:yBar,type:'bar',name:`${cfg.agg}(${cfg.y})`});
+    const lineTrace={x:xs,y:yLine,type:'scatter',mode:'lines+markers',name:`${cfg.agg}(${cfg.y2})`}; if(cfg.dualAxis){ lineTrace.yaxis='y2'; fig.layout.yaxis2={overlaying:'y',side:'right'}; }
+    fig.data.push(lineTrace); fig.layout.xaxis={title:cfg.x};
+  } else if(cfg.type==='heatmap'){
+    const M=makePivotMatrix(filtered,cfg.x,cfg.yCat,cfg.y,cfg.agg); fig.data.push({z:M.z,x:M.cols,y:M.rows,type:'heatmap',colorscale:'Viridis'}); fig.layout.xaxis={title:cfg.yCat}; fig.layout.yaxis={title:cfg.x};
   }
+  Plotly.newPlot(el, fig.data, fig.layout, {responsive:true});
+}
 
-  function updateTable() {
-    const wrap = id('tableWrap');
-    if (!wrap) return;
-    
-    wrap.innerHTML = '';
-    if (!filtered.length) {
-      wrap.innerHTML = '<div class="text-muted">No data to display</div>';
-      return;
-    }
-    const table = document.createElement('table');
-    table.className = 'table table-sm table-striped';
-    const thead = document.createElement('thead');
-    const trh = document.createElement('tr');
-    for (const c of columns) {
-      const th = document.createElement('th'); th.textContent = c; trh.appendChild(th);
-    }
-    thead.appendChild(trh);
-    const tbody = document.createElement('tbody');
-    const rows = filtered.slice(0, 100);
-    for (const r of rows) {
-      const tr = document.createElement('tr');
-      for (const c of columns) {
-        const td = document.createElement('td');
-        const v = r[c]; td.textContent = (v === undefined || v === null) ? '' : v;
-        tr.appendChild(td);
-      }
-      tbody.appendChild(tr);
-    }
-    table.appendChild(thead); table.appendChild(tbody);
-    wrap.appendChild(table);
+/* ---------------- Inspector ---------------- */
+function updateInspectorSummary(){
+  id('sumTotalRows').textContent=(rawData?.length??0).toLocaleString();
+  id('sumTotalCols').textContent=(columns?.length??0).toLocaleString();
+  id('sumFilteredRows').textContent=(filtered?.length??0).toLocaleString();
+  if(!dateCol){ id('sumDateRange').textContent='—'; return; }
+  const rows=(filtered && Array.isArray(filtered))?filtered:rawData;
+  const dates=rows.map(r=>parseValidDate(r[dateCol])).filter(Boolean).sort((a,b)=>a-b);
+  id('sumDateRange').textContent=dates.length?`${toISO(dates[0])} → ${toISO(dates[dates.length-1])}`:'—';
+}
+function rebuildInspectorColumnList(){
+  const wrap=id('inspectorList'); if(!wrap) return; wrap.innerHTML=''; if(!columns?.length) return;
+  const frag=document.createDocumentFragment();
+  columns.forEach(col=>{ const btn=document.createElement('button'); btn.type='button'; btn.textContent=col; btn.dataset.col=col; frag.appendChild(btn); });
+  wrap.appendChild(frag);
+  wrap.onclick=e=>{ const btn=e.target.closest('button'); if(!btn) return; inspectorSelectedField=btn.dataset.col; wrap.querySelectorAll('button').forEach(b=>b.classList.toggle('active', b===btn)); showFieldStats(inspectorSelectedField); };
+  inspectorSelectedField=columns[0]; const first=wrap.querySelector('button'); if(first) first.classList.add('active'); showFieldStats(inspectorSelectedField);
+}
+function showFieldStats(col){
+  if(!col) return; id('fieldName').textContent=col; const out=id('fieldStats'); if(!out) return;
+  const vals=(filtered||[]).map(r=>r[col]); const nonNull=vals.filter(v=>v!==null&&v!==undefined&&v!==''); const isNumeric=numericCols.includes(col); const isDate=(col===dateCol);
+  const fmtLocal=(x,d=3)=> (x===undefined||x===null||Number.isNaN(x))?'—':Number(x).toLocaleString(undefined,{maximumFractionDigits:d});
+  const percent=(num,den)=> (den?(100*num/den):0).toLocaleString(undefined,{maximumFractionDigits:1})+'%';
+  const qtile=(sorted,q)=>{ if(!sorted.length) return NaN; const pos=(sorted.length-1)*q; const base=Math.floor(pos); const rest=pos-base; return (sorted[base+1]!==undefined)? sorted[base]+rest*(sorted[base+1]-sorted[base]) : sorted[base]; };
+  let html=''; const asStr=nonNull.map(v=>String(v)); const total=vals.length; let distribution=[];
+  if(isNumeric){ const nums=nonNull.map(Number).filter(v=>!Number.isNaN(v)); if(nums.length){ const min=Math.min(...nums), max=Math.max(...nums); const binCount=5; let width=(max-min)/binCount; if(width===0) width=1; const bins=Array(binCount).fill(0); const labels=[]; for(let i=0;i<binCount;i++){ const a=min+width*i; const b=(i===binCount-1)?max:min+width*(i+1); labels.push(`${fmtLocal(a)}–${fmtLocal(b)}`);} nums.forEach(v=>{ let idx=Math.floor((v-min)/width); if(idx<0) idx=0; if(idx>=binCount) idx=binCount-1; bins[idx]++; }); distribution=labels.map((lab,i)=>({label:lab,count:bins[i]})).filter(x=>x.count>0); } }
+  else { const m=new Map(); asStr.forEach(v=>m.set(v,(m.get(v)||0)+1)); const entries=[...m.entries()].sort((a,b)=>b[1]-a[1]); const top=entries.slice(0,5); const other=entries.slice(5).reduce((s,[,c])=>s+c,0); distribution=top.map(([label,count])=>({label,count})); if(other>0) distribution.push({label:'Other',count:other}); }
+  html += `<div class="mb-2"><h6 class="mb-1">Data Distribution Overview</h6><table class="table table-sm mb-2"><thead><tr><th>Value</th><th class="text-end">Share</th></tr></thead><tbody>${distribution.map(r=>`<tr><td>${r.label}</td><td class="text-end">${percent(r.count,total)}</td></tr>`).join('')}</tbody></table></div>`;
+  const filled=nonNull.length; const uniqueCount=new Set(asStr).size; const avgLen=asStr.length?(asStr.reduce((s,v)=>s+v.length,0)/asStr.length):0;
+  html += `<div class="mb-2"><h6 class="mb-1">Data Quality Metrics</h6><table class="table table-sm mb-2"><tbody><tr><th class="text-muted">Filled percentage</th><td>${percent(filled,vals.length)}</td></tr><tr><th class="text-muted">Filled values</th><td>${filled.toLocaleString()}</td></tr><tr><th class="text-muted">Avg. Length</th><td>${avgLen?fmtLocal(avgLen,2):'—'}</td></tr><tr><th class="text-muted">Unique Items</th><td>${uniqueCount.toLocaleString()}</td></tr><tr><th class="text-muted">Uniqueness</th><td>${percent(uniqueCount,filled)}</td></tr></tbody></table></div>`;
+  if(isNumeric){ const nums=nonNull.map(Number).filter(v=>!Number.isNaN(v)).sort((a,b)=>a-b); const n=nums.length; const mean=n?nums.reduce((a,b)=>a+b,0)/n:0; const std=(n>1)?Math.sqrt(nums.reduce((s,v)=>s+(v-mean)**2,0)/(n-1)):0; const zeros=nums.filter(v=>v===0).length; const rsd=mean!==0?(std/mean)*100:0;
+    html += `<div><h6 class="mb-1">Summary Statistics</h6><table class="table table-sm mb-0"><tbody><tr><th class="text-muted">Mean</th><td>${fmtLocal(mean)}</td></tr><tr><th class="text-muted">Min</th><td>${fmtLocal(nums[0])}</td></tr><tr><th class="text-muted">Max</th><td>${fmtLocal(nums[n-1])}</td></tr><tr><th class="text-muted">Std Dev</th><td>${fmtLocal(std)}</td></tr><tr><th class="text-muted">Relative Std Dev</th><td>${fmtLocal(rsd,1)}%</td></tr><tr><th class="text-muted">Zero Values</th><td>${zeros.toLocaleString()} (${(zeros/n*100||0).toFixed(1)}%)</td></tr><tr><th class="text-muted">25%</th><td>${fmtLocal(qtile(nums,0.25))}</td></tr><tr><th class="text-muted">50% (Median)</th><td>${fmtLocal(qtile(nums,0.50))}</td></tr><tr><th class="text-muted">75%</th><td>${fmtLocal(qtile(nums,0.75))}</td></tr></tbody></table></div>`;
+  } else if(isDate){ const dates=nonNull.map(v=>new Date(v)).filter(d=>!isNaN(d)).sort((a,b)=>a-b); const uniq=new Set(dates.map(d=>d.getTime()));
+    html += `<div><h6 class="mb-1">Summary (Date)</h6><table class="table table-sm mb-0"><tbody><tr><th class="text-muted">Count</th><td>${dates.length.toLocaleString()}</td></tr><tr><th class="text-muted">Unique</th><td>${uniq.size.toLocaleString()}</td></tr><tr><th class="text-muted">Min</th><td>${dates.length?toISO(dates[0]):'—'}</td></tr><tr><th class="text-muted">Max</th><td>${dates.length?toISO(dates[dates.length-1]):'—'}</td></tr></tbody></table></div>`;
+  } else {
+    const counts=new Map(); asStr.forEach(v=>counts.set(v,(counts.get(v)||0)+1));
+    let topVal='—', topFreq=0; for(const [k,v] of counts.entries()) if(v>topFreq){topVal=k; topFreq=v;}
+    const lengths=asStr.map(v=>v.length); const minLen=lengths.length?Math.min(...lengths):0; const maxLen=lengths.length?Math.max(...lengths):0;
+    html += `<div><h6 class="mb-1">Summary (Categorical/Text)</h6><table class="table table-sm mb-0"><tbody><tr><th class="text-muted">Count</th><td>${asStr.length.toLocaleString()}</td></tr><tr><th class="text-muted">Unique</th><td>${counts.size.toLocaleString()}</td></tr><tr><th class="text-muted">Top</th><td>${topVal}</td></tr><tr><th class="text-muted">Freq</th><td>${topFreq.toLocaleString()} (${((topFreq/asStr.length*100)||0).toFixed(1)}%)</td></tr><tr><th class="text-muted">Min Length</th><td>${minLen}</td></tr><tr><th class="text-muted">Max Length</th><td>${maxLen}</td></tr></tbody></table></div>`;
   }
-
-  // ----------------------------
-  // Starter charts
-  // ----------------------------
-  function autoStarterCharts() {
-    const numCols = numericCols;
-    const catCols = categoricalCols;
-
-    const income = ['X20_21_langfragen_income','income'].find(c => columns.includes(c)) || (numCols.length ? numCols[0] : null);
-    const age = catCols.find(c => /age/i.test(c)) || (catCols.length ? catCols[0] : null);
-    const emp = catCols.find(c => /employ|job|work/i.test(c)) || (catCols.length > 1 ? catCols[1] : null);
-
-    if (emp) addChart({ type: 'pie', x: emp, y: income || emp, agg: 'count' });
-    if (age && income) addChart({ type: 'bar', x: age, y: income, agg: 'mean' });
-    if (dateCol && income) addChart({ type: 'line', x: dateCol, y: income, agg: 'mean' });
-  }
-
-  function looksNumericColumn(col) {
-    const vals = sampleValues(col, 200);
-    if (!vals.length) return false;
-    let nums = 0;
-    for (const v of vals) if (typeof v === 'number' && !Number.isNaN(v)) nums++;
-    return nums / vals.length >= 0.7;
-  }
-
-  function looksCategoricalColumn(col) {
-    const vals = sampleValues(col, 400);
-    const uniq = new Set(vals.filter(v => v !== '' && v !== null && v !== undefined).map(String));
-    const mostlyNums = looksNumericColumn(col);
-    return !mostlyNums && uniq.size >= 2 && uniq.size <= 20;
-  }
-
-  function makePivotMatrix(rows, rowKey, colKey, valKey, aggName='count') {
-    const rset = new Set(), cset = new Set();
-    const map = new Map(); // key = r¦c -> array of rows
-    rows.forEach(r => {
-      const rk = String(r[rowKey]);
-      const ck = String(r[colKey]);
-      rset.add(rk); cset.add(ck);
-      const key = rk + '¦' + ck;
-      if (!map.has(key)) map.set(key, []);
-      map.get(key).push(r);
-    });
-    const rArr = Array.from(rset), cArr = Array.from(cset);
-    const aggCell = (arr) => {
-      if (aggName === 'count') return arr.length;
-      const vs = arr.map(x => +x[valKey]).filter(v => !Number.isNaN(v));
-      if (!vs.length) return 0;
-      if (aggName === 'sum')  return vs.reduce((a,b)=>a+b,0);
-      return vs.reduce((a,b)=>a+b,0)/vs.length;
-    };
-    const z = rArr.map(rk => cArr.map(ck => aggCell(map.get(rk+'¦'+ck) || [])));
-    // Build HTML table too (for pivot card)
-    const table = document.createElement('table');
-    table.className = 'table table-sm table-bordered';
-    const thead = document.createElement('thead');
-    const trh = document.createElement('tr');
-    trh.appendChild(Object.assign(document.createElement('th'), {textContent: rowKey + ' \\ ' + colKey}));
-    cArr.forEach(c => trh.appendChild(Object.assign(document.createElement('th'), {textContent: c})));
-    thead.appendChild(trh);
-    const tbody = document.createElement('tbody');
-    rArr.forEach((rk, i) => {
-      const tr = document.createElement('tr');
-      tr.appendChild(Object.assign(document.createElement('td'), {textContent: rk}));
-      z[i].forEach(v => tr.appendChild(Object.assign(document.createElement('td'), {textContent: v})));
-      tbody.appendChild(tr);
-    });
-    table.appendChild(thead); table.appendChild(tbody);
-    return { rows: rArr, cols: cArr, z, html: table.outerHTML };
-  }
-
-  // ----------------------------
-  // Charting
-  // ----------------------------
-  function addChart(cfg) {
-    charts.push(cfg);
-    const card = document.createElement('div');
-    card.className = 'card-chart';
-    card.innerHTML = `
-      <div class="card-header">
-        <h6>${titleFor(cfg)}</h6>
-        <button class="remove" title="Remove"><i class="bi bi-x-lg"></i></button>
-      </div>
-      <div class="plot"></div>
-    `;
-    id('grid').appendChild(card);
-    cfg._el = card.querySelector('.plot');
-    card.querySelector('.remove').addEventListener('click', () => {
-      charts = charts.filter(c => c !== cfg);
-      card.remove();
-    });
-    drawChart(cfg);
-  }
-
-  function titleFor(cfg) {
-    const t = cfg.type[0].toUpperCase() + cfg.type.slice(1);
-    const parts = [`${t}`];
-    if (cfg.x) parts.push(`X: ${cfg.x}`);
-    if (cfg.y && cfg.agg) parts.push(`Y: ${cfg.agg}(${cfg.y})`);
-    if (cfg.color) parts.push(`Color: ${cfg.color}`);
-    return parts.join(' · ');
-  }
-
-  function drawChart(cfg) {
-    const el = cfg._el;
-    if (cfg.type === 'datatable') {
-      el.innerHTML = '';
-      const wrap = document.createElement('div');
-      wrap.className = 'table-responsive';
-      el.appendChild(wrap);
-      const table = document.createElement('table');
-      table.className = 'table table-sm table-striped';
-      const thead = document.createElement('thead');
-      const trh = document.createElement('tr');
-      columns.forEach(c => { const th = document.createElement('th'); th.textContent = c; trh.appendChild(th); });
-      thead.appendChild(trh);
-      const tbody = document.createElement('tbody');
-      (filtered.slice(0,200)).forEach(r => {
-        const tr = document.createElement('tr');
-        columns.forEach(c => {
-          const td = document.createElement('td'); td.textContent = (r[c] ?? ''); tr.appendChild(td);
-        });
-        tbody.appendChild(tr);
-      });
-      table.appendChild(thead); table.appendChild(tbody);
-      wrap.appendChild(table);
-      return;
-    }
-
-    if (cfg.type === 'pivot') {
-      const matrix = makePivotMatrix(filtered, cfg.x, cfg.yCat, cfg.y, cfg.agg);
-      el.innerHTML = matrix.html;
-      return;
-    }
-
-    if (!filtered.length) { el.innerHTML = '<div class="text-muted p-2">No data</div>'; return; }
-
-    const groupBy = (rows, keys) => {
-      const map = new Map();
-      for (const r of rows) {
-        const key = keys.map(k => String(r[k])).join('¦');
-        if (!map.has(key)) map.set(key, []);
-        map.get(key).push(r);
-      }
-      return { map, keys };
-    };
-    const agg = (rows) => {
-      if (cfg.agg === 'count') return rows.length;
-      const vals = rows.map(r => +r[cfg.y]).filter(v => !Number.isNaN(v));
-      if (!vals.length) return 0;
-      if (cfg.agg === 'sum')  return vals.reduce((a,b)=>a+b,0);
-      return vals.reduce((a,b)=>a+b,0) / vals.length; // mean
-    };
-
-    let fig = { data: [], layout: { margin: {l:50,r:20,b:50,t:40}, title: titleFor(cfg) } };
-
-    if (cfg.type === 'bar' || cfg.type === 'pie') {
-      const by = cfg.color ? [cfg.x, cfg.color] : [cfg.x];
-      const g = groupBy(filtered, by);
-      const xs = new Set(), colors = new Set();
-      for (const k of g.map.keys()) {
-        const parts = k.split('¦'); xs.add(parts[0]); if (cfg.color) colors.add(parts[1]);
-      }
-      const xArr = Array.from(xs), colorArr = cfg.color ? Array.from(colors) : [null];
-
-      if (cfg.type === 'bar') {
-        for (const cval of colorArr) {
-          const y = xArr.map(xv => {
-            const key = cfg.color ? [xv, cval].join('¦') : String(xv);
-            return agg(g.map.get(key) || []);
-          });
-          fig.data.push({ x: xArr, y, type: 'bar', name: cval ?? 'value' });
-        }
-        fig.layout.barmode = 'group';
-        fig.layout.xaxis = { title: cfg.x };
-        if (cfg.y) fig.layout.yaxis = { title: `${cfg.agg}(${cfg.y})` };
-      } else {
-        const values = xArr.map(xv => {
-          const rows = Array.from(g.map.entries()).filter(([k]) => k.split('¦')[0] == xv).flatMap(([,rows]) => rows);
-          return agg(rows);
-        });
-        fig.data.push({ labels: xArr, values, type: 'pie', hole: .35 });
-      }
-    }
-
-    else if (cfg.type === 'line' || cfg.type === 'timeseries') {
-      const g = groupBy(filtered, [cfg.x]);
-      const xVals = Array.from(g.map.keys()).map(k => k.split('¦')[0]);
-      const sorted = xVals.slice().sort((a,b) => {
-        const da = new Date(a), db = new Date(b);
-        if (!isNaN(da) && !isNaN(db)) return da - db;
-        const na = +a, nb = +b;
-        if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
-        return String(a).localeCompare(String(b));
-      });
-      const yVals = sorted.map(xv => agg(g.map.get(String(xv)) || g.map.get(xv) || []));
-      fig.data.push({ x: sorted, y: yVals, type: 'scatter', mode: 'lines+markers', name: cfg.y });
-
-      if (cfg.histOverlay) {
-        const vals = filtered.map(r => +r[cfg.y]).filter(v => !Number.isNaN(v));
-        fig.data.push({ x: vals, type: 'histogram', opacity: 0.35, xaxis: 'x2', yaxis: 'y2', name: 'Histogram' });
-        fig.layout.grid = { rows: 1, columns: 2, pattern: 'independent' };
-        fig.layout.xaxis2 = {};
-        fig.layout.yaxis2 = {};
-        fig.layout.title += ' · + Histogram';
-      }
-      fig.layout.xaxis = { title: cfg.x };
-      if (cfg.y) fig.layout.yaxis = { title: `${cfg.agg}(${cfg.y})` };
-    }
-
-    else if (cfg.type === 'scatter' || cfg.type === 'bubble') {
-      const x = filtered.map(r => r[cfg.x]), y = filtered.map(r => r[cfg.y]);
-      const trace = { x, y, mode: 'markers', type: 'scatter', name: cfg.y };
-      if (cfg.type === 'bubble' && cfg.size) {
-        const s = filtered.map(r => +r[cfg.size]);
-        const min = Math.min(...s.filter(v => !Number.isNaN(v))), max = Math.max(...s.filter(v => !Number.isNaN(v)));
-        const scaled = s.map(v => Number.isNaN(v) ? 5 : (10 + 30 * ((v - min) / Math.max(1e-9, max - min))));
-        trace.marker = { size: scaled, sizemode: 'diameter', opacity: 0.7 };
-      }
-      if (cfg.color) trace.text = filtered.map(r => r[cfg.color]);
-      fig.data.push(trace);
-      fig.layout.xaxis = { title: cfg.x };
-      fig.layout.yaxis = { title: cfg.y };
-    }
-
-    else if (cfg.type === 'box') {
-      if (!cfg.y) { el.innerHTML = '<div class="text-muted p-2">Please select a numeric Y.</div>'; return; }
-      const groups = {};
-      filtered.forEach(r => {
-        const key = r[cfg.x]; const val = +r[cfg.y];
-        if (Number.isNaN(val)) return;
-        (groups[key] ||= []).push(val);
-      });
-      Object.keys(groups).forEach(k => fig.data.push({ y: groups[k], name: String(k), type: 'box' }));
-      fig.layout.xaxis = { title: cfg.x }; fig.layout.yaxis = { title: cfg.y };
-
-      if (cfg.histOverlay) {
-        const vals = filtered.map(r => +r[cfg.y]).filter(v => !Number.isNaN(v));
-        fig.data.push({ x: vals, type: 'histogram', opacity: 0.3, xaxis: 'x2', yaxis: 'y2', name: 'Histogram' });
-        fig.layout.grid = { rows: 1, columns: 2, pattern: 'independent' };
-        fig.layout.title += ' · + Histogram';
-      }
-    }
-
-    else if (cfg.type === 'barline') {
-      const g = groupBy(filtered, [cfg.x]);
-      const xs = Array.from(g.map.keys()).map(k => k.split('¦')[0]).sort((a,b)=>String(a).localeCompare(String(b)));
-      const aggSeries = (yField) => xs.map(xv => {
-        const rows = g.map.get(String(xv)) || g.map.get(xv) || [];
-        if (!yField) return 0;
-        const vals = rows.map(r => +r[yField]).filter(v => !Number.isNaN(v));
-        if (!vals.length) return 0;
-        if (cfg.agg === 'sum') return vals.reduce((a,b)=>a+b,0);
-        if (cfg.agg === 'mean') return vals.reduce((a,b)=>a+b,0)/vals.length;
-        return rows.length;
-      });
-      const yBar = aggSeries(cfg.y);
-      const yLine = aggSeries(cfg.y2);
-
-      fig.data.push({ x: xs, y: yBar, type: 'bar', name: `${cfg.agg}(${cfg.y})` });
-      const lineTrace = { x: xs, y: yLine, type: 'scatter', mode: 'lines+markers', name: `${cfg.agg}(${cfg.y2})` };
-      if (cfg.dualAxis) { lineTrace.yaxis = 'y2'; fig.layout.yaxis2 = { overlaying: 'y', side: 'right' }; }
-      fig.data.push(lineTrace);
-      fig.layout.xaxis = { title: cfg.x };
-    }
-
-    else if (cfg.type === 'heatmap') {
-      const M = makePivotMatrix(filtered, cfg.x, cfg.yCat, cfg.y, cfg.agg);
-      fig.data.push({ z: M.z, x: M.cols, y: M.rows, type: 'heatmap', colorscale: 'Viridis' });
-      fig.layout.xaxis = { title: cfg.yCat };
-      fig.layout.yaxis = { title: cfg.x };
-    }
-
-    else if (cfg.type === 'funnel') {
-      const g = groupBy(filtered, [cfg.x]);
-      const labels = Array.from(g.map.keys()).map(k => k.split('¦')[0]);
-      const values = labels.map(l => agg(g.map.get(String(l)) || []));
-      const sorted = labels.map((l,i)=>({l, v: values[i]})).sort((a,b)=>b.v-a.v);
-      fig.data.push({ type: 'funnel', y: sorted.map(s=>s.l), x: sorted.map(s=>s.v) });
-    }
-
-    Plotly.newPlot(el, fig.data, fig.layout, { responsive: true });
-  }
-
-  // ===================== Inspector logic =====================
-  function updateInspectorSummary() {
-    const totalRowsEl = id('sumTotalRows');
-    const totalColsEl = id('sumTotalCols');
-    const filteredRowsEl = id('sumFilteredRows');
-    const dateRangeEl = id('sumDateRange');
-    
-    if (totalRowsEl) totalRowsEl.textContent = (rawData?.length ?? 0).toLocaleString();
-    if (totalColsEl) totalColsEl.textContent = (columns?.length ?? 0).toLocaleString();
-    if (filteredRowsEl) filteredRowsEl.textContent = (filtered?.length ?? 0).toLocaleString();
-
-    if (!dateCol || !dateRangeEl) { 
-      if (dateRangeEl) dateRangeEl.textContent = '—'; 
-      return; 
-    }
-
-    const rowsForRange = (filtered && Array.isArray(filtered)) ? filtered : rawData;
-    const dates = rowsForRange
-      .map(r => parseValidDate(r[dateCol]))
-      .filter(Boolean)
-      .sort((a,b) => a - b);
-
-    dateRangeEl.textContent =
-      dates.length ? `${toISO(dates[0])} → ${toISO(dates[dates.length-1])}` : '—';
-  }
-
-  function rebuildInspectorColumnList() {
-    const wrap = id('inspectorList');
-    if (!wrap) return;
-    
-    wrap.innerHTML = '';
-    if (!columns?.length) return;
-
-    const frag = document.createDocumentFragment();
-    columns.forEach(col => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.textContent = col;
-      btn.dataset.col = col;
-      frag.appendChild(btn);
-    });
-    wrap.appendChild(frag);
-
-    wrap.onclick = (e) => {
-      const btn = e.target.closest('button');
-      if (!btn) return;
-      inspectorSelectedField = btn.dataset.col;
-      wrap.querySelectorAll('button').forEach(b =>
-        b.classList.toggle('active', b === btn)
-      );
-      showFieldStats(inspectorSelectedField);
-    };
-
-    inspectorSelectedField = columns[0];
-    const firstBtn = wrap.querySelector('button');
-    if (firstBtn) firstBtn.classList.add('active');
-    showFieldStats(inspectorSelectedField);
-  }
-
-  function showFieldStats(col) {
-    if (!col) return;
-    
-    const fieldNameEl = id('fieldName');
-    const fieldStatsEl = id('fieldStats');
-    
-    if (fieldNameEl) fieldNameEl.textContent = col;
-    if (!fieldStatsEl) return;
-
-    const vals = (filtered || []).map(r => r[col]);
-    const nonNull = vals.filter(v => v !== null && v !== undefined && v !== '');
-
-    const isNumeric = numericCols.includes(col);
-    const isDate = (col === dateCol);
-
-    const fmtLocal = (x, d=3) =>
-      (x === undefined || x === null || Number.isNaN(x)) ? '—'
-        : Number(x).toLocaleString(undefined, { maximumFractionDigits: d });
-
-    const percent = (num, den) =>
-      (den ? (100 * num / den) : 0).toLocaleString(undefined, { maximumFractionDigits: 1 }) + '%';
-
-    const topN = (arr, n=5) => {
-      const m = new Map();
-      arr.forEach(v => m.set(v, (m.get(v)||0)+1));
-      return [...m.entries()].sort((a,b) => b[1]-a[1]).slice(0, n);
-    };
-
-    const qtile = (sorted, q) => {
-      if (!sorted.length) return NaN;
-      const pos = (sorted.length - 1) * q;
-      const base = Math.floor(pos);
-      const rest = pos - base;
-      return (sorted[base+1] !== undefined)
-        ? sorted[base] + rest * (sorted[base+1] - sorted[base])
-        : sorted[base];
-    };
-
-    let html = '';
-
-    const asStr = nonNull.map(v => String(v));
-    const totalCount = vals.length;
-    let distribution = [];
-    if (isNumeric) {
-      const nums = nonNull.map(Number).filter(v => !Number.isNaN(v));
-      if (nums.length) {
-        const minVal = Math.min(...nums);
-        const maxVal = Math.max(...nums);
-        const binCount = 5;
-        let width = (maxVal - minVal) / binCount;
-        if (width === 0) width = 1;
-        const bins = Array(binCount).fill(0);
-        const labels = [];
-        for (let i = 0; i < binCount; i++) {
-          const start = minVal + width * i;
-          const end   = (i === binCount - 1) ? maxVal : minVal + width * (i + 1);
-          labels.push(`${fmtLocal(start)}–${fmtLocal(end)}`);
-        }
-        nums.forEach(v => {
-          let idx = Math.floor((v - minVal) / width);
-          if (idx < 0) idx = 0;
-          if (idx >= binCount) idx = binCount - 1;
-          bins[idx]++;
-        });
-        distribution = labels.map((lab, i) => ({ label: lab, count: bins[i] }));
-        distribution = distribution.filter(item => item.count > 0);
-      }
-    } else {
-      const m = new Map();
-      asStr.forEach(v => m.set(v, (m.get(v) || 0) + 1));
-      const entries = [...m.entries()].sort((a,b) => b[1] - a[1]);
-      const top = entries.slice(0, 5);
-      const otherCount = entries.slice(5).reduce((s, [,c]) => s + c, 0);
-      distribution = top.map(([label, count]) => ({ label, count }));
-      if (otherCount > 0) distribution.push({ label: 'Other', count: otherCount });
-    }
-    html += `
-      <div class="mb-2">
-        <h6 class="mb-1">Data Distribution Overview</h6>
-        <table class="table table-sm mb-2">
-          <thead><tr><th>Value</th><th class="text-end">Share</th></tr></thead>
-          <tbody>
-            ${distribution.map(row => `<tr><td>${row.label}</td><td class="text-end">${percent(row.count, totalCount)}</td></tr>`).join('')}
-          </tbody>
-        </table>
-      </div>
-    `;
-
-    const filled = nonNull.length;
-    const uniqueCount = new Set(asStr).size;
-    const avgLen = asStr.length ? (asStr.reduce((s, v) => s + v.length, 0) / asStr.length) : 0;
-    const avgLenDisplay = (avgLen && !Number.isNaN(avgLen)) ? fmtLocal(avgLen, 2) : '—';
-    html += `
-      <div class="mb-2">
-        <h6 class="mb-1">Data Quality Metrics</h6>
-        <table class="table table-sm mb-2">
-          <tbody>
-            <tr><th class="text-muted">Filled percentage</th><td>${percent(filled, vals.length)}</td></tr>
-            <tr><th class="text-muted">Filled values</th><td>${filled.toLocaleString()}</td></tr>
-            <tr><th class="text-muted">Avg. Length</th><td>${avgLenDisplay}</td></tr>
-            <tr><th class="text-muted">Unique Items</th><td>${uniqueCount.toLocaleString()}</td></tr>
-            <tr><th class="text-muted">Uniqueness</th><td>${percent(uniqueCount, filled)}</td></tr>
-          </tbody>
-        </table>
-      </div>
-    `;
-
-    if (isNumeric) {
-      const nums = nonNull.map(Number).filter(v => !Number.isNaN(v)).sort((a,b)=>a-b);
-      const n = nums.length;
-      const mean = n ? nums.reduce((a,b)=>a+b,0)/n : 0;
-      const std = (n>1) ? Math.sqrt(nums.reduce((s,v)=>s+(v-mean)**2,0)/(n-1)) : 0;
-      const zeros = nums.filter(v => v === 0).length;
-      const rsd = mean !== 0 ? (std/mean)*100 : 0;
-
-      html += `
-        <div>
-          <h6 class="mb-1">Summary Statistics</h6>
-          <table class="table table-sm mb-0">
-            <tbody>
-              <tr><th class="text-muted">Mean</th><td>${fmtLocal(mean)}</td></tr>
-              <tr><th class="text-muted">Min</th><td>${fmtLocal(nums[0])}</td></tr>
-              <tr><th class="text-muted">Max</th><td>${fmtLocal(nums[n-1])}</td></tr>
-              <tr><th class="text-muted">Std Dev</th><td>${fmtLocal(std)}</td></tr>
-              <tr><th class="text-muted">Relative Std Dev</th><td>${fmtLocal(rsd,1)}%</td></tr>
-              <tr><th class="text-muted">Zero Values</th><td>${zeros.toLocaleString()} (${percent(zeros, n)})</td></tr>
-              <tr><th class="text-muted">25%</th><td>${fmtLocal(qtile(nums, 0.25))}</td></tr>
-              <tr><th class="text-muted">50% (Median)</th><td>${fmtLocal(qtile(nums, 0.50))}</td></tr>
-              <tr><th class="text-muted">75%</th><td>${fmtLocal(qtile(nums, 0.75))}</td></tr>
-            </tbody>
-          </table>
-        </div>
-      `;
-    } else if (isDate) {
-      const dates = nonNull.map(v => new Date(v)).filter(d => !isNaN(d)).sort((a,b)=>a-b);
-      const uniq = new Set(dates.map(d => d.getTime()));
-      html += `
-        <div>
-          <h6 class="mb-1">Summary (Date)</h6>
-          <table class="table table-sm mb-0">
-            <tbody>
-              <tr><th class="text-muted">Count</th><td>${dates.length.toLocaleString()}</td></tr>
-              <tr><th class="text-muted">Unique</th><td>${uniq.size.toLocaleString()}</td></tr>
-              <tr><th class="text-muted">Min</th><td>${dates.length ? toISO(dates[0]) : '—'}</td></tr>
-              <tr><th class="text-muted">Max</th><td>${dates.length ? toISO(dates[dates.length-1]) : '—'}</td></tr>
-            </tbody>
-          </table>
-        </div>
-      `;
-    } else {
-      const counts = new Map();
-      asStr.forEach(v => counts.set(v, (counts.get(v) || 0) + 1));
-      let topVal = '—', topFreq = 0;
-      for (const [k, v] of counts.entries()) if (v > topFreq) { topVal = k; topFreq = v; }
-      const lengths = asStr.map(v => v.length);
-      const minLen = lengths.length ? Math.min(...lengths) : 0;
-      const maxLen = lengths.length ? Math.max(...lengths) : 0;
-
-      html += `
-        <div>
-          <h6 class="mb-1">Summary (Categorical/Text)</h6>
-          <table class="table table-sm mb-0">
-            <tbody>
-              <tr><th class="text-muted">Count</th><td>${asStr.length.toLocaleString()}</td></tr>
-              <tr><th class="text-muted">Unique</th><td>${counts.size.toLocaleString()}</td></tr>
-              <tr><th class="text-muted">Top</th><td>${topVal}</td></tr>
-              <tr><th class="text-muted">Freq</th><td>${topFreq.toLocaleString()} (${percent(topFreq, asStr.length)})</td></tr>
-              <tr><th class="text-muted">Min Length</th><td>${minLen.toLocaleString()}</td></tr>
-              <tr><th class="text-muted">Max Length</th><td>${maxLen.toLocaleString()}</td></tr>
-            </tbody>
-          </table>
-        </div>
-      `;
-    }
-
-    fieldStatsEl.innerHTML = html;
-  }
-
-  function fmt(x) {
-    if (x === undefined || x === null || Number.isNaN(x)) return '—';
-    return Number(x).toLocaleString(undefined, { maximumFractionDigits: 3 });
-  }
-  function quantile(sortedNums, q) {
-    if (!sortedNums.length) return NaN;
-    const pos = (sortedNums.length - 1) * q;
-    const base = Math.floor(pos);
-    const rest = pos - base;
-    if (sortedNums[base+1] !== undefined) {
-      return sortedNums[base] + rest * (sortedNums[base+1] - sortedNums[base]);
-    }
-    return sortedNums[base];
-  }
-
-  // ----------------------------
-  // Utilities
-  // ----------------------------
-  const id = (s) => document.getElementById(s);
-  const toISO = (d) => new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().split('T')[0];
-  const uniqueNonEmpty = (arr) => Array.from(new Set(arr.map(v => v===null||v===undefined?'' : String(v)).filter(s => s !== ''))).sort();
-
-  function parseValidDate(v) {
-    const d = new Date(v);
-    if (Number.isNaN(d.getTime())) return null;
-    const y = d.getUTCFullYear();
-    return (y >= 2019 && y <= 2024) ? d : null;
-  }
-
-  function appendOption(sel, value, label) {
-    if (!sel) return;
-    const o = document.createElement('option');
-    o.value = value; o.textContent = label ?? value;
-    sel.appendChild(o);
-  }
-  function fillMultiSelect(sel, values) {
-    sel.innerHTML = '';
-    for (const v of values) {
-      const o = document.createElement('option');
-      o.value = v; o.textContent = v; o.selected = true;
-      sel.appendChild(o);
-    }
-  }
-  function selectAll(sel){ for (const o of sel.options) o.selected = true; sel.dispatchEvent(new Event('change')); }
-  function clearAll(sel){ for (const o of sel.options) o.selected = false; sel.dispatchEvent(new Event('change')); }
-
-  function toggle(panelId) {
-    const el = id(panelId);
-    if (el) el.classList.toggle('active');
-  }
-  function show(panelId, on=true) {
-    const el = id(panelId);
-    if (el) {
-      if (on) el.classList.add('active'); 
-      else el.classList.remove('active');
-    }
-  }
-  function openModal(){ 
-    const modal = id('modal');
-    if (modal) modal.style.display = 'grid'; 
-  }
-  function closeModal(){ 
-    const modal = id('modal');
-    if (modal) modal.style.display = 'none'; 
-  }
-
-  function downloadCSV(filename, headers, rows) {
-    const esc = (v) => {
-      if (v === null || v === undefined) return '';
-      const s = String(v);
-      return /[",\n]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
-    };
-    const csv = [headers.map(esc).join(',')]
-      .concat(rows.map(row => row.map(esc).join(',')))
-      .join('\n');
-    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(a.href);
-  }
-  </script>
-
-  <!-- ==================== Global Filters Modal (your inserted block) ==================== -->
-  <style>
-    #panelFilters{ display:none; }
-    
-    /* Ensure modal displays properly */
-    #filters-backdrop {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,.5);
-      z-index: 1000;
-      align-items: center;
-      justify-content: center;
-    }
-    
-    #filters-backdrop.show {
-      display: flex !important;
-    }
-    
-    /* Remove conflicting styles */
-    .filters-modal-backdrop {
-      display: none !important;
-    }
-    
-    /* Additional styles for better modal appearance */
-    #filters-panel {
-      background: #fff;
-      border-radius: 10px;
-      box-shadow: 0 12px 40px rgba(0,0,0,.2);
-      max-height: 90vh;
-      overflow: auto;
-    }
-  </style>
-
-<!-- Global Filters: Backdrop + Panel -->
-<div id="filters-backdrop">
-  <div id="filters-panel" style="position:relative; max-width:1100px; background:#fff; border-radius:10px; box-shadow:0 12px 40px rgba(0,0,0,.2); padding:16px; max-height:90vh; overflow:auto;">
-    <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
-      <h3 style="margin:0; font-weight:700;">Global Filters</h3>
-      <div style="margin-left:auto; display:flex; gap:8px;">
-        <button id="gf-clear-all" class="btn btn-sm btn-outline-secondary">Clear All</button>
-        <button id="gf-cancel" class="btn btn-sm btn-light">Cancel</button>
-        <button id="gf-apply" class="btn btn-sm btn-primary">Apply</button>
-      </div>
-    </div>
-
-    <div style="display:grid; grid-template-columns:260px 1fr; gap:12px; min-height:520px;">
-      <!-- Left: groups + fields -->
-      <div style="border:1px solid #eee; border-radius:8px; padding:10px;">
-        <input id="gf-field-search" placeholder="Search fields…" class="form-control form-control-sm" style="margin-bottom:8px;">
-        <div style="font-size:12px; color:#888; margin:6px 0;">Groups</div>
-        <div id="gf-groups" style="display:flex; gap:6px; margin-bottom:8px; flex-wrap:wrap;">
-          <button data-group="all" class="btn btn-xs btn-outline-secondary active">All</button>
-          <button data-group="cat" class="btn btn-xs btn-outline-secondary">Categories</button>
-          <button data-group="num" class="btn btn-xs btn-outline-secondary">Numerical</button>
-          <button data-group="date" class="btn btn-xs btn-outline-secondary">Dates</button>
-        </div>
-        <div style="font-size:12px; color:#888; margin:6px 0;">Fields</div>
-        <div id="gf-field-list" style="max-height:400px; overflow:auto;"></div>
-      </div>
-
-      <!-- Right: value UI -->
-      <div style="border:1px solid #eee; border-radius:8px; padding:10px;">
-        <div id="gf-field-header" style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
-          <strong id="gf-active-field" style="font-size:14px;">(Select a field)</strong>
-          <div style="margin-left:auto; display:flex; gap:8px;">
-            <select id="gf-sort" class="form-select form-select-sm" title="Sort">
-              <option value="count">Sort by Count</option>
-              <option value="az">A → Z</option>
-              <option value="za">Z → A</option>
-            </select>
-            <input id="gf-value-search" class="form-control form-control-sm" placeholder="Search values">
-          </div>
-        </div>
-
-        <!-- Categorical chips -->
-        <div id="gf-chip-wrap" style="display:none; gap:8px; flex-wrap:wrap;"></div>
-
-        <!-- Numerical controls -->
-        <div id="gf-num-wrap" style="display:none; gap:12px;">
-          <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
-            <label class="form-label form-label-sm" style="margin:0;">Range</label>
-            <input id="gf-num-min" type="number" class="form-control form-control-sm" style="max-width:120px;">
-            <span>–</span>
-            <input id="gf-num-max" type="number" class="form-control form-control-sm" style="max-width:120px;">
-          </div>
-          <input id="gf-num-slider-min" type="range">
-          <input id="gf-num-slider-max" type="range">
-          <div id="gf-num-bins" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;"></div>
-          <div id="gf-num-empty" style="margin-top:6px;"></div>
-        </div>
-
-        <!-- Date controls -->
-        <div id="gf-date-wrap" style="display:none;">
-          <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
-            <select id="gf-date-period" class="form-select form-select-sm" style="max-width:180px;">
-              <option value="quarter">Quarters</option>
-              <option value="year">Years</option>
-              <option value="month">Months</option>
-            </select>
-            <input id="gf-date-start" type="date" class="form-control form-control-sm">
-            <span>→</span>
-            <input id="gf-date-end" type="date" class="form-control form-control-sm">
-          </div>
-          <div id="gf-date-buckets" style="display:flex; gap:8px; flex-wrap:wrap;"></div>
-          <div id="gf-date-empty" style="margin-top:6px;"></div>
-        </div>
-
-        <div id="gf-help" style="color:#888;">Pick a field on the left to configure its filter.</div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Global Filters: Backdrop + Panel -->
-<div id="filters-backdrop">
-  <div id="filters-panel" style="position:relative; max-width:1100px; background:#fff; border-radius:10px; box-shadow:0 12px 40px rgba(0,0,0,.2); padding:16px; max-height:90vh; overflow:auto;">
-    <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
-      <h3 style="margin:0; font-weight:700;">Global Filters</h3>
-      <div style="margin-left:auto; display:flex; gap:8px;">
-        <button id="gf-clear-all" class="btn btn-sm btn-outline-secondary">Clear All</button>
-        <button id="gf-cancel" class="btn btn-sm btn-light">Cancel</button>
-        <button id="gf-apply" class="btn btn-sm btn-primary">Apply</button>
-      </div>
-    </div>
-
-    <div style="display:grid; grid-template-columns:260px 1fr; gap:12px; min-height:520px;">
-      <!-- Left: groups + fields -->
-      <div style="border:1px solid #eee; border-radius:8px; padding:10px;">
-        <input id="gf-field-search" placeholder="Search fields…" class="form-control form-control-sm" style="margin-bottom:8px;">
-        <div style="font-size:12px; color:#888; margin:6px 0;">Groups</div>
-        <div id="gf-groups" style="display:flex; gap:6px; margin-bottom:8px; flex-wrap:wrap;">
-          <button data-group="all" class="btn btn-xs btn-outline-secondary active">All</button>
-          <button data-group="cat" class="btn btn-xs btn-outline-secondary">Categories</button>
-          <button data-group="num" class="btn btn-xs btn-outline-secondary">Numerical</button>
-          <button data-group="date" class="btn btn-xs btn-outline-secondary">Dates</button>
-        </div>
-        <div style="font-size:12px; color:#888; margin:6px 0;">Fields</div>
-        <div id="gf-field-list" style="max-height:400px; overflow:auto;"></div>
-      </div>
-
-      <!-- Right: value UI -->
-      <div style="border:1px solid #eee; border-radius:8px; padding:10px;">
-        <div id="gf-field-header" style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
-          <strong id="gf-active-field" style="font-size:14px;">(Select a field)</strong>
-          <div style="margin-left:auto; display:flex; gap:8px;">
-            <select id="gf-sort" class="form-select form-select-sm" title="Sort">
-              <option value="count">Sort by Count</option>
-              <option value="az">A → Z</option>
-              <option value="za">Z → A</option>
-            </select>
-            <input id="gf-value-search" class="form-control form-control-sm" placeholder="Search values">
-          </div>
-        </div>
-
-        <!-- Categorical chips -->
-        <div id="gf-chip-wrap" style="display:none; gap:8px; flex-wrap:wrap;"></div>
-
-        <!-- Numerical controls -->
-        <div id="gf-num-wrap" style="display:none; gap:12px;">
-          <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
-            <label class="form-label form-label-sm" style="margin:0;">Range</label>
-            <input id="gf-num-min" type="number" class="form-control form-control-sm" style="max-width:120px;">
-            <span>–</span>
-            <input id="gf-num-max" type="number" class="form-control form-control-sm" style="max-width:120px;">
-          </div>
-          <input id="gf-num-slider-min" type="range">
-          <input id="gf-num-slider-max" type="range">
-          <div id="gf-num-bins" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;"></div>
-          <div id="gf-num-empty" style="margin-top:6px;"></div>
-        </div>
-
-        <!-- Date controls -->
-        <div id="gf-date-wrap" style="display:none;">
-          <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
-            <select id="gf-date-period" class="form-select form-select-sm" style="max-width:180px;">
-              <option value="quarter">Quarters</option>
-              <option value="year">Years</option>
-              <option value="month">Months</option>
-            </select>
-            <input id="gf-date-start" type="date" class="form-control form-control-sm">
-            <span>→</span>
-            <input id="gf-date-end" type="date" class="form-control form-control-sm">
-          </div>
-          <div id="gf-date-buckets" style="display:flex; gap:8px; flex-wrap:wrap;"></div>
-          <div id="gf-date-empty" style="margin-top:6px;"></div>
-        </div>
-
-        <div id="gf-help" style="color:#888;">Pick a field on the left to configure its filter.</div>
-      </div>
-    </div>
-  </div>
-</div>
-
-
+  out.innerHTML=html;
+}
+
+/* ---------------- Utilities ---------------- */
+const id=(s)=>document.getElementById(s);
+const toISO=(d)=>new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().split('T')[0];
+const uniqueNonEmpty=(arr)=>Array.from(new Set(arr.map(v=>v===null||v===undefined?'' : String(v)).filter(s=>s!=='')).values()).sort();
+function parseValidDate(v){ const d=new Date(v); if(Number.isNaN(d.getTime())) return null; const y=d.getUTCFullYear(); return (y>=2019 && y<=2030) ? d : null; }
+function appendOption(sel,value,label){ if(!sel) return; const o=document.createElement('option'); o.value=value; o.textContent=label??value; sel.appendChild(o); }
+function toggle(panelId){ const el=id(panelId); if(el) el.classList.toggle('active'); }
+function show(panelId,on=true){ const el=id(panelId); if(el){ on?el.classList.add('active'):el.classList.remove('active'); } }
+function openModal(){ id('modal').style.display='grid'; }
+function closeModal(){ id('modal').style.display='none'; }
+function downloadCSV(filename, headers, rows){ const esc=(v)=>{ if(v===null||v===undefined) return ''; const s=String(v); return /[",\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s; }; const csv=[headers.map(esc).join(',')].concat(rows.map(row=>row.map(esc).join(','))).join('\n'); const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=filename; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href); }
+</script>
 </body>
 </html>
