@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -659,6 +660,15 @@ let inspectorSelectedField = null;
         counts.set(v, (counts.get(v) || 0) + 1);
       }
       m.uniques = [...counts.entries()].map(([v,count])=>({v,count}));
+      if (type === 'num') {
+        const binCount = 7;
+        const width = (m.max - m.min) / binCount || 1;
+        m.binCounts = Array(binCount).fill(0);
+        for (const [val,count] of counts.entries()) {
+          const idx = Math.min(binCount-1, Math.floor((val - m.min) / width));
+          m.binCounts[idx] += count;
+        }
+      }    
       // precompute date buckets
       if (type === 'date') {
         const toQuarter = (iso) => {
@@ -911,14 +921,12 @@ let inspectorSelectedField = null;
       const bins = document.getElementById('gf-num-bins');
       if (bins) bins.innerHTML='';
       const binCount = 7;
+      const binCount = meta.binCounts.length;
       const width = (meta.max - meta.min) / binCount || 1;
       for (let i=0;i<binCount;i++){
         const a = Math.round(meta.min + i*width);
         const b = Math.round(i===binCount-1? meta.max : meta.min + (i+1)*width);
-        const cnt = rawData.reduce((acc,r)=>{
-          const v = Number(r[col]);
-          return acc + ((isFinite(v) && v>=a && v<=b) ? 1 : 0);
-        },0);
+        const cnt = meta.binCounts[i];
         const chip = document.createElement('span');
         chip.className='badge bg-light text-dark';
         chip.style.cursor='pointer'; chip.style.margin='2px';
