@@ -361,7 +361,25 @@
   let empCol  = null;
   let numericCols = [];
   let categoricalCols = [];
-  let inspectorSelectedField = null;
+let inspectorSelectedField = null;
+
+  // Hash a string to a hue
+  function hueFromString(s){
+    let h = 0;
+    for (let i=0;i<s.length;i++) h = (h*31 + s.charCodeAt(i)) % 360;
+    return h;
+  }
+  // Build a nice pastel palette from a hue
+  function chipColors(h){
+    return {
+      bg: `hsl(${h} 80% 94%)`,
+      fg: `hsl(${h} 28% 26%)`,
+      border: `hsl(${h} 60% 85%)`,
+      bgActive: `hsl(${h} 92% 90%)`,
+      borderActive: `hsl(${h} 70% 76%)`,
+      stripe: `hsl(${h} 80% 52%)`
+    };
+  }
 
   // ----------------------------
   // Boot
@@ -423,27 +441,7 @@
       fldType.addEventListener('change', updateBuilderVisibility);
       updateBuilderVisibility();
     }
-
-
-    // Hash a string to a hue
-    function hueFromString(s){
-      let h = 0;
-      for (let i=0;i<s.length;i++) h = (h*31 + s.charCodeAt(i)) % 360;
-      return h;
-    }
-    // Build a nice pastel palette from a hue
-    function chipColors(h){
-      return {
-        bg: `hsl(${h} 80% 94%)`,
-        fg: `hsl(${h} 28% 26%)`,
-        border: `hsl(${h} 60% 85%)`,
-        bgActive: `hsl(${h} 92% 90%)`,
-        borderActive: `hsl(${h} 70% 76%)`,
-        stripe: `hsl(${h} 80% 52%)`
-      };
-    }
      
-        
     // Download filtered CSV
     const btnDownload = id('btnDownloadFiltered');
     if (btnDownload) {
@@ -581,6 +579,25 @@
   tryNext();    // ✅ call it OUTSIDE the function body
 }               // ✅ closes loadCSV
 
+  // ----------------------------
+  // Color utilities
+  // ----------------------------
+  function hueFromString(s){
+    let h = 0;
+    for (let i=0; i<s.length; i++) h = (h*31 + s.charCodeAt(i)) % 360;
+    return h;
+  }
+  function chipColors(h){
+    return {
+      bg: `hsl(${h} 80% 94%)`,
+      fg: `hsl(${h} 28% 26%)`,
+      border: `hsl(${h} 60% 85%)`,
+      bgActive: `hsl(${h} 92% 90%)`,
+      borderActive: `hsl(${h} 70% 76%)`,
+      stripe: `hsl(${h} 80% 52%)`
+    };
+  }
+    
   // ----------------------------
   // Global Filters Implementation
   // ----------------------------
@@ -747,13 +764,14 @@
   }
 
   function gf_renderFieldList(group, needle) {
+    if (!GF.meta || !columns?.length) return;
     const wrap = document.getElementById('gf-field-list');
     if (!wrap) return;
     
     wrap.innerHTML = '';
     const list = [];
     for (const col of columns) {
-      const t = GF.meta[col]?.type || 'cat';
+      const t = GF.meta?.[col]?.type || 'cat';
       if (group!=='all' && ((group==='cat'&&t!=='cat')||(group==='num'&&t!=='num')||(group==='date'&&t!=='date'))) continue;
       if (needle && !col.toLowerCase().includes(needle.toLowerCase())) continue;
       list.push({col, t});
@@ -771,7 +789,7 @@
         a.classList.add('active');
       };      
       a.innerHTML = `<span class="gf-name">${col}</span>` +
-               `<span class="gf-count">${GF.meta[col]?.uniques?.length ?? ''}</span>`;
+               `<span class="gf-count">${GF.meta?.[col]?.uniques?.length ?? ''}</span>`;
       wrap.appendChild(a);
     }
   }
@@ -790,7 +808,7 @@
     if (activeField) activeField.textContent = col || '(Select a field)';
 
     if (!col) return;
-    const meta = GF.meta[col];
+    const meta = GF.meta?.[col];
     const sortSelect = document.getElementById('gf-sort');
     const valueSearch = document.getElementById('gf-value-search');
     const sort = sortSelect ? sortSelect.value : 'count';
@@ -938,13 +956,14 @@
       const all = [];
       if (s.period==='quarter') {
         // already precomputed: keys like "Q4 2020"
-        for (const k in GF.meta[col].buckets) if (k.startsWith('Q')) all.push([k, GF.meta[col].buckets[k]]);
+        
+        for (const k in GF.meta?.[col]?.buckets || {}) if (k.startsWith('Q')) all.push([k, GF.meta?.[col]?.buckets?.[k]]);
         all.sort((a,b)=>a[0].localeCompare(b[0]));
       } else if (s.period==='year') {
         for (const k in GF.meta[col].buckets) if (/^\d{4}$/.test(k)) all.push([k, GF.meta[col].buckets[k]]);
         all.sort((a,b)=>a[0].localeCompare(b[0]));
-      } else {
-        for (const k in GF.meta[col].buckets) if (/^\d{4}-\d{2}$/.test(k)) all.push([k, GF.meta[col].buckets[k]]);
+      } else {        
+        for (const k in GF.meta?.[col]?.buckets || {}) if (/^\d{4}-\d{2}$/.test(k)) all.push([k, GF.meta?.[col]?.buckets?.[k]]);
         all.sort((a,b)=>a[0].localeCompare(b[0]));
       }
       const onSet = s.buckets;
@@ -958,11 +977,11 @@
       });
 
       const empty = document.getElementById('gf-date-empty');
-      if (empty) empty.innerHTML='';
-      if (GF.meta[col].empties>0 && empty){
+      if (empty) empty.innerHTML='';      
+      if (GF.meta?.[col]?.empties>0 && empty){
         const chk = document.createElement('input'); chk.type='checkbox'; chk.checked=!!s.includeEmpty;
-        chk.onchange = ()=>{ s.includeEmpty = chk.checked; };
-        const lbl = document.createElement('label'); lbl.style.marginLeft='6px'; lbl.textContent = `[EMPTY] ${GF.meta[col].empties.toLocaleString()}`;
+        chk.onchange = ()=>{ s.includeEmpty = chk.checked; };        
+        const lbl = document.createElement('label'); lbl.style.marginLeft='6px'; lbl.textContent = `[EMPTY] ${GF.meta?.[col]?.empties?.toLocaleString()}`;
         const wrapDiv = document.createElement('div'); wrapDiv.appendChild(chk); wrapDiv.appendChild(lbl);
         empty.appendChild(wrapDiv);
       }
