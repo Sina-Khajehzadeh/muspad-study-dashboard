@@ -1023,7 +1023,7 @@ I provide you the entire code in the following and you said to me what to do bas
       if (!isNaN(d)) {
         parsed++;
         const y = d.getUTCFullYear();
-        if (y >= 2019 && y <= 2024) withinRange++;
+        if (y >= 2019 && y <= 2100) withinRange++;
       }
     }
     const rate = vals.length ? parsed / vals.length : 0;
@@ -1776,7 +1776,7 @@ I provide you the entire code in the following and you said to me what to do bas
     const d = new Date(v);
     if (Number.isNaN(d.getTime())) return null;
     const y = d.getUTCFullYear();
-    return (y >= 2019 && y <= 2024) ? d : null;
+    return (y >= 2019 && y <= 2100) ? d : null;
   }
 
   function appendOption(sel, value, label) {
