@@ -770,12 +770,12 @@
         wrap.querySelectorAll('.gf-field-item').forEach(x=>x.classList.remove('active'));
         a.classList.add('active');
       };      
-      a.innerHTML = `<span class="gf-name">${col}</span>
-               <span class="gf-count">${(GF.meta[col]?.uniques?.length ?? '')}</span>`;
+      a.innerHTML = `<span class="gf-name">${col}</span>` +
+               `<span class="gf-count">${GF.meta[col]?.uniques?.length ?? ''}</span>`;
       wrap.appendChild(a);
     }
   }
- 
+
   function gf_showField(col) {
     const chipWrap = document.getElementById('gf-chip-wrap');
     const numWrap = document.getElementById('gf-num-wrap');
