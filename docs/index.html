@@ -1773,7 +1773,7 @@
     const d = new Date(v);
     if (Number.isNaN(d.getTime())) return null;
     const y = d.getUTCFullYear();
-    return (y >= 2019 && y <= 20100) ? d : null;
+    return (y >= 2019 && y <= 2100) ? d : null;
   }
 
   function appendOption(sel, value, label) {
