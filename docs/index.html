@@ -1865,6 +1865,77 @@
       max-height: 90vh;
       overflow: auto;
     }
+    :root{
+  --gf-radius-lg: 16px;
+  --gf-radius-sm: 10px;
+  --gf-border: #e8ecf0;
+  --gf-panel: #f7f9fb;
+  --gf-soft: #eef6f9;
+  --gf-text: #2b2f36;
+  --gf-muted: #6b7280;
+  --gf-shadow: 0 10px 30px rgba(0,0,0,.08);
+}
+
+/* Panel */
+#filters-panel{
+  border-radius: var(--gf-radius-lg);
+  background: #fff;
+  box-shadow: var(--gf-shadow);
+  border: 1px solid var(--gf-border);
+}
+
+/* Header */
+#filters-panel h3{
+  font-weight: 800;
+  letter-spacing: .2px;
+}
+#gf-field-header,
+#filters-panel .header-strip{
+  background: #e6f3f6;
+  border-radius: var(--gf-radius-sm);
+  padding: 10px 12px;
+}
+
+/* Left list of variables */
+#gf-field-list .gf-field-item{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:10px 12px; border:1px solid var(--gf-border);
+  border-radius: 12px; margin-bottom:8px; background:#fff; cursor:pointer;
+  transition: transform .05s ease, background .15s ease, border-color .15s ease;
+  position:relative;
+}
+#gf-field-list .gf-field-item:hover{ background:#fafcff; border-color:#d8e3ea; }
+#gf-field-list .gf-field-item.active{ background:#eaf6ff; border-color:#b7d9ff; }
+#gf-field-list .gf-field-item::before{
+  content:""; width:4px; height:70%; border-radius:8px;
+  position:absolute; left:6px; top:15%; background: var(--stripe, #7c3aed);
+}
+#gf-field-list .gf-name{ padding-left:14px; font-weight:600; color:var(--gf-text); }
+#gf-field-list .gf-count{
+  font-size:.8rem; color:var(--gf-muted); background:#f3f6fa;
+  border-radius:999px; padding:2px 8px; border:1px solid var(--gf-border);
+}
+
+/* Chips for values */
+#gf-chip-wrap{ display:flex; flex-wrap:wrap; gap:10px; }
+.gf-chip{
+  display:inline-flex; align-items:center; gap:8px;
+  padding:8px 12px; border:1px solid var(--chip-border,#dbe7ee);
+  border-radius:999px; background: var(--chip-bg,#eef7fb);
+  color: var(--chip-fg,#0f3b4a); font-weight:600; cursor:pointer;
+  transition: transform .05s ease, background .15s ease, border-color .15s ease;
+}
+.gf-chip:hover{ transform: translateY(-1px); }
+.gf-chip small{ color: var(--gf-muted); font-weight:500; }
+.gf-chip.active{
+  background: var(--chip-bg-active,#dff3ff);
+  border-color: var(--chip-border-active,#b7e2ff);
+}
+
+/* Tiny toolbar inputs */
+#gf-field-header .form-select, #gf-field-header .form-control{
+  border-radius: 12px; border-color: var(--gf-border);
+}
   </style>
 
 <!-- Global Filters: Backdrop + Panel -->
