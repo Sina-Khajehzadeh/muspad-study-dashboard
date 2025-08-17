@@ -764,9 +764,12 @@
       a.className = 'gf-field-item';
       a.style.setProperty('--stripe', chipColors(hueFromString(col)).stripe);
       a.textContent = `${col}  ·  ${t}`;
-      a.onclick = ()=>{ GF.activeField = col; gf_showField(col);
+      a.onclick = ()=>{ 
+        GF.activeField = col; 
+        gf_showField(col);
         wrap.querySelectorAll('.gf-field-item').forEach(x=>x.classList.remove('active'));
         a.classList.add('active');
+      };      
       a.innerHTML = `<span class="gf-name">${col}</span>
                <span class="gf-count">${(GF.meta[col]?.uniques?.length ?? '')}</span>`;
       wrap.appendChild(a);
