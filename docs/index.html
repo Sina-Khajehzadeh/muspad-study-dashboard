@@ -522,7 +522,7 @@
         skipEmptyLines: true,
         dynamicTyping: true,
         worker: false,
-        delimiter: "",
+        
         transformHeader: (h) => (h || '').replace(/^\uFEFF/, '').trim(),
         complete: (res) => {
           if (!res || !Array.isArray(res.data) || res.data.length === 0) {
@@ -556,9 +556,10 @@
         }
       });
      
-    // Start loading CSV immediately
-    tryNext();
-  }
+    };            // ✅ closes tryNext
+
+  tryNext();    // ✅ call it OUTSIDE the function body
+}               // ✅ closes loadCSV
 
   // ----------------------------
   // Global Filters Implementation
@@ -1772,7 +1773,7 @@
     const d = new Date(v);
     if (Number.isNaN(d.getTime())) return null;
     const y = d.getUTCFullYear();
-    return (y >= 2019 && y <= 2024) ? d : null;
+    return (y >= 2019 && y <= 20100) ? d : null;
   }
 
   function appendOption(sel, value, label) {
