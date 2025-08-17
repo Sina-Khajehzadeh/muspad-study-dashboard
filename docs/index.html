@@ -363,6 +363,24 @@
   let categoricalCols = [];
   let inspectorSelectedField = null;
 
+  // Utility functions used across UI components
+  function hueFromString(s){
+    let h = 0;
+    for (let i=0;i<s.length;i++) h = (h*31 + s.charCodeAt(i)) % 360;
+    return h;
+  }
+
+  function chipColors(h){
+    return {
+      bg: `hsl(${h} 80% 94%)`,
+      fg: `hsl(${h} 28% 26%)`,
+      border: `hsl(${h} 60% 85%)`,
+      bgActive: `hsl(${h} 92% 90%)`,
+      borderActive: `hsl(${h} 70% 76%)`,
+      stripe: `hsl(${h} 80% 52%)`
+    };
+  }
+
   // ----------------------------
   // Boot
   // ----------------------------
@@ -425,25 +443,6 @@
     }
 
 
-    // Hash a string to a hue
-    function hueFromString(s){
-      let h = 0;
-      for (let i=0;i<s.length;i++) h = (h*31 + s.charCodeAt(i)) % 360;
-      return h;
-    }
-    // Build a nice pastel palette from a hue
-    function chipColors(h){
-      return {
-        bg: `hsl(${h} 80% 94%)`,
-        fg: `hsl(${h} 28% 26%)`,
-        border: `hsl(${h} 60% 85%)`,
-        bgActive: `hsl(${h} 92% 90%)`,
-        borderActive: `hsl(${h} 70% 76%)`,
-        stripe: `hsl(${h} 80% 52%)`
-      };
-    }
-     
-        
     // Download filtered CSV
     const btnDownload = id('btnDownloadFiltered');
     if (btnDownload) {
@@ -764,9 +763,12 @@
       a.className = 'gf-field-item';
       a.style.setProperty('--stripe', chipColors(hueFromString(col)).stripe);
       a.textContent = `${col}  ·  ${t}`;
-      a.onclick = ()=>{ GF.activeField = col; gf_showField(col);
-        wrap.querySelectorAll('.gf-field-item').forEach(x=>x.classList.remove('active'));
+      a.onclick = () => {
+        GF.activeField = col;
+        gf_showField(col);
+        wrap.querySelectorAll('.gf-field-item').forEach(x => x.classList.remove('active'));
         a.classList.add('active');
+      };
       a.innerHTML = `<span class="gf-name">${col}</span>
                <span class="gf-count">${(GF.meta[col]?.uniques?.length ?? '')}</span>`;
       wrap.appendChild(a);
