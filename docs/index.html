@@ -424,6 +424,26 @@
       updateBuilderVisibility();
     }
 
+
+    // Hash a string to a hue
+    function hueFromString(s){
+      let h = 0;
+      for (let i=0;i<s.length;i++) h = (h*31 + s.charCodeAt(i)) % 360;
+      return h;
+    }
+    // Build a nice pastel palette from a hue
+    function chipColors(h){
+      return {
+        bg: `hsl(${h} 80% 94%)`,
+        fg: `hsl(${h} 28% 26%)`,
+        border: `hsl(${h} 60% 85%)`,
+        bgActive: `hsl(${h} 92% 90%)`,
+        borderActive: `hsl(${h} 70% 76%)`,
+        stripe: `hsl(${h} 80% 52%)`
+      };
+    }
+     
+        
     // Download filtered CSV
     const btnDownload = id('btnDownloadFiltered');
     if (btnDownload) {
@@ -741,14 +761,18 @@
     list.sort((a,b)=>a.col.localeCompare(b.col));
     for (const {col,t} of list) {
       const a = document.createElement('div');
-      a.className = 'list-group-item list-group-item-action';
-      a.style.cursor = 'pointer';
+      a.className = 'gf-field-item';
+      a.style.setProperty('--stripe', chipColors(hueFromString(col)).stripe);
       a.textContent = `${col}  ·  ${t}`;
-      a.onclick = ()=>{ GF.activeField = col; gf_showField(col); };
+      a.onclick = ()=>{ GF.activeField = col; gf_showField(col);
+        wrap.querySelectorAll('.gf-field-item').forEach(x=>x.classList.remove('active'));
+        a.classList.add('active');
+      a.innerHTML = `<span class="gf-name">${col}</span>
+               <span class="gf-count">${(GF.meta[col]?.uniques?.length ?? '')}</span>`;
       wrap.appendChild(a);
     }
   }
-
+ 
   function gf_showField(col) {
     const chipWrap = document.getElementById('gf-chip-wrap');
     const numWrap = document.getElementById('gf-num-wrap');
@@ -787,12 +811,23 @@
       };
 
       items.forEach(({v,count})=>{
-        const chip = document.createElement('button');
-        chip.className = 'btn btn-sm ' + (current.has(v)?'btn-primary':'btn-outline-secondary');
-        chip.style.margin='4px';
-        chip.textContent = `${v}  ${count.toLocaleString()}`;
-        chip.onclick = ()=>toggle(v);
-        box.appendChild(chip);
+          const chip = document.createElement('button');
+          chip.type = 'button';
+          chip.className = 'gf-chip ' + (current.has(v)?'active':'');
+          const h = hueFromString(String(v));
+          const C = chipColors(h);
+          chip.style.setProperty('--chip-bg', C.bg);
+          chip.style.setProperty('--chip-fg', C.fg);
+          chip.style.setProperty('--chip-border', C.border);
+          chip.style.setProperty('--chip-bg-active', C.bgActive);
+          chip.style.setProperty('--chip-border-active', C.borderActive);
+          chip.textContent = `${v} `;
+          const cnt = document.createElement('small');
+          cnt.textContent = count.toLocaleString();
+          chip.appendChild(cnt);
+          chip.onclick = ()=>toggle(v);
+          box.appendChild(chip);
+                
       });
       // [EMPTY]
       if (meta.empties>0) {
