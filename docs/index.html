@@ -1,3 +1,5 @@
+I provide you the entire code in the following and you said to me what to do based on what you said to remove the error :
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -424,26 +426,6 @@
       updateBuilderVisibility();
     }
 
-
-    // Hash a string to a hue
-    function hueFromString(s){
-      let h = 0;
-      for (let i=0;i<s.length;i++) h = (h*31 + s.charCodeAt(i)) % 360;
-      return h;
-    }
-    // Build a nice pastel palette from a hue
-    function chipColors(h){
-      return {
-        bg: `hsl(${h} 80% 94%)`,
-        fg: `hsl(${h} 28% 26%)`,
-        border: `hsl(${h} 60% 85%)`,
-        bgActive: `hsl(${h} 92% 90%)`,
-        borderActive: `hsl(${h} 70% 76%)`,
-        stripe: `hsl(${h} 80% 52%)`
-      };
-    }
-     
-        
     // Download filtered CSV
     const btnDownload = id('btnDownloadFiltered');
     if (btnDownload) {
@@ -575,12 +557,13 @@
           tryNext();
         }
       });
-     
     };            // ✅ closes tryNext
+  
+    tryNext();    // ✅ call it OUTSIDE the function body
+  }               // ✅ closes loadCSV
 
-  tryNext();    // ✅ call it OUTSIDE the function body
-}               // ✅ closes loadCSV
-
+ },
+ 
   // ----------------------------
   // Global Filters Implementation
   // ----------------------------
@@ -761,18 +744,14 @@
     list.sort((a,b)=>a.col.localeCompare(b.col));
     for (const {col,t} of list) {
       const a = document.createElement('div');
-      a.className = 'gf-field-item';
-      a.style.setProperty('--stripe', chipColors(hueFromString(col)).stripe);
+      a.className = 'list-group-item list-group-item-action';
+      a.style.cursor = 'pointer';
       a.textContent = `${col}  ·  ${t}`;
-      a.onclick = ()=>{ GF.activeField = col; gf_showField(col);
-        wrap.querySelectorAll('.gf-field-item').forEach(x=>x.classList.remove('active'));
-        a.classList.add('active');
-      a.innerHTML = `<span class="gf-name">${col}</span>
-               <span class="gf-count">${(GF.meta[col]?.uniques?.length ?? '')}</span>`;
+      a.onclick = ()=>{ GF.activeField = col; gf_showField(col); };
       wrap.appendChild(a);
     }
   }
- 
+
   function gf_showField(col) {
     const chipWrap = document.getElementById('gf-chip-wrap');
     const numWrap = document.getElementById('gf-num-wrap');
@@ -811,23 +790,12 @@
       };
 
       items.forEach(({v,count})=>{
-          const chip = document.createElement('button');
-          chip.type = 'button';
-          chip.className = 'gf-chip ' + (current.has(v)?'active':'');
-          const h = hueFromString(String(v));
-          const C = chipColors(h);
-          chip.style.setProperty('--chip-bg', C.bg);
-          chip.style.setProperty('--chip-fg', C.fg);
-          chip.style.setProperty('--chip-border', C.border);
-          chip.style.setProperty('--chip-bg-active', C.bgActive);
-          chip.style.setProperty('--chip-border-active', C.borderActive);
-          chip.textContent = `${v} `;
-          const cnt = document.createElement('small');
-          cnt.textContent = count.toLocaleString();
-          chip.appendChild(cnt);
-          chip.onclick = ()=>toggle(v);
-          box.appendChild(chip);
-                
+        const chip = document.createElement('button');
+        chip.className = 'btn btn-sm ' + (current.has(v)?'btn-primary':'btn-outline-secondary');
+        chip.style.margin='4px';
+        chip.textContent = `${v}  ${count.toLocaleString()}`;
+        chip.onclick = ()=>toggle(v);
+        box.appendChild(chip);
       });
       // [EMPTY]
       if (meta.empties>0) {
@@ -1808,7 +1776,7 @@
     const d = new Date(v);
     if (Number.isNaN(d.getTime())) return null;
     const y = d.getUTCFullYear();
-    return (y >= 2019 && y <= 2100) ? d : null;
+    return (y >= 2019 && y <= 2024) ? d : null;
   }
 
   function appendOption(sel, value, label) {
@@ -1900,77 +1868,6 @@
       max-height: 90vh;
       overflow: auto;
     }
-    :root{
-  --gf-radius-lg: 16px;
-  --gf-radius-sm: 10px;
-  --gf-border: #e8ecf0;
-  --gf-panel: #f7f9fb;
-  --gf-soft: #eef6f9;
-  --gf-text: #2b2f36;
-  --gf-muted: #6b7280;
-  --gf-shadow: 0 10px 30px rgba(0,0,0,.08);
-}
-
-/* Panel */
-#filters-panel{
-  border-radius: var(--gf-radius-lg);
-  background: #fff;
-  box-shadow: var(--gf-shadow);
-  border: 1px solid var(--gf-border);
-}
-
-/* Header */
-#filters-panel h3{
-  font-weight: 800;
-  letter-spacing: .2px;
-}
-#gf-field-header,
-#filters-panel .header-strip{
-  background: #e6f3f6;
-  border-radius: var(--gf-radius-sm);
-  padding: 10px 12px;
-}
-
-/* Left list of variables */
-#gf-field-list .gf-field-item{
-  display:flex; align-items:center; justify-content:space-between;
-  padding:10px 12px; border:1px solid var(--gf-border);
-  border-radius: 12px; margin-bottom:8px; background:#fff; cursor:pointer;
-  transition: transform .05s ease, background .15s ease, border-color .15s ease;
-  position:relative;
-}
-#gf-field-list .gf-field-item:hover{ background:#fafcff; border-color:#d8e3ea; }
-#gf-field-list .gf-field-item.active{ background:#eaf6ff; border-color:#b7d9ff; }
-#gf-field-list .gf-field-item::before{
-  content:""; width:4px; height:70%; border-radius:8px;
-  position:absolute; left:6px; top:15%; background: var(--stripe, #7c3aed);
-}
-#gf-field-list .gf-name{ padding-left:14px; font-weight:600; color:var(--gf-text); }
-#gf-field-list .gf-count{
-  font-size:.8rem; color:var(--gf-muted); background:#f3f6fa;
-  border-radius:999px; padding:2px 8px; border:1px solid var(--gf-border);
-}
-
-/* Chips for values */
-#gf-chip-wrap{ display:flex; flex-wrap:wrap; gap:10px; }
-.gf-chip{
-  display:inline-flex; align-items:center; gap:8px;
-  padding:8px 12px; border:1px solid var(--chip-border,#dbe7ee);
-  border-radius:999px; background: var(--chip-bg,#eef7fb);
-  color: var(--chip-fg,#0f3b4a); font-weight:600; cursor:pointer;
-  transition: transform .05s ease, background .15s ease, border-color .15s ease;
-}
-.gf-chip:hover{ transform: translateY(-1px); }
-.gf-chip small{ color: var(--gf-muted); font-weight:500; }
-.gf-chip.active{
-  background: var(--chip-bg-active,#dff3ff);
-  border-color: var(--chip-border-active,#b7e2ff);
-}
-
-/* Tiny toolbar inputs */
-#gf-field-header .form-select, #gf-field-header .form-control{
-  border-radius: 12px; border-color: var(--gf-border);
-}
   </style>
 
 <!-- Global Filters: Backdrop + Panel -->
