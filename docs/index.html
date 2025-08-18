@@ -127,6 +127,26 @@
       opacity: 0.8;
     }
 
+    /* Draggable card styles */
+    .card-chart .card-header {
+      cursor: move;
+      user-select: none;
+    }
+    .card-chart.dragging {
+      z-index: 1000;
+      opacity: 0.8;
+      transform: rotate(2deg);
+      box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+      pointer-events: none;
+    }
+    .card-chart.dragging .card-header {
+      cursor: grabbing;
+    }
+    /* Visual feedback for drag target area */
+    #grid {
+      position: relative;
+    }
+
     /* Modal */
     #modal {
       position: fixed; 
@@ -443,6 +463,8 @@ let inspectorSelectedField = null;
     loadCSV();
     // Initialize Plotly resize observer after a short delay to ensure elements are rendered
     setTimeout(initPlotlyResizeObserver, 500);
+    // Initialize dragging for any existing chart cards
+    setTimeout(initExistingCardsDraggable, 600);
   });
 
   function wireUI() {
@@ -1418,6 +1440,130 @@ let inspectorSelectedField = null;
   }
 
   // ----------------------------
+  // Draggable Chart Cards
+  // ----------------------------
+  function makeDraggable(card) {
+    const header = card.querySelector('.card-header');
+    if (!header) return;
+
+    let isDragging = false;
+    let startX, startY, initialX, initialY;
+
+    header.addEventListener('mousedown', initDrag);
+    
+    function initDrag(e) {
+      // Don't start drag if clicking on remove button
+      if (e.target.closest('.remove')) return;
+      
+      isDragging = true;
+      card.classList.add('dragging');
+      
+      // Get initial mouse position
+      startX = e.clientX;
+      startY = e.clientY;
+      
+      // Get initial card position
+      const rect = card.getBoundingClientRect();
+      initialX = rect.left;
+      initialY = rect.top;
+      
+      // Convert card to fixed positioning for smooth dragging
+      card.style.position = 'fixed';
+      card.style.left = initialX + 'px';
+      card.style.top = initialY + 'px';
+      card.style.margin = '0';
+      card.style.zIndex = '1000';
+      
+      // Add global event listeners
+      document.addEventListener('mousemove', doDrag);
+      document.addEventListener('mouseup', stopDrag);
+      
+      // Prevent text selection
+      document.body.style.userSelect = 'none';
+      
+      e.preventDefault();
+    }
+    
+    function doDrag(e) {
+      if (!isDragging) return;
+      
+      // Calculate new position
+      const currentX = initialX + (e.clientX - startX);
+      const currentY = initialY + (e.clientY - startY);
+      
+      // Update card position
+      card.style.left = currentX + 'px';
+      card.style.top = currentY + 'px';
+    }
+    
+    function stopDrag(e) {
+      if (!isDragging) return;
+      
+      isDragging = false;
+      card.classList.remove('dragging');
+      
+      // Reset positioning to relative within grid
+      card.style.position = '';
+      card.style.left = '';
+      card.style.top = '';
+      card.style.margin = '';
+      card.style.zIndex = '';
+      
+      // Calculate drop position within grid
+      const gridRect = id('grid').getBoundingClientRect();
+      const cardRect = card.getBoundingClientRect();
+      
+      // Only reorder if dropped within grid bounds
+      if (cardRect.left >= gridRect.left && 
+          cardRect.top >= gridRect.top && 
+          cardRect.right <= gridRect.right && 
+          cardRect.bottom <= gridRect.bottom) {
+        
+        // Find the best insertion point
+        const grid = id('grid');
+        const allCards = Array.from(grid.querySelectorAll('.card-chart'));
+        const draggedCard = card;
+        
+        let insertBeforeCard = null;
+        let minDistance = Infinity;
+        
+        allCards.forEach(otherCard => {
+          if (otherCard === draggedCard) return;
+          
+          const otherRect = otherCard.getBoundingClientRect();
+          const distance = Math.abs(cardRect.left - otherRect.left) + 
+                          Math.abs(cardRect.top - otherRect.top);
+          
+          if (distance < minDistance && 
+              (cardRect.left < otherRect.left || 
+               (Math.abs(cardRect.left - otherRect.left) < 100 && cardRect.top < otherRect.top))) {
+            minDistance = distance;
+            insertBeforeCard = otherCard;
+          }
+        });
+        
+        // Reorder in DOM
+        if (insertBeforeCard) {
+          grid.insertBefore(draggedCard, insertBeforeCard);
+        } else {
+          grid.appendChild(draggedCard);
+        }
+      }
+      
+      // Clean up
+      document.removeEventListener('mousemove', doDrag);
+      document.removeEventListener('mouseup', stopDrag);
+      document.body.style.userSelect = '';
+    }
+  }
+
+  // Initialize dragging for existing chart cards
+  function initExistingCardsDraggable() {
+    const existingCards = document.querySelectorAll('.card-chart');
+    existingCards.forEach(card => makeDraggable(card));
+  }
+
+  // ----------------------------
   // Charting
   // ----------------------------
   function addChart(cfg) {
@@ -1440,6 +1586,9 @@ let inspectorSelectedField = null;
       card.remove();
     });
     drawChart(cfg);
+    
+    // Make the card draggable
+    makeDraggable(card);
     
     // Ensure ResizeObserver is watching this plot element
     if (window.plotlyResizeObserver && cfg._el) {
