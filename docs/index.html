@@ -102,6 +102,7 @@
       border-radius: 10px; 
       padding: 1rem 1rem 1.25rem;
       box-shadow: 0 8px 24px rgba(0,0,0,.2);
+      resize: both;
       overflow: auto;
     }
     #modal .grid { display: grid; gap: .75rem; }
@@ -190,101 +191,6 @@
       #inspector { max-height: none; }
     }
     /* ===== Inspector panel styles END ===== */
-    
-    /* ===== Resizable utility styles ===== */
-    .resizable {
-      position: relative;
-    }
-    
-    .resize-handle {
-      position: absolute;
-      background: rgba(108, 117, 125, 0.2);
-      z-index: 10;
-      transition: background-color 0.2s ease, opacity 0.2s ease;
-      opacity: 0;
-    }
-    
-    .resizable:hover .resize-handle {
-      opacity: 1;
-    }
-    
-    .resize-handle:hover {
-      background: rgba(108, 117, 125, 0.5);
-    }
-    
-    /* Edge handles */
-    .resize-handle.resize-n {
-      top: -4px;
-      left: 8px;
-      right: 8px;
-      height: 8px;
-      cursor: n-resize;
-      border-radius: 4px 4px 0 0;
-    }
-    
-    .resize-handle.resize-s {
-      bottom: -4px;
-      left: 8px;
-      right: 8px;
-      height: 8px;
-      cursor: s-resize;
-      border-radius: 0 0 4px 4px;
-    }
-    
-    .resize-handle.resize-e {
-      top: 8px;
-      right: -4px;
-      bottom: 8px;
-      width: 8px;
-      cursor: e-resize;
-      border-radius: 0 4px 4px 0;
-    }
-    
-    .resize-handle.resize-w {
-      top: 8px;
-      left: -4px;
-      bottom: 8px;
-      width: 8px;
-      cursor: w-resize;
-      border-radius: 4px 0 0 4px;
-    }
-    
-    /* Corner handles */
-    .resize-handle.resize-nw {
-      top: -4px;
-      left: -4px;
-      width: 12px;
-      height: 12px;
-      cursor: nw-resize;
-      border-radius: 4px 0 0 0;
-    }
-    
-    .resize-handle.resize-ne {
-      top: -4px;
-      right: -4px;
-      width: 12px;
-      height: 12px;
-      cursor: ne-resize;
-      border-radius: 0 4px 0 0;
-    }
-    
-    .resize-handle.resize-sw {
-      bottom: -4px;
-      left: -4px;
-      width: 12px;
-      height: 12px;
-      cursor: sw-resize;
-      border-radius: 0 0 0 4px;
-    }
-    
-    .resize-handle.resize-se {
-      bottom: -4px;
-      right: -4px;
-      width: 12px;
-      height: 12px;
-      cursor: se-resize;
-      border-radius: 0 0 4px 0;
-    }
   </style>
 </head>
 <body>
@@ -1998,135 +1904,6 @@ let inspectorSelectedField = null;
   }
 
   // ----------------------------
-  // Resizable utility - makes elements resizable in all directions
-  // ----------------------------
-  function makeResizable(element, options = {}) {
-    if (!element) return;
-    
-    const {
-      minWidth = 300,
-      minHeight = 200,
-      maxWidth = window.innerWidth * 0.9,
-      maxHeight = window.innerHeight * 0.9
-    } = options;
-    
-    element.classList.add('resizable');
-    
-    // Special handling for modal - remove CSS centering constraints
-    const isModal = element.closest('#modal');
-    if (isModal) {
-      element.style.width = 'auto';
-      element.style.height = 'auto';
-      element.style.minWidth = minWidth + 'px';
-      element.style.minHeight = minHeight + 'px';
-    }
-    
-    // Special handling for inspector - make it flexible in the grid
-    const isInspector = element.id === 'inspector';
-    if (isInspector) {
-      element.style.width = 'auto';
-      element.style.height = 'auto';
-      element.style.minWidth = minWidth + 'px';
-      element.style.minHeight = minHeight + 'px';
-      element.style.resize = 'both';
-      element.style.overflow = 'auto';
-    }
-    
-    // Create resize handles
-    const handles = [
-      { class: 'resize-n', cursor: 'n-resize' },
-      { class: 'resize-s', cursor: 's-resize' },
-      { class: 'resize-e', cursor: 'e-resize' },
-      { class: 'resize-w', cursor: 'w-resize' },
-      { class: 'resize-nw', cursor: 'nw-resize' },
-      { class: 'resize-ne', cursor: 'ne-resize' },
-      { class: 'resize-sw', cursor: 'sw-resize' },
-      { class: 'resize-se', cursor: 'se-resize' }
-    ];
-    
-    handles.forEach(({ class: className }) => {
-      const handle = document.createElement('div');
-      handle.className = `resize-handle ${className}`;
-      element.appendChild(handle);
-      
-      let isResizing = false;
-      let startX, startY, startWidth, startHeight;
-      
-      handle.addEventListener('mousedown', (e) => {
-        isResizing = true;
-        startX = e.clientX;
-        startY = e.clientY;
-        
-        const rect = element.getBoundingClientRect();
-        startWidth = rect.width;
-        startHeight = rect.height;
-        
-        document.addEventListener('mousemove', handleMouseMove);
-        document.addEventListener('mouseup', handleMouseUp);
-        
-        // Prevent text selection during resize
-        document.body.style.userSelect = 'none';
-        element.style.transition = 'none';
-        
-        e.preventDefault();
-        e.stopPropagation();
-      });
-      
-      function handleMouseMove(e) {
-        if (!isResizing) return;
-        
-        const deltaX = e.clientX - startX;
-        const deltaY = e.clientY - startY;
-        
-        let newWidth = startWidth;
-        let newHeight = startHeight;
-        
-        // Calculate new dimensions based on handle direction
-        if (className.includes('e')) {
-          newWidth = startWidth + deltaX;
-        }
-        if (className.includes('w')) {
-          newWidth = startWidth - deltaX;
-        }
-        if (className.includes('s')) {
-          newHeight = startHeight + deltaY;
-        }
-        if (className.includes('n')) {
-          newHeight = startHeight - deltaY;
-        }
-        
-        // Apply constraints
-        newWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
-        newHeight = Math.max(minHeight, Math.min(maxHeight, newHeight));
-        
-        // Apply new dimensions
-        element.style.width = newWidth + 'px';
-        element.style.height = newHeight + 'px';
-        
-        // For inspector panel, adjust the grid layout to accommodate new width
-        if (isInspector) {
-          const dataLayout = document.getElementById('dataLayout');
-          if (dataLayout && newWidth !== startWidth) {
-            dataLayout.style.gridTemplateColumns = `1fr ${newWidth}px`;
-          }
-        }
-      }
-      
-      function handleMouseUp() {
-        if (!isResizing) return;
-        
-        isResizing = false;
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
-        
-        // Restore text selection and transition
-        document.body.style.userSelect = '';
-        element.style.transition = '';
-      }
-    });
-  }
-
-  // ----------------------------
   // Filters Panel Resize Functionality
   // ----------------------------
   function initFiltersResize() {
@@ -2186,30 +1963,6 @@ let inspectorSelectedField = null;
   document.addEventListener('DOMContentLoaded', () => {
     // Small delay to ensure the Global Filters modal is properly initialized
     setTimeout(initFiltersResize, 100);
-    
-    // Initialize resizable elements
-    setTimeout(() => {
-      const modalSheet = document.querySelector('#modal .sheet');
-      const inspector = document.getElementById('inspector');
-      
-      if (modalSheet) {
-        makeResizable(modalSheet, {
-          minWidth: 400,
-          minHeight: 300,
-          maxWidth: window.innerWidth * 0.95,
-          maxHeight: window.innerHeight * 0.95
-        });
-      }
-      
-      if (inspector) {
-        makeResizable(inspector, {
-          minWidth: 250,
-          minHeight: 200,
-          maxWidth: window.innerWidth * 0.6,
-          maxHeight: window.innerHeight * 0.9
-        });
-      }
-    }, 150);
   });
   </script>
 
