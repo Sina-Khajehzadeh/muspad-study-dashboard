@@ -765,6 +765,79 @@ let inspectorSelectedField = null;
     });
   }
 
+  function gf_renderSelectedChips() {
+    const chipsContainer = document.getElementById('gf-selected-chips');
+    const chipsList = document.getElementById('gf-selected-chips-list');
+    
+    if (!chipsContainer || !chipsList) return;
+    
+    chipsList.innerHTML = '';
+    
+    const hasFilters = Object.keys(GF.state).length > 0;
+    chipsContainer.style.display = hasFilters ? 'block' : 'none';
+    
+    if (!hasFilters) {
+      chipsList.innerHTML = '<span style="color:var(--gf-muted,#6b7280); font-size:14px; font-style:italic;">No filters applied</span>';
+      return;
+    }
+    
+    for (const [fieldName, filter] of Object.entries(GF.state)) {
+      const chip = document.createElement('div');
+      chip.className = 'gf-selected-chip';
+      
+      // Set chip colors based on field name hash
+      const h = hueFromString(fieldName);
+      const colors = chipColors(h);
+      chip.style.setProperty('--chip-bg', colors.bg);
+      chip.style.setProperty('--chip-fg', colors.fg);
+      chip.style.setProperty('--chip-border', colors.border);
+      chip.style.setProperty('--chip-bg-hover', colors.bgActive);
+      chip.style.setProperty('--chip-border-hover', colors.borderActive);
+      
+      // Build constraint text
+      let constraintText = '';
+      if (filter.type === 'cat') {
+        const includeCount = filter.include ? filter.include.size : 0;
+        const emptyText = filter.includeEmpty ? ' + [EMPTY]' : '';
+        constraintText = includeCount > 0 ? `${includeCount} values${emptyText}` : (filter.includeEmpty ? '[EMPTY] only' : 'none');
+      } else if (filter.type === 'num') {
+        const minVal = filter.min !== undefined ? filter.min : 'min';
+        const maxVal = filter.max !== undefined ? filter.max : 'max';
+        const emptyText = filter.includeEmpty ? ' + [EMPTY]' : '';
+        constraintText = `${minVal} – ${maxVal}${emptyText}`;
+      } else if (filter.type === 'date') {
+        const bucketCount = filter.buckets ? filter.buckets.size : 0;
+        const periodText = filter.period || 'periods';
+        const emptyText = filter.includeEmpty ? ' + [EMPTY]' : '';
+        const rangeText = filter.start && filter.end ? ` (${filter.start} → ${filter.end})` : '';
+        constraintText = bucketCount > 0 ? `${bucketCount} ${periodText}${rangeText}${emptyText}` : 
+                        (filter.start || filter.end ? `${filter.start || '…'} → ${filter.end || '…'}${emptyText}` : 
+                        (filter.includeEmpty ? '[EMPTY] only' : 'none'));
+      }
+      
+      chip.innerHTML = `
+        <span class="gf-field-name">${fieldName}</span>
+        <span class="gf-constraint-text">${constraintText}</span>
+        <button class="gf-selected-chip-remove" onclick="gf_removeFilter('${fieldName}')" aria-label="Remove ${fieldName} filter" title="Remove filter">×</button>
+      `;
+      
+      chipsList.appendChild(chip);
+    }
+  }
+
+  function gf_removeFilter(fieldName) {
+    delete GF.state[fieldName];
+    gf_renderSelectedChips();
+    
+    // If this field is currently active, refresh its display
+    if (GF.activeField === fieldName) {
+      gf_showField(fieldName);
+    }
+    
+    // Update field list to reflect changes
+    gf_renderFieldList(GF._group || 'all', document.getElementById('gf-field-search')?.value || '');
+  }
+
   function openFiltersModal() {
     const el = document.getElementById('filters-backdrop');
     if (el) {
@@ -775,6 +848,8 @@ let inspectorSelectedField = null;
       gf_renderFieldList('all', '');
       // right pane
       gf_showField(null);
+      // render selected chips
+      gf_renderSelectedChips();
     }
   }
   
@@ -817,6 +892,7 @@ let inspectorSelectedField = null;
       GF.state = {}; 
       gf_renderFieldList(GF._group||'all', document.getElementById('gf-field-search').value||''); 
       gf_showField(GF.activeField); 
+      gf_renderSelectedChips();
     };
     if (applyBtn) applyBtn.onclick = () => { 
       gf_applyToDashboard(); 
@@ -916,6 +992,7 @@ let inspectorSelectedField = null;
         if (!GF.state[col]) GF.state[col] = {type:'cat', include:new Set(), includeEmpty:false};
         if (current.has(val)) current.delete(val); else current.add(val);
         gf_showField(col);
+        gf_renderSelectedChips();
       };
 
       items.forEach(({v,count})=>{
@@ -948,6 +1025,7 @@ let inspectorSelectedField = null;
           if (!GF.state[col]) GF.state[col] = {type:'cat', include:new Set(), includeEmpty:false};
           GF.state[col].includeEmpty = !GF.state[col].includeEmpty;
           gf_showField(col);
+          gf_renderSelectedChips();
         };
         box.appendChild(chip);
       }
@@ -955,9 +1033,9 @@ let inspectorSelectedField = null;
       const tools = document.createElement('div');
       tools.style.marginTop='8px';
       const allBtn = document.createElement('button'); allBtn.className='btn btn-xs btn-light'; allBtn.textContent='Select All';
-      allBtn.onclick = ()=>{ GF.state[col]={type:'cat', include:new Set(items.map(x=>x.v)), includeEmpty:GF.state[col]?.includeEmpty||false}; gf_showField(col); };
+      allBtn.onclick = ()=>{ GF.state[col]={type:'cat', include:new Set(items.map(x=>x.v)), includeEmpty:GF.state[col]?.includeEmpty||false}; gf_showField(col); gf_renderSelectedChips(); };
       const noneBtn = document.createElement('button'); noneBtn.className='btn btn-xs btn-light'; noneBtn.style.marginLeft='6px'; noneBtn.textContent='Deselect All';
-      noneBtn.onclick = ()=>{ GF.state[col]={type:'cat', include:new Set(), includeEmpty:false}; gf_showField(col); };
+      noneBtn.onclick = ()=>{ GF.state[col]={type:'cat', include:new Set(), includeEmpty:false}; gf_showField(col); gf_renderSelectedChips(); };
       tools.appendChild(allBtn); tools.appendChild(noneBtn); box.appendChild(tools);
 
       box.style.display='flex';
@@ -989,6 +1067,7 @@ let inspectorSelectedField = null;
         if (a > b) [a,b] = [b,a];
         s.min = a; s.max = b;
         sMin.value = a; sMax.value = b;
+        gf_renderSelectedChips();
       };
       if (minEl) minEl.oninput = sync;
       if (maxEl) maxEl.oninput = sync;
@@ -1015,7 +1094,7 @@ let inspectorSelectedField = null;
       if (empty) empty.innerHTML='';
       if (meta.empties>0 && empty){
         const chk = document.createElement('input'); chk.type='checkbox'; chk.checked=!!s.includeEmpty;
-        chk.onchange = ()=>{ s.includeEmpty = chk.checked; };
+        chk.onchange = ()=>{ s.includeEmpty = chk.checked; gf_renderSelectedChips(); };
         const lbl = document.createElement('label'); lbl.style.marginLeft='6px'; lbl.textContent = `[EMPTY] ${meta.empties.toLocaleString()}`;
         const wrapDiv = document.createElement('div'); wrapDiv.appendChild(chk); wrapDiv.appendChild(lbl);
         empty.appendChild(wrapDiv);
@@ -1032,9 +1111,9 @@ let inspectorSelectedField = null;
       const startEl  = document.getElementById('gf-date-start');
       const endEl    = document.getElementById('gf-date-end');
       if (periodEl) periodEl.value = s.period;
-      if (periodEl) periodEl.onchange = ()=>{ s.period = periodEl.value; gf_showField(col); };
-      if (startEl) startEl.onchange = ()=>{ s.start = startEl.value||null; };
-      if (endEl) endEl.onchange   = ()=>{ s.end   = endEl.value||null; };
+      if (periodEl) periodEl.onchange = ()=>{ s.period = periodEl.value; gf_showField(col); gf_renderSelectedChips(); };
+      if (startEl) startEl.onchange = ()=>{ s.start = startEl.value||null; gf_renderSelectedChips(); };
+      if (endEl) endEl.onchange   = ()=>{ s.end   = endEl.value||null; gf_renderSelectedChips(); };
 
       const bucketBox = document.getElementById('gf-date-buckets');
       if (bucketBox) bucketBox.innerHTML='';
@@ -1057,7 +1136,7 @@ let inspectorSelectedField = null;
         chip.className = 'btn btn-sm ' + (onSet.has(name)?'btn-primary':'btn-outline-secondary');
         chip.style.margin='4px';
         chip.textContent = `${name}  ${count.toLocaleString()}`;
-        chip.onclick = ()=>{ onSet.has(name)? onSet.delete(name) : onSet.add(name); gf_showField(col); };
+        chip.onclick = ()=>{ onSet.has(name)? onSet.delete(name) : onSet.add(name); gf_showField(col); gf_renderSelectedChips(); };
         if (bucketBox) bucketBox.appendChild(chip);
       });
 
@@ -1065,7 +1144,7 @@ let inspectorSelectedField = null;
       if (empty) empty.innerHTML='';      
       if (GF.meta?.[col]?.empties>0 && empty){
         const chk = document.createElement('input'); chk.type='checkbox'; chk.checked=!!s.includeEmpty;
-        chk.onchange = ()=>{ s.includeEmpty = chk.checked; };        
+        chk.onchange = ()=>{ s.includeEmpty = chk.checked; gf_renderSelectedChips(); };        
         const lbl = document.createElement('label'); lbl.style.marginLeft='6px'; lbl.textContent = `[EMPTY] ${GF.meta?.[col]?.empties?.toLocaleString()}`;
         const wrapDiv = document.createElement('div'); wrapDiv.appendChild(chk); wrapDiv.appendChild(lbl);
         empty.appendChild(wrapDiv);
@@ -2361,6 +2440,59 @@ let inspectorSelectedField = null;
 #gf-field-header .form-select, #gf-field-header .form-control{
   border-radius: 12px; border-color: var(--gf-border);
 }
+
+/* Selected filters chips */
+.gf-selected-chip {
+  display: inline-flex; 
+  align-items: center; 
+  gap: 6px;
+  padding: 6px 10px; 
+  background: var(--chip-bg, #f0f8ff); 
+  border: 1px solid var(--chip-border, #bde0ff);
+  border-radius: 16px; 
+  font-size: 13px; 
+  font-weight: 500;
+  color: var(--chip-fg, #1e5a8a);
+  transition: all 0.15s ease;
+}
+
+.gf-selected-chip:hover {
+  background: var(--chip-bg-hover, #e6f3ff);
+  border-color: var(--chip-border-hover, #87ceeb);
+  transform: translateY(-1px);
+}
+
+.gf-selected-chip-remove {
+  background: none;
+  border: none;
+  color: var(--chip-fg, #1e5a8a);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.15s ease;
+}
+
+.gf-selected-chip-remove:hover {
+  background: rgba(220, 53, 69, 0.1);
+  color: #dc3545;
+}
+
+.gf-field-name {
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+.gf-constraint-text {
+  color: var(--gf-muted, #6b7280);
+  font-weight: 400;
+}
   </style>
 
 <!-- Global Filters: Backdrop + Panel -->
@@ -2373,6 +2505,14 @@ let inspectorSelectedField = null;
         <button id="gf-clear-all" class="btn btn-sm btn-outline-secondary">Clear All</button>
         <button id="gf-cancel" class="btn btn-sm btn-light">Cancel</button>
         <button id="gf-apply" class="btn btn-sm btn-primary">Apply</button>
+      </div>
+    </div>
+
+    <!-- Selected Filters Chips Bar -->
+    <div id="gf-selected-chips" style="display:none; background:var(--gf-soft,#eef6f9); border:1px solid var(--gf-border,#e8ecf0); border-radius:var(--gf-radius-sm,10px); padding:12px; margin-bottom:12px; min-height:20px;">
+      <div style="font-size:11px; color:var(--gf-muted,#6b7280); margin-bottom:6px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Active Filters</div>
+      <div id="gf-selected-chips-list" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+        <span style="color:var(--gf-muted,#6b7280); font-size:14px; font-style:italic;">No filters applied</span>
       </div>
     </div>
 
