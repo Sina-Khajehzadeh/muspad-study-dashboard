@@ -361,15 +361,15 @@
   let empCol  = null;
   let numericCols = [];
   let categoricalCols = [];
-  let inspectorSelectedField = null;
+let inspectorSelectedField = null;
 
-  // Utility functions used across UI components
+  // Hash a string to a hue
   function hueFromString(s){
     let h = 0;
     for (let i=0;i<s.length;i++) h = (h*31 + s.charCodeAt(i)) % 360;
     return h;
   }
-
+  // Build a nice pastel palette from a hue
   function chipColors(h){
     return {
       bg: `hsl(${h} 80% 94%)`,
@@ -441,8 +441,7 @@
       fldType.addEventListener('change', updateBuilderVisibility);
       updateBuilderVisibility();
     }
-
-
+     
     // Download filtered CSV
     const btnDownload = id('btnDownloadFiltered');
     if (btnDownload) {
@@ -581,6 +580,25 @@
 }               // ✅ closes loadCSV
 
   // ----------------------------
+  // Color utilities
+  // ----------------------------
+  function hueFromString(s){
+    let h = 0;
+    for (let i=0; i<s.length; i++) h = (h*31 + s.charCodeAt(i)) % 360;
+    return h;
+  }
+  function chipColors(h){
+    return {
+      bg: `hsl(${h} 80% 94%)`,
+      fg: `hsl(${h} 28% 26%)`,
+      border: `hsl(${h} 60% 85%)`,
+      bgActive: `hsl(${h} 92% 90%)`,
+      borderActive: `hsl(${h} 70% 76%)`,
+      stripe: `hsl(${h} 80% 52%)`
+    };
+  }
+    
+  // ----------------------------
   // Global Filters Implementation
   // ----------------------------
   
@@ -641,6 +659,15 @@
         counts.set(v, (counts.get(v) || 0) + 1);
       }
       m.uniques = [...counts.entries()].map(([v,count])=>({v,count}));
+      if (type === 'num') {
+        const binCount = 7;
+        const width = (m.max - m.min) / binCount || 1;
+        m.binCounts = Array(binCount).fill(0);
+        for (const [val,count] of counts.entries()) {
+          const idx = Math.min(binCount-1, Math.floor((val - m.min) / width));
+          m.binCounts[idx] += count;
+        }
+      }    
       // precompute date buckets
       if (type === 'date') {
         const toQuarter = (iso) => {
@@ -746,13 +773,14 @@
   }
 
   function gf_renderFieldList(group, needle) {
+    if (!GF.meta || !columns?.length) return;
     const wrap = document.getElementById('gf-field-list');
     if (!wrap) return;
     
     wrap.innerHTML = '';
     const list = [];
     for (const col of columns) {
-      const t = GF.meta[col]?.type || 'cat';
+      const t = GF.meta?.[col]?.type || 'cat';
       if (group!=='all' && ((group==='cat'&&t!=='cat')||(group==='num'&&t!=='num')||(group==='date'&&t!=='date'))) continue;
       if (needle && !col.toLowerCase().includes(needle.toLowerCase())) continue;
       list.push({col, t});
@@ -763,18 +791,18 @@
       a.className = 'gf-field-item';
       a.style.setProperty('--stripe', chipColors(hueFromString(col)).stripe);
       a.textContent = `${col}  ·  ${t}`;
-      a.onclick = () => {
-        GF.activeField = col;
+      a.onclick = ()=>{ 
+        GF.activeField = col; 
         gf_showField(col);
-        wrap.querySelectorAll('.gf-field-item').forEach(x => x.classList.remove('active'));
+        wrap.querySelectorAll('.gf-field-item').forEach(x=>x.classList.remove('active'));
         a.classList.add('active');
-      };
-      a.innerHTML = `<span class="gf-name">${col}</span>
-               <span class="gf-count">${(GF.meta[col]?.uniques?.length ?? '')}</span>`;
+      };      
+      a.innerHTML = `<span class="gf-name">${col}</span>` +
+               `<span class="gf-count">${GF.meta?.[col]?.uniques?.length ?? ''}</span>`;
       wrap.appendChild(a);
     }
   }
- 
+
   function gf_showField(col) {
     const chipWrap = document.getElementById('gf-chip-wrap');
     const numWrap = document.getElementById('gf-num-wrap');
@@ -789,7 +817,7 @@
     if (activeField) activeField.textContent = col || '(Select a field)';
 
     if (!col) return;
-    const meta = GF.meta[col];
+    const meta = GF.meta?.[col];
     const sortSelect = document.getElementById('gf-sort');
     const valueSearch = document.getElementById('gf-value-search');
     const sort = sortSelect ? sortSelect.value : 'count';
@@ -891,15 +919,13 @@
 
       const bins = document.getElementById('gf-num-bins');
       if (bins) bins.innerHTML='';
-      const binCount = 7;
+      
+      const binCount = meta.binCounts.length;
       const width = (meta.max - meta.min) / binCount || 1;
       for (let i=0;i<binCount;i++){
         const a = Math.round(meta.min + i*width);
         const b = Math.round(i===binCount-1? meta.max : meta.min + (i+1)*width);
-        const cnt = rawData.reduce((acc,r)=>{
-          const v = Number(r[col]);
-          return acc + ((isFinite(v) && v>=a && v<=b) ? 1 : 0);
-        },0);
+        const cnt = meta.binCounts[i];
         const chip = document.createElement('span');
         chip.className='badge bg-light text-dark';
         chip.style.cursor='pointer'; chip.style.margin='2px';
@@ -937,13 +963,14 @@
       const all = [];
       if (s.period==='quarter') {
         // already precomputed: keys like "Q4 2020"
-        for (const k in GF.meta[col].buckets) if (k.startsWith('Q')) all.push([k, GF.meta[col].buckets[k]]);
+        
+        for (const k in GF.meta?.[col]?.buckets || {}) if (k.startsWith('Q')) all.push([k, GF.meta?.[col]?.buckets?.[k]]);
         all.sort((a,b)=>a[0].localeCompare(b[0]));
       } else if (s.period==='year') {
         for (const k in GF.meta[col].buckets) if (/^\d{4}$/.test(k)) all.push([k, GF.meta[col].buckets[k]]);
         all.sort((a,b)=>a[0].localeCompare(b[0]));
-      } else {
-        for (const k in GF.meta[col].buckets) if (/^\d{4}-\d{2}$/.test(k)) all.push([k, GF.meta[col].buckets[k]]);
+      } else {        
+        for (const k in GF.meta?.[col]?.buckets || {}) if (/^\d{4}-\d{2}$/.test(k)) all.push([k, GF.meta?.[col]?.buckets?.[k]]);
         all.sort((a,b)=>a[0].localeCompare(b[0]));
       }
       const onSet = s.buckets;
@@ -957,11 +984,11 @@
       });
 
       const empty = document.getElementById('gf-date-empty');
-      if (empty) empty.innerHTML='';
-      if (GF.meta[col].empties>0 && empty){
+      if (empty) empty.innerHTML='';      
+      if (GF.meta?.[col]?.empties>0 && empty){
         const chk = document.createElement('input'); chk.type='checkbox'; chk.checked=!!s.includeEmpty;
-        chk.onchange = ()=>{ s.includeEmpty = chk.checked; };
-        const lbl = document.createElement('label'); lbl.style.marginLeft='6px'; lbl.textContent = `[EMPTY] ${GF.meta[col].empties.toLocaleString()}`;
+        chk.onchange = ()=>{ s.includeEmpty = chk.checked; };        
+        const lbl = document.createElement('label'); lbl.style.marginLeft='6px'; lbl.textContent = `[EMPTY] ${GF.meta?.[col]?.empties?.toLocaleString()}`;
         const wrapDiv = document.createElement('div'); wrapDiv.appendChild(chk); wrapDiv.appendChild(lbl);
         empty.appendChild(wrapDiv);
       }
