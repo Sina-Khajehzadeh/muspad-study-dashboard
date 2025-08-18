@@ -8,6 +8,9 @@
   <!-- Bootstrap CSS + Icons (no SRI to avoid integrity mismatches) -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+  
+  <!-- Filters modal size fixes -->
+  <link href="filters-size-fix.css" rel="stylesheet">
 
   <!-- Plotly.js for charts + PapaParse for CSV -->
   <script src="https://cdn.plot.ly/plotly-2.25.2.min.js"></script>
@@ -1040,62 +1043,140 @@ let inspectorSelectedField = null;
 
       box.style.display='flex';
 
-    } else if (meta.type==='num') {
+    } else if (meta.type === 'num') {
       const wrap = document.getElementById('gf-num-wrap');
       if (!wrap) return;
-      wrap.style.display='flex';
-      const s = GF.state[col] || {type:'num', min:meta.min, max:meta.max, includeEmpty:false};
+      wrap.style.display = 'flex';
+
+      // state object for this field
+      const s = GF.state[col] || { type: 'num', min: meta.min, max: meta.max, includeEmpty: false };
       GF.state[col] = s;
 
-      // set inputs/sliders
+      // elements
       const minEl = document.getElementById('gf-num-min');
       const maxEl = document.getElementById('gf-num-max');
       const sMin = document.getElementById('gf-num-slider-min');
       const sMax = document.getElementById('gf-num-slider-max');
-      
-      if (sMin && sMax) {
-        [sMin, sMax].forEach(sl=>{ sl.min = meta.min; sl.max = meta.max; sl.step='1'; });
-      }
-      if (minEl) minEl.value = s.min ?? meta.min;
-      if (maxEl) maxEl.value = s.max ?? meta.max;
-      if (sMin) sMin.value = minEl ? minEl.value : s.min ?? meta.min;
-      if (sMax) sMax.value = maxEl ? maxEl.value : s.max ?? meta.max;
 
-      const sync = ()=>{
+      // ensure meta.min/max are numbers and sensible
+      const domainMin = (meta.min !== null && meta.min !== undefined && !Number.isNaN(Number(meta.min))) ? Number(meta.min) : 0;
+      const domainMax = (meta.max !== null && meta.max !== undefined && !Number.isNaN(Number(meta.max))) ? Number(meta.max) : domainMin + 1;
+
+      // set range attributes
+      if (sMin && sMax) {
+        sMin.min = domainMin; sMin.max = domainMax; sMin.step = '1';
+        sMax.min = domainMin; sMax.max = domainMax; sMax.step = '1';
+      }
+
+      // helper to produce safe numeric/string values
+      const safeNumber = (v, fallback) => {
+        const n = Number(v);
+        return Number.isNaN(n) ? fallback : n;
+      };
+
+      // initialize text inputs with saved state or meta
+      const initialMin = (s.min !== undefined && s.min !== null) ? Number(s.min) : domainMin;
+      const initialMax = (s.max !== undefined && s.max !== null) ? Number(s.max) : domainMax;
+
+      // clamp function
+      const clamp = (v) => Math.max(domainMin, Math.min(domainMax, v));
+
+      // write values everywhere (use strings for .value)
+      if (minEl) minEl.value = String(clamp(initialMin));
+      if (maxEl) maxEl.value = String(clamp(initialMax));
+      if (sMin) sMin.value = String(clamp(initialMin));
+      if (sMax) sMax.value = String(clamp(initialMax));
+
+      // sync function: read number inputs, coerce, sort, clamp, write back
+      const sync = () => {
         if (!minEl || !maxEl || !sMin || !sMax) return;
-        let a = Number(minEl.value), b = Number(maxEl.value);
-        if (a > b) [a,b] = [b,a];
+        let a = safeNumber(minEl.value, domainMin);
+        let b = safeNumber(maxEl.value, domainMax);
+
+        // if one of editors is empty or NaN, fallback to domain bounds
+        if (Number.isNaN(a)) a = domainMin;
+        if (Number.isNaN(b)) b = domainMax;
+
+        // ensure ordering
+        if (a > b) [a, b] = [b, a];
+
+        // clamp
+        a = clamp(a); b = clamp(b);
+
+        // persist to state
         s.min = a; s.max = b;
-        sMin.value = a; sMax.value = b;
+
+        // write back to all controls (strings)
+        minEl.value = String(a);
+        maxEl.value = String(b);
+        sMin.value = String(a);
+        sMax.value = String(b);
+
         gf_renderSelectedChips();
       };
-      if (minEl) minEl.oninput = sync;
-      if (maxEl) maxEl.oninput = sync;
-      if (sMin) sMin.oninput = (e)=>{ if (minEl) minEl.value = e.target.value; sync(); };
-      if (sMax) sMax.oninput = (e)=>{ if (maxEl) maxEl.value = e.target.value; sync(); };
 
-      const bins = document.getElementById('gf-num-bins');
-      if (bins) bins.innerHTML='';
-      
-      const binCount = meta.binCounts.length;
-      const width = (meta.max - meta.min) / binCount || 1;
-      for (let i=0;i<binCount;i++){
-        const a = Math.round(meta.min + i*width);
-        const b = Math.round(i===binCount-1? meta.max : meta.min + (i+1)*width);
-        const cnt = meta.binCounts[i];
-        const chip = document.createElement('span');
-        chip.className='badge bg-light text-dark';
-        chip.style.cursor='pointer'; chip.style.margin='2px';
-        chip.textContent = `${a}–${b}  ${cnt.toLocaleString()}`;
-        chip.onclick = ()=>{ if (minEl) minEl.value=a; if (maxEl) maxEl.value=b; sync(); };
-        if (bins) bins.appendChild(chip);
+      // wire text inputs
+      if (minEl) {
+        minEl.oninput = () => {
+          // allow empty during typing, but map empty -> domainMin in sync
+          if (minEl.value === '') { s.min = domainMin; sync(); return; }
+          sync();
+        };
       }
+      if (maxEl) {
+        maxEl.oninput = () => {
+          if (maxEl.value === '') { s.max = domainMax; sync(); return; }
+          sync();
+        };
+      }
+
+      // wire range sliders (use numeric guard)
+      if (sMin) {
+        sMin.oninput = (e) => {
+          const v = safeNumber(e.target.value, domainMin);
+          // if slider produced NaN ignore
+          if (Number.isNaN(v)) return;
+          minEl && (minEl.value = String(clamp(v)));
+          sync();
+        };
+      }
+      if (sMax) {
+        sMax.oninput = (e) => {
+          const v = safeNumber(e.target.value, domainMax);
+          if (Number.isNaN(v)) return;
+          maxEl && (maxEl.value = String(clamp(v)));
+          sync();
+        };
+      }
+
+      // bins UI (unchanged except using domainMin/domainMax)
+      const bins = document.getElementById('gf-num-bins');
+      if (bins) bins.innerHTML = '';
+      const binCount = meta.binCounts ? meta.binCounts.length : 0;
+      for (let i = 0; i < binCount; i++) {
+        const a = Math.round(domainMin + i * ((domainMax - domainMin) / Math.max(1, binCount)));
+        const b = Math.round(i === binCount - 1 ? domainMax : domainMin + ((i + 1) * ((domainMax - domainMin) / Math.max(1, binCount))));
+        const cnt = (meta.binCounts && meta.binCounts[i]) || 0;
+        const chip = document.createElement('span');
+        chip.className = 'badge bg-light text-dark';
+        chip.style.cursor = 'pointer';
+        chip.style.margin = '2px';
+        chip.textContent = `${a}–${b}  ${cnt.toLocaleString()}`;
+        chip.onclick = () => {
+          if (minEl) minEl.value = String(a);
+          if (maxEl) maxEl.value = String(b);
+          sync();
+        };
+        bins.appendChild(chip);
+      }
+
+      // empty checkbox
       const empty = document.getElementById('gf-num-empty');
-      if (empty) empty.innerHTML='';
-      if (meta.empties>0 && empty){
-        const chk = document.createElement('input'); chk.type='checkbox'; chk.checked=!!s.includeEmpty;
-        chk.onchange = ()=>{ s.includeEmpty = chk.checked; gf_renderSelectedChips(); };
-        const lbl = document.createElement('label'); lbl.style.marginLeft='6px'; lbl.textContent = `[EMPTY] ${meta.empties.toLocaleString()}`;
+      if (empty) empty.innerHTML = '';
+      if (meta.empties > 0 && empty) {
+        const chk = document.createElement('input'); chk.type = 'checkbox'; chk.checked = !!s.includeEmpty;
+        chk.onchange = () => { s.includeEmpty = chk.checked; gf_renderSelectedChips(); };
+        const lbl = document.createElement('label'); lbl.style.marginLeft = '6px'; lbl.textContent = `[EMPTY] ${meta.empties?.toLocaleString()}`;
         const wrapDiv = document.createElement('div'); wrapDiv.appendChild(chk); wrapDiv.appendChild(lbl);
         empty.appendChild(wrapDiv);
       }

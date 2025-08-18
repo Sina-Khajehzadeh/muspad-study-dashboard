@@ -1,0 +1,49 @@
+/* Global Filters Modal Size & Layout Fixes */
+
+/* Center the filters backdrop when shown */
+#filters-backdrop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Override the filters panel max-width and improve responsive behavior */
+#filters-panel {
+  width: min(1200px, 96vw) !important;
+  max-width: min(1200px, 96vw) !important;
+  resize: both !important;
+}
+
+/* Widen the left field list for better balance */
+#gf-field-list {
+  min-width: 280px;
+}
+
+/* Improve right editor panel minimum width */
+#filters-panel .grid > div:last-child {
+  min-width: 400px;
+}
+
+/* Better grid layout for larger modal */
+#filters-panel > div[style*="grid-template-columns"] {
+  grid-template-columns: 300px 1fr !important;
+  gap: 16px !important;
+}
+
+/* Media query for small screens */
+@media (max-width: 768px) {
+  #filters-panel {
+    width: 95vw !important;
+    max-width: 95vw !important;
+    margin: 10px;
+  }
+  
+  #filters-panel > div[style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+  
+  #gf-field-list {
+    min-width: auto;
+  }
+}
