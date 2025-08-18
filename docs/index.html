@@ -488,7 +488,8 @@
   // Global state
   // ----------------------------
   let rawData = [];
-  let filtered = [];
+  let filtered = []; // Legacy variable, kept for backward compatibility
+  let filteredRows = []; // Canonical source of truth for filtered dataset
   let columns = [];
   let charts = [];
   let dateCol = null;
@@ -497,6 +498,80 @@
   let numericCols = [];
   let categoricalCols = [];
 let inspectorSelectedField = null;
+
+  // Simple filters state (for legacy selects and date range)
+  let Simple = {
+    dateRange: { start: null, end: null },
+    categoryFilters: {} // { columnName: [selectedValues] }
+  };
+
+  // ----------------------------
+  // Unified filtering helper functions
+  // ----------------------------
+  
+  function passesSimpleFilters(row) {
+    // Check date range filter
+    if (dateCol && (Simple.dateRange.start || Simple.dateRange.end)) {
+      const d = parseValidDate(row[dateCol]);
+      if (!d) return false;
+      if (Simple.dateRange.start && d < Simple.dateRange.start) return false;
+      if (Simple.dateRange.end && d > Simple.dateRange.end) return false;
+    }
+    
+    // Check category filters
+    for (const col in Simple.categoryFilters) {
+      const selected = Simple.categoryFilters[col];
+      if (selected && selected.length > 0) {
+        if (!selected.includes(String(row[col]))) return false;
+      }
+    }
+    
+    return true;
+  }
+
+  function passesGlobalFilters(row) {
+    // If no Global Filters state, pass all rows
+    if (!GF || !GF.state || Object.keys(GF.state).length === 0) {
+      return true;
+    }
+    
+    // Check each Global Filter
+    for (const [col, sel] of Object.entries(GF.state)) {
+      const v0 = row[col];
+      const empty = (v0 === null || v0 === undefined || String(v0).trim() === '');
+
+      if (sel.type === 'cat') {
+        const hit = sel.include.has(String(v0));
+        if (!hit && !(empty && sel.includeEmpty)) return false;
+      }
+      else if (sel.type === 'num') {
+        if (empty) { 
+          if (!sel.includeEmpty) return false; 
+        } else {
+          const num = Number(v0);
+          if (Number.isNaN(num) || num < sel.min || num > sel.max) return false;
+        }
+      }
+      else if (sel.type === 'date') {
+        if (empty) { 
+          if (!sel.includeEmpty) return false; 
+        } else {
+          const iso = new Date(v0).toISOString().slice(0, 10);
+          if (sel.start && iso < sel.start) return false;
+          if (sel.end && iso > sel.end) return false;
+          if (sel.buckets && sel.buckets.size) {
+            const y = iso.slice(0, 4);
+            const ym = iso.slice(0, 7);
+            const q = `Q${Math.floor((Number(iso.slice(5, 7)) - 1) / 3) + 1} ${y}`;
+            const key = sel.period === 'quarter' ? q : (sel.period === 'year' ? y : ym);
+            if (!sel.buckets.has(key)) return false;
+          }
+        }
+      }
+    }
+    
+    return true;
+  }
 
   // Hash a string to a hue
   function hueFromString(s){
@@ -840,17 +915,8 @@ let inspectorSelectedField = null;
     if (!hasFilters) {
       chipsList.innerHTML = '<span style="color:var(--gf-muted,#6b7280); font-size:14px; font-style:italic;">No filters applied</span>';
       if (live) {
-        // Live preview with no filters - reset to show all data
-        if (typeof rawData !== 'undefined') {
-          filtered = rawData.slice(); // Show all data
-          updateTable();
-          if (typeof charts !== 'undefined' && charts.forEach && typeof drawChart === 'function') {
-            charts.forEach(drawChart);
-          }
-          if (typeof updateInspectorSummary === 'function') {
-            updateInspectorSummary();
-          }
-        }
+        // Use unified pipeline for live preview with no filters
+        applyFiltersPipeline(true);
       }
       return;
     }
@@ -898,53 +964,8 @@ let inspectorSelectedField = null;
     
     // Live preview functionality
     if (live) {
-      // Apply the current GF.state as a preview without closing the modal
-      if (typeof rawData !== 'undefined') {
-        filtered = rawData.filter(row=>{
-          for (const [col, sel] of Object.entries(GF.state)) {
-            const v0 = row[col];
-            const empty = (v0===null || v0===undefined || String(v0).trim()==='');
-
-            if (sel.type==='cat') {
-              const hit = sel.include.has(String(v0));
-              if (!hit && !(empty && sel.includeEmpty)) return false;
-            }
-            else if (sel.type==='num') {
-              if (empty) { if (!sel.includeEmpty) return false; }
-              else {
-                const num = Number(v0);
-                if (Number.isNaN(num) || num < sel.min || num > sel.max) return false;
-              }
-            }
-            else if (sel.type==='date') {
-              if (empty) { if (!sel.includeEmpty) return false; }
-              else {
-                const iso = new Date(v0).toISOString().slice(0,10);
-                if (sel.start && iso < sel.start) return false;
-                if (sel.end && iso > sel.end) return false;
-                if (sel.buckets && sel.buckets.size){
-                  // accept values matching any selected bucket for the chosen period
-                  const y  = iso.slice(0,4);
-                  const ym = iso.slice(0,7);
-                  const q  = `Q${Math.floor((Number(iso.slice(5,7))-1)/3)+1} ${y}`;
-                  const key = sel.period==='quarter'? q : (sel.period==='year'? y : ym);
-                  if (!sel.buckets.has(key)) return false;
-                }
-              }
-            }
-          }
-          return true;
-        });
-
-        // Update table and charts for live preview
-        updateTable();
-        if (typeof charts !== 'undefined' && charts.forEach && typeof drawChart === 'function') {
-          charts.forEach(drawChart);
-        }
-        if (typeof updateInspectorSummary === 'function') {
-          updateInspectorSummary();
-        }
-      }
+      // Use the unified filter pipeline for live preview
+      applyFiltersPipeline(true);
     }
   }
 
@@ -1631,46 +1652,30 @@ let inspectorSelectedField = null;
   // Filtering + table
   // ----------------------------
   function applyFilters() {
+    // Read UI values into Simple state
     const startDateEl = id('startDate');
     const endDateEl = id('endDate');
     const filterContainer = id('filter-container');
     
-    const s = startDateEl?.value ? new Date(startDateEl.value) : null;
-    const e = endDateEl?.value ? new Date(endDateEl.value) : null;
+    // Update Simple date range
+    Simple.dateRange.start = startDateEl?.value ? new Date(startDateEl.value) : null;
+    Simple.dateRange.end = endDateEl?.value ? new Date(endDateEl.value) : null;
 
-    const filterMap = {};
+    // Update Simple category filters
+    Simple.categoryFilters = {};
     if (filterContainer) {
       const filterSelects = filterContainer.querySelectorAll('select[data-col]');
       filterSelects.forEach(sel => {
         const col = sel.dataset.col;
         const selected = Array.from(sel.selectedOptions).map(o => String(o.value));
-        filterMap[col] = selected;
+        if (selected && selected.length > 0) {
+          Simple.categoryFilters[col] = selected;
+        }
       });
     }
 
-    filtered = rawData.filter(r => {
-      if (dateCol && (s || e)) {
-        const d = parseValidDate(r[dateCol]);
-        if (!d) return false;
-        if (s && d < s) return false;
-        if (e && d > e) return false;
-      }
-      for (const col in filterMap) {
-        const selected = filterMap[col];
-        if (selected && selected.length) {
-          if (!selected.includes(String(r[col]))) return false;
-        }
-      }
-      return true;
-    });
-
-    updateTable();
-    charts.forEach(drawChart);
-
-    updateInspectorSummary();
-    if (inspectorSelectedField) {
-      showFieldStats(inspectorSelectedField);
-    }
+    // Use unified filter pipeline
+    applyFiltersPipeline(false);
   }
 
   function updateTable() {
@@ -1678,7 +1683,7 @@ let inspectorSelectedField = null;
     if (!wrap) return;
     
     wrap.innerHTML = '';
-    if (!filtered.length) {
+    if (!filteredRows.length) {
       wrap.innerHTML = '<div class="text-muted">No data to display</div>';
       return;
     }
@@ -1691,7 +1696,7 @@ let inspectorSelectedField = null;
     }
     thead.appendChild(trh);
     const tbody = document.createElement('tbody');
-    const rows = filtered.slice(0, 100);
+    const rows = filteredRows.slice(0, 100);
     for (const r of rows) {
       const tr = document.createElement('tr');
       for (const c of columns) {
@@ -2195,7 +2200,7 @@ let inspectorSelectedField = null;
       // Create header
       const thead = document.createElement('thead');
       const trh = document.createElement('tr');
-      for (const col of (window.columns || [])) {
+      for (const col of (columns || [])) {
         const th = document.createElement('th');
         th.textContent = col;
         trh.appendChild(th);
@@ -2237,7 +2242,7 @@ let inspectorSelectedField = null;
       
       for (const row of rowsToAdd) {
         const tr = document.createElement('tr');
-        for (const col of (window.columns || [])) {
+        for (const col of (columns || [])) {
           const td = document.createElement('td');
           const value = row[col];
           td.textContent = (value === undefined || value === null) ? '' : value;
@@ -2273,90 +2278,29 @@ let inspectorSelectedField = null;
   function _executeFilterPipeline(live) {
     console.debug('_executeFilterPipeline executing with live =', live);
     
-    let filteredRows;
+    // Apply unified filtering: both Simple filters AND Global Filters must pass
+    filteredRows = rawData.filter(row => {
+      return passesSimpleFilters(row) && passesGlobalFilters(row);
+    });
     
-    // First, apply global filters from GF.state if they exist
-    if (typeof window !== 'undefined' && window.GF && Object.keys(window.GF.state).length > 0) {
-      console.debug('Applying global filters from GF.state');
-      filteredRows = window.rawData.filter(row => {
-        for (const [col, sel] of Object.entries(window.GF.state)) {
-          const v0 = row[col];
-          const empty = (v0 === null || v0 === undefined || String(v0).trim() === '');
-
-          if (sel.type === 'cat') {
-            const hit = sel.include.has(String(v0));
-            if (!hit && !(empty && sel.includeEmpty)) return false;
-          }
-          else if (sel.type === 'num') {
-            if (empty) { if (!sel.includeEmpty) return false; }
-            else {
-              const num = Number(v0);
-              if (Number.isNaN(num) || num < sel.min || num > sel.max) return false;
-            }
-          }
-          else if (sel.type === 'date') {
-            if (empty) { if (!sel.includeEmpty) return false; }
-            else {
-              const iso = new Date(v0).toISOString().slice(0, 10);
-              if (sel.start && iso < sel.start) return false;
-              if (sel.end && iso > sel.end) return false;
-              if (sel.buckets && sel.buckets.size) {
-                // accept values matching any selected bucket for the chosen period
-                const y = iso.slice(0, 4);
-                const ym = iso.slice(0, 7);
-                const q = `Q${Math.floor((Number(iso.slice(5, 7)) - 1) / 3) + 1} ${y}`;
-                const key = sel.period === 'quarter' ? q : (sel.period === 'year' ? y : ym);
-                if (!sel.buckets.has(key)) return false;
-              }
-            }
-          }
-        }
-        return true;
-      });
-    } else if (typeof window !== 'undefined' && window.GF && Object.keys(window.GF.state).length === 0) {
-      // No global filters - show all data
-      console.debug('No global filters, showing all data');
-      filteredRows = window.rawData.slice();
-    } else {
-      // Try to use existing applyFilters function for other filters
-      if (typeof applyFilters === 'function') {
-        try {
-          // Call applyFilters which should set the global filtered variable
-          applyFilters();
-          filteredRows = window.filtered || [];
-        } catch (e) {
-          console.debug('applyFilters failed, using fallback:', e);
-          filteredRows = window.filteredRows || window.filtered || window.rawData || [];
-        }
-      } else {
-        // Fallback to existing filteredRows or rawData
-        filteredRows = window.filteredRows || window.filtered || window.rawData || [];
-      }
-    }
-    
-    // Set window.filteredRows as the single source of truth
-    window.filteredRows = filteredRows;
-    window.filtered = filteredRows; // Also update the legacy variable
+    // Update legacy variable for backward compatibility
+    filtered = filteredRows;
     
     console.debug('Filtered rows count:', filteredRows.length);
     
     // Render preview (first page only)
-    PreviewRenderer.renderRows(filteredRows);
+    if (typeof PreviewRenderer !== 'undefined' && PreviewRenderer.renderRows) {
+      PreviewRenderer.renderRows(filteredRows);
+    }
     
     // Update inspector summary
     if (typeof updateInspectorSummary === 'function') {
       updateInspectorSummary(filteredRows);
     }
     
-    // Redraw charts (lighter weight for live updates)
-    if (typeof window !== 'undefined' && window.charts) {
-      window.charts.forEach(chart => {
-        if (typeof drawChart === 'function') drawChart(chart);
-      });
-    } else if (typeof drawAllCharts === 'function') {
-      drawAllCharts();
-    } else if (typeof redrawCharts === 'function') {
-      redrawCharts();
+    // Redraw charts
+    if (charts && charts.forEach && typeof drawChart === 'function') {
+      charts.forEach(drawChart);
     }
     
     // For non-live mode, also update the main table
@@ -2374,22 +2318,22 @@ let inspectorSelectedField = null;
     const filteredRowsEl = id('sumFilteredRows');
     const dateRangeEl = id('sumDateRange');
     
-    // Use provided filteredData, fallback to window.filteredRows, then window.filtered
-    const filtered = filteredData || window.filteredRows || window.filtered || [];
+    // Use provided filteredData, fallback to filteredRows
+    const filtered = filteredData || filteredRows;
     
-    if (totalRowsEl) totalRowsEl.textContent = (window.rawData?.length ?? 0).toLocaleString();
-    if (totalColsEl) totalColsEl.textContent = (window.columns?.length ?? 0).toLocaleString();
-    if (filteredRowsEl) filteredRowsEl.textContent = (filtered?.length ?? 0).toLocaleString();
+    if (totalRowsEl) totalRowsEl.textContent = rawData?.length ? rawData.length.toLocaleString() : '0';
+    if (totalColsEl) totalColsEl.textContent = columns?.length ? columns.length.toLocaleString() : '0';
+    if (filteredRowsEl) filteredRowsEl.textContent = filtered?.length ? filtered.length.toLocaleString() : '0';
 
-    if (!window.dateCol || !dateRangeEl) { 
+    if (!dateCol || !dateRangeEl) { 
       if (dateRangeEl) dateRangeEl.textContent = '—'; 
       return; 
     }
 
-    const rowsForRange = (filtered && Array.isArray(filtered)) ? filtered : window.rawData;
+    const rowsForRange = (filtered && Array.isArray(filtered)) ? filtered : rawData;
     if (typeof parseValidDate === 'function' && typeof toISO === 'function') {
       const dates = rowsForRange
-        .map(r => parseValidDate(r[window.dateCol]))
+        .map(r => parseValidDate(r[dateCol]))
         .filter(Boolean)
         .sort((a,b) => a - b);
 
@@ -2440,7 +2384,7 @@ let inspectorSelectedField = null;
     if (fieldNameEl) fieldNameEl.textContent = col;
     if (!fieldStatsEl) return;
 
-    const vals = (filtered || []).map(r => r[col]);
+    const vals = (filteredRows || []).map(r => r[col]);
     const nonNull = vals.filter(v => v !== null && v !== undefined && v !== '');
 
     const isNumeric = numericCols.includes(col);
