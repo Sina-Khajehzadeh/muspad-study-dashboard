@@ -768,7 +768,7 @@ let inspectorSelectedField = null;
     });
   }
 
-  function gf_renderSelectedChips() {
+  function gf_renderSelectedChips(live = false) {
     const chipsContainer = document.getElementById('gf-selected-chips');
     const chipsList = document.getElementById('gf-selected-chips-list');
     
@@ -825,6 +825,57 @@ let inspectorSelectedField = null;
       `;
       
       chipsList.appendChild(chip);
+    }
+    
+    // Live preview: update table, charts, and inspector summary but don't close modal
+    if (live) {
+      // Apply GF.state filtering for preview
+      let previewFiltered = rawData.filter(row=>{
+        for (const [col, sel] of Object.entries(GF.state)) {
+          const v0 = row[col];
+          const empty = (v0===null || v0===undefined || String(v0).trim()==='');
+
+          if (sel.type==='cat') {
+            const hit = sel.include.has(String(v0));
+            if (!hit && !(empty && sel.includeEmpty)) return false;
+          }
+          else if (sel.type==='num') {
+            if (empty) { if (!sel.includeEmpty) return false; }
+            else {
+              const num = Number(v0);
+              if (Number.isNaN(num) || num < sel.min || num > sel.max) return false;
+            }
+          }
+          else if (sel.type==='date') {
+            if (empty) { if (!sel.includeEmpty) return false; }
+            else {
+              const iso = new Date(v0).toISOString().slice(0,10);
+              if (sel.start && iso < sel.start) return false;
+              if (sel.end && iso > sel.end) return false;
+              if (sel.buckets && sel.buckets.size){
+                const y  = iso.slice(0,4);
+                const ym = iso.slice(0,7);
+                const q  = `Q${Math.floor((Number(iso.slice(5,7))-1)/3)+1} ${y}`;
+                const key = sel.period==='quarter'? q : (sel.period==='year'? y : ym);
+                if (!sel.buckets.has(key)) return false;
+              }
+            }
+          }
+        }
+        return true;
+      });
+      
+      // Temporarily update filtered for preview
+      const originalFiltered = filtered;
+      filtered = previewFiltered;
+      
+      // Update UI for live preview
+      updateTable();
+      charts.forEach(drawChart);
+      updateInspectorSummary();
+      
+      // Restore original filtered to not affect permanent state
+      filtered = originalFiltered;
     }
   }
 
@@ -890,16 +941,21 @@ let inspectorSelectedField = null;
     const clearBtn = document.getElementById('gf-clear-all');
     const applyBtn = document.getElementById('gf-apply');
     
+    // Set id if missing and wire Apply button to applyGlobalFilters
+    if (applyBtn) {
+      applyBtn.id = 'btnApplyGlobalFilters';
+      applyBtn.onclick = (e) => {
+        e.preventDefault(); // Prevent default close-only behavior
+        applyGlobalFilters(); // Use the new central function
+      };
+    }
+    
     if (cancelBtn) cancelBtn.onclick = closeFiltersModal;
     if (clearBtn) clearBtn.onclick = () => { 
       GF.state = {}; 
       gf_renderFieldList(GF._group||'all', document.getElementById('gf-field-search').value||''); 
       gf_showField(GF.activeField); 
       gf_renderSelectedChips();
-    };
-    if (applyBtn) applyBtn.onclick = () => { 
-      gf_applyToDashboard(); 
-      closeFiltersModal(); 
     };
 
     // groups
@@ -995,7 +1051,7 @@ let inspectorSelectedField = null;
         if (!GF.state[col]) GF.state[col] = {type:'cat', include:new Set(), includeEmpty:false};
         if (current.has(val)) current.delete(val); else current.add(val);
         gf_showField(col);
-        gf_renderSelectedChips();
+        gf_renderSelectedChips(true); // Use live preview for categorical value toggles
       };
 
       items.forEach(({v,count})=>{
@@ -1042,7 +1098,7 @@ let inspectorSelectedField = null;
           if (!GF.state[col]) GF.state[col] = {type:'cat', include:new Set(), includeEmpty:false};
           GF.state[col].includeEmpty = !GF.state[col].includeEmpty;
           gf_showField(col);
-          gf_renderSelectedChips();
+          gf_renderSelectedChips(true); // Use live preview for empty checkbox
         };
         box.appendChild(chip);
       }
@@ -1072,7 +1128,7 @@ let inspectorSelectedField = null;
       const sMin = document.getElementById('gf-num-slider-min');
       const sMax = document.getElementById('gf-num-slider-max');
 
-      // ensure meta.min/max are numbers and sensible
+      // Use domain min/max from meta (guard Number.isNaN)
       const domainMin = (meta.min !== null && meta.min !== undefined && !Number.isNaN(Number(meta.min))) ? Number(meta.min) : 0;
       const domainMax = (meta.max !== null && meta.max !== undefined && !Number.isNaN(Number(meta.max))) ? Number(meta.max) : domainMin + 1;
 
@@ -1082,26 +1138,29 @@ let inspectorSelectedField = null;
         sMax.min = domainMin; sMax.max = domainMax; sMax.step = '1';
       }
 
-      // helper to produce safe numeric/string values
+      // safeNumber helper to guard Number conversions
       const safeNumber = (v, fallback) => {
         const n = Number(v);
         return Number.isNaN(n) ? fallback : n;
       };
 
-      // initialize text inputs with saved state or meta
-      const initialMin = (s.min !== undefined && s.min !== null) ? Number(s.min) : domainMin;
-      const initialMax = (s.max !== undefined && s.max !== null) ? Number(s.max) : domainMax;
+      // Initialize controls with String(clampedValue)
+      const initialMin = (s.min !== undefined && s.min !== null) ? safeNumber(s.min, domainMin) : domainMin;
+      const initialMax = (s.max !== undefined && s.max !== null) ? safeNumber(s.max, domainMax) : domainMax;
 
       // clamp function
       const clamp = (v) => Math.max(domainMin, Math.min(domainMax, v));
 
-      // write values everywhere (use strings for .value)
-      if (minEl) minEl.value = String(clamp(initialMin));
-      if (maxEl) maxEl.value = String(clamp(initialMax));
-      if (sMin) sMin.value = String(clamp(initialMin));
-      if (sMax) sMax.value = String(clamp(initialMax));
+      // Always write values as strings to prevent empty inputs
+      const clamped_min = clamp(initialMin);
+      const clamped_max = clamp(initialMax);
+      
+      if (minEl) minEl.value = String(clamped_min);
+      if (maxEl) maxEl.value = String(clamped_max);
+      if (sMin) sMin.value = String(clamped_min);
+      if (sMax) sMax.value = String(clamped_max);
 
-      // sync function: read number inputs, coerce, sort, clamp, write back
+      // Synchronize sliders and number inputs, write back String values, clamp, and update GF.state
       const sync = () => {
         if (!minEl || !maxEl || !sMin || !sMax) return;
         let a = safeNumber(minEl.value, domainMin);
@@ -1114,32 +1173,38 @@ let inspectorSelectedField = null;
         // ensure ordering
         if (a > b) [a, b] = [b, a];
 
-        // clamp
-        a = clamp(a); b = clamp(b);
+        // clamp values
+        a = clamp(a); 
+        b = clamp(b);
 
-        // persist to state
-        s.min = a; s.max = b;
+        // Update GF.state[col].min and .max
+        s.min = a; 
+        s.max = b;
 
-        // write back to all controls (strings)
+        // Write back String values to all controls to ensure they're never empty
         minEl.value = String(a);
         maxEl.value = String(b);
         sMin.value = String(a);
         sMax.value = String(b);
 
-        gf_renderSelectedChips();
+        // Call gf_renderSelectedChips(true) for live preview
+        gf_renderSelectedChips(true);
       };
 
-      // wire text inputs
+      // wire text inputs - ensure String values and call sync()
       if (minEl) {
         minEl.oninput = () => {
-          // allow empty during typing, but map empty -> domainMin in sync
-          if (minEl.value === '') { s.min = domainMin; sync(); return; }
+          // Never allow empty, always write back a valid string
+          const val = minEl.value === '' ? domainMin : safeNumber(minEl.value, domainMin);
+          minEl.value = String(clamp(val));
           sync();
         };
       }
       if (maxEl) {
         maxEl.oninput = () => {
-          if (maxEl.value === '') { s.max = domainMax; sync(); return; }
+          // Never allow empty, always write back a valid string
+          const val = maxEl.value === '' ? domainMax : safeNumber(maxEl.value, domainMax);
+          maxEl.value = String(clamp(val));
           sync();
         };
       }
@@ -1150,7 +1215,8 @@ let inspectorSelectedField = null;
           const v = safeNumber(e.target.value, domainMin);
           // if slider produced NaN ignore
           if (Number.isNaN(v)) return;
-          minEl && (minEl.value = String(clamp(v)));
+          const clamped = clamp(v);
+          minEl && (minEl.value = String(clamped));
           sync();
         };
       }
@@ -1158,7 +1224,8 @@ let inspectorSelectedField = null;
         sMax.oninput = (e) => {
           const v = safeNumber(e.target.value, domainMax);
           if (Number.isNaN(v)) return;
-          maxEl && (maxEl.value = String(clamp(v)));
+          const clamped = clamp(v);
+          maxEl && (maxEl.value = String(clamped));
           sync();
         };
       }
@@ -1189,6 +1256,7 @@ let inspectorSelectedField = null;
         countEl.textContent = cnt.toLocaleString();
         chip.appendChild(countEl);
         
+        // Ensure chip/bin clicks write String values and call sync()
         chip.onclick = () => {
           if (minEl) minEl.value = String(a);
           if (maxEl) maxEl.value = String(b);
@@ -1202,7 +1270,10 @@ let inspectorSelectedField = null;
       if (empty) empty.innerHTML = '';
       if (meta.empties > 0 && empty) {
         const chk = document.createElement('input'); chk.type = 'checkbox'; chk.checked = !!s.includeEmpty;
-        chk.onchange = () => { s.includeEmpty = chk.checked; gf_renderSelectedChips(); };
+        chk.onchange = () => { 
+          s.includeEmpty = chk.checked; 
+          gf_renderSelectedChips(true); // Use live preview for checkbox changes too
+        };
         const lbl = document.createElement('label'); lbl.style.marginLeft = '6px'; lbl.textContent = `[EMPTY] ${meta.empties?.toLocaleString()}`;
         const wrapDiv = document.createElement('div'); wrapDiv.appendChild(chk); wrapDiv.appendChild(lbl);
         empty.appendChild(wrapDiv);
@@ -1220,8 +1291,8 @@ let inspectorSelectedField = null;
       const endEl    = document.getElementById('gf-date-end');
       if (periodEl) periodEl.value = s.period;
       if (periodEl) periodEl.onchange = ()=>{ s.period = periodEl.value; gf_showField(col); gf_renderSelectedChips(); };
-      if (startEl) startEl.onchange = ()=>{ s.start = startEl.value||null; gf_renderSelectedChips(); };
-      if (endEl) endEl.onchange   = ()=>{ s.end   = endEl.value||null; gf_renderSelectedChips(); };
+      if (startEl) startEl.onchange = ()=>{ s.start = startEl.value||null; gf_renderSelectedChips(true); };
+      if (endEl) endEl.onchange   = ()=>{ s.end   = endEl.value||null; gf_renderSelectedChips(true); };
 
       const bucketBox = document.getElementById('gf-date-buckets');
       if (bucketBox) bucketBox.innerHTML='';
@@ -1244,7 +1315,7 @@ let inspectorSelectedField = null;
         chip.className = 'btn btn-sm ' + (onSet.has(name)?'btn-primary':'btn-outline-secondary');
         chip.style.margin='4px';
         chip.textContent = `${name}  ${count.toLocaleString()}`;
-        chip.onclick = ()=>{ onSet.has(name)? onSet.delete(name) : onSet.add(name); gf_showField(col); gf_renderSelectedChips(); };
+        chip.onclick = ()=>{ onSet.has(name)? onSet.delete(name) : onSet.add(name); gf_showField(col); gf_renderSelectedChips(true); };
         if (bucketBox) bucketBox.appendChild(chip);
       });
 
@@ -1252,12 +1323,67 @@ let inspectorSelectedField = null;
       if (empty) empty.innerHTML='';      
       if (GF.meta?.[col]?.empties>0 && empty){
         const chk = document.createElement('input'); chk.type='checkbox'; chk.checked=!!s.includeEmpty;
-        chk.onchange = ()=>{ s.includeEmpty = chk.checked; gf_renderSelectedChips(); };        
+        chk.onchange = ()=>{ s.includeEmpty = chk.checked; gf_renderSelectedChips(true); };        
         const lbl = document.createElement('label'); lbl.style.marginLeft='6px'; lbl.textContent = `[EMPTY] ${GF.meta?.[col]?.empties?.toLocaleString()}`;
         const wrapDiv = document.createElement('div'); wrapDiv.appendChild(chk); wrapDiv.appendChild(lbl);
         empty.appendChild(wrapDiv);
       }
     }
+  }
+
+  // Central function to apply global filters and update entire application
+  function applyGlobalFilters() {
+    // Merge GF.state into app-level filter representation
+    // Since there's no buildFiltersFromGFState, we assign GF.state to window.appFilters if needed
+    // But the current app uses direct filtering, so we apply filters directly
+    
+    // Apply main app filters first (date range, existing filter selects)
+    applyFilters();
+    
+    // Then apply global filters on top of that
+    filtered = filtered.filter(row=>{
+      for (const [col, sel] of Object.entries(GF.state)) {
+        const v0 = row[col];
+        const empty = (v0===null || v0===undefined || String(v0).trim()==='');
+
+        if (sel.type==='cat') {
+          const hit = sel.include.has(String(v0));
+          if (!hit && !(empty && sel.includeEmpty)) return false;
+        }
+        else if (sel.type==='num') {
+          if (empty) { if (!sel.includeEmpty) return false; }
+          else {
+            const num = Number(v0);
+            if (Number.isNaN(num) || num < sel.min || num > sel.max) return false;
+          }
+        }
+        else if (sel.type==='date') {
+          if (empty) { if (!sel.includeEmpty) return false; }
+          else {
+            const iso = new Date(v0).toISOString().slice(0,10);
+            if (sel.start && iso < sel.start) return false;
+            if (sel.end && iso > sel.end) return false;
+            if (sel.buckets && sel.buckets.size){
+              // accept values matching any selected bucket for the chosen period
+              const y  = iso.slice(0,4);
+              const ym = iso.slice(0,7);
+              const q  = `Q${Math.floor((Number(iso.slice(5,7))-1)/3)+1} ${y}`;
+              const key = sel.period==='quarter'? q : (sel.period==='year'? y : ym);
+              if (!sel.buckets.has(key)) return false;
+            }
+          }
+        }
+      }
+      return true;
+    });
+
+    // Update the app pipeline in correct order
+    updateTable();
+    charts.forEach(drawChart); // Redraw all charts with filtered data
+    updateInspectorSummary();
+    
+    // Close the modal after applying filters
+    closeFiltersModal();
   }
 
   function gf_applyToDashboard() {
