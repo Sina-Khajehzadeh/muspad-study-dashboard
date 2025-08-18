@@ -1673,39 +1673,23 @@ let inspectorSelectedField = null;
     // Use unified filter pipeline
     applyFiltersPipeline(false);
   }
-
   function updateTable() {
     const wrap = id('tableWrap');
     if (!wrap) return;
-    
-    wrap.innerHTML = '';
-    if (!filteredRows.length) {
-      wrap.innerHTML = '<div class="text-muted">No data to display</div>';
+  
+    // Use the PreviewRenderer for paginated rendering (15 rows per "page")
+    if (typeof PreviewRenderer !== 'undefined' && PreviewRenderer.renderRows) {
+      PreviewRenderer.rowsPerPage = 15; // ensure the page size is 15
+      PreviewRenderer.renderRows(filteredRows || []);
       return;
     }
-    const table = document.createElement('table');
-    table.className = 'table table-sm table-striped';
-    const thead = document.createElement('thead');
-    const trh = document.createElement('tr');
-    for (const c of columns) {
-      const th = document.createElement('th'); th.textContent = c; trh.appendChild(th);
-    }
-    thead.appendChild(trh);
-    const tbody = document.createElement('tbody');
-    const rows = filteredRows.slice(0, 100);
-    for (const r of rows) {
-      const tr = document.createElement('tr');
-      for (const c of columns) {
-        const td = document.createElement('td');
-        const v = r[c]; td.textContent = (v === undefined || v === null) ? '' : v;
-        tr.appendChild(td);
-      }
-      tbody.appendChild(tr);
-    }
-    table.appendChild(thead); table.appendChild(tbody);
-    wrap.appendChild(table);
-  }
-
+  
+    // Fallback (shouldn't be hit): simple empty state
+    wrap.innerHTML = (!filteredRows || !filteredRows.length)
+      ? '<div class="text-muted">No data to display</div>'
+      : '';
+  }    
+        
   // ----------------------------
   // Starter charts
   // ----------------------------
