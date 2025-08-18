@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -920,7 +919,7 @@ let inspectorSelectedField = null;
 
       const bins = document.getElementById('gf-num-bins');
       if (bins) bins.innerHTML='';
-      const binCount = 7;
+      
       const binCount = meta.binCounts.length;
       const width = (meta.max - meta.min) / binCount || 1;
       for (let i=0;i<binCount;i++){
