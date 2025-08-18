@@ -1017,13 +1017,27 @@ let inspectorSelectedField = null;
           box.appendChild(chip);
                 
       });
-      // [EMPTY]
+      // [EMPTY] - use consistent chip styling
       if (meta.empties>0) {
-        const chip = document.createElement('button');
+        const chip = document.createElement('span');
         const on = !!GF.state[col]?.includeEmpty;
-        chip.className = 'btn btn-sm ' + (on?'btn-warning':'btn-outline-secondary');
+        chip.className = 'gf-chip' + (on ? ' active' : '');
         chip.style.margin='4px';
-        chip.textContent = `[EMPTY]  ${meta.empties.toLocaleString()}`;
+        
+        // Apply consistent colors based on field name + "empty"
+        const h = hueFromString(col + '_empty');
+        const colors = chipColors(h);
+        chip.style.setProperty('--chip-bg', on ? colors.bgActive : colors.bg);
+        chip.style.setProperty('--chip-fg', colors.fg);
+        chip.style.setProperty('--chip-border', on ? colors.borderActive : colors.border);
+        chip.style.setProperty('--chip-bg-active', colors.bgActive);
+        chip.style.setProperty('--chip-border-active', colors.borderActive);
+        
+        chip.textContent = `[EMPTY] `;
+        const countEl = document.createElement('small');
+        countEl.textContent = meta.empties.toLocaleString();
+        chip.appendChild(countEl);
+        
         chip.onclick = ()=>{
           if (!GF.state[col]) GF.state[col] = {type:'cat', include:new Set(), includeEmpty:false};
           GF.state[col].includeEmpty = !GF.state[col].includeEmpty;
@@ -1149,7 +1163,7 @@ let inspectorSelectedField = null;
         };
       }
 
-      // bins UI (unchanged except using domainMin/domainMax)
+      // bins UI - use consistent chip styling with colors
       const bins = document.getElementById('gf-num-bins');
       if (bins) bins.innerHTML = '';
       const binCount = meta.binCounts ? meta.binCounts.length : 0;
@@ -1158,10 +1172,23 @@ let inspectorSelectedField = null;
         const b = Math.round(i === binCount - 1 ? domainMax : domainMin + ((i + 1) * ((domainMax - domainMin) / Math.max(1, binCount))));
         const cnt = (meta.binCounts && meta.binCounts[i]) || 0;
         const chip = document.createElement('span');
-        chip.className = 'badge bg-light text-dark';
-        chip.style.cursor = 'pointer';
+        chip.className = 'gf-chip';
         chip.style.margin = '2px';
-        chip.textContent = `${a}–${b}  ${cnt.toLocaleString()}`;
+        
+        // Apply consistent colors based on field name
+        const h = hueFromString(col + i); // Use column name + bin index for consistent but varied colors
+        const colors = chipColors(h);
+        chip.style.setProperty('--chip-bg', colors.bg);
+        chip.style.setProperty('--chip-fg', colors.fg);
+        chip.style.setProperty('--chip-border', colors.border);
+        chip.style.setProperty('--chip-bg-active', colors.bgActive);
+        chip.style.setProperty('--chip-border-active', colors.borderActive);
+        
+        chip.textContent = `${a}–${b} `;
+        const countEl = document.createElement('small');
+        countEl.textContent = cnt.toLocaleString();
+        chip.appendChild(countEl);
+        
         chip.onclick = () => {
           if (minEl) minEl.value = String(a);
           if (maxEl) maxEl.value = String(b);
@@ -2507,11 +2534,16 @@ let inspectorSelectedField = null;
   display:inline-flex; align-items:center; gap:8px;
   padding:8px 12px; border:1px solid var(--chip-border,#dbe7ee);
   border-radius:999px; background: var(--chip-bg,#eef7fb);
-  color: var(--chip-fg,#0f3b4a); font-weight:600; cursor:pointer;
-  transition: transform .05s ease, background .15s ease, border-color .15s ease;
+  color: var(--chip-fg,#0f3b4a); font-weight:500; cursor:pointer;
+  font-size: 13px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: transform .05s ease, background .15s ease, border-color .15s ease, box-shadow .15s ease;
 }
-.gf-chip:hover{ transform: translateY(-1px); }
-.gf-chip small{ color: var(--gf-muted); font-weight:500; }
+.gf-chip:hover{ 
+  transform: translateY(-1px); 
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+.gf-chip small{ color: var(--gf-muted); font-weight:400; }
 .gf-chip.active{
   background: var(--chip-bg-active,#dff3ff);
   border-color: var(--chip-border-active,#b7e2ff);
@@ -2534,6 +2566,7 @@ let inspectorSelectedField = null;
   font-size: 13px; 
   font-weight: 500;
   color: var(--chip-fg, #1e5a8a);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   transition: all 0.15s ease;
 }
 
@@ -2541,6 +2574,7 @@ let inspectorSelectedField = null;
   background: var(--chip-bg-hover, #e6f3ff);
   border-color: var(--chip-border-hover, #87ceeb);
   transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
 .gf-selected-chip-remove {
