@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Test - Filter Pipeline</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .summary { background: #f5f5f5; padding: 15px; margin: 10px 0; border-radius: 8px; }
+        .filters { background: #e3f2fd; padding: 15px; margin: 10px 0; border-radius: 8px; }
+        .data-preview { background: #fff3e0; padding: 15px; margin: 10px 0; border-radius: 8px; }
+        button { margin: 5px; padding: 8px 16px; }
+        .chip { display: inline-block; background: #2196f3; color: white; padding: 4px 8px; margin: 2px; border-radius: 16px; font-size: 12px; }
+        .chip.selected { background: #1976d2; }
+        .chip.unselected { background: #ccc; color: #666; }
+        input[type="range"] { width: 200px; }
+        #debug { background: #f0f0f0; padding: 10px; margin: 10px 0; border-radius: 4px; font-family: monospace; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <h1>Filter Pipeline Test</h1>
+    
+    <div class="summary">
+        <h3>Dataset Summary</h3>
+        <p>Total rows: <span id="sumTotalRows">0</span></p>
+        <p>Total cols: <span id="sumTotalCols">0</span></p>
+        <p><strong>Filtered rows: <span id="sumFilteredRows">0</span></strong></p>
+    </div>
+    
+    <div class="filters">
+        <h3>Test Filters</h3>
+        
+        <div>
+            <h4>Category Filter</h4>
+            <div id="categoryChips"></div>
+        </div>
+        
+        <div>
+            <h4>Value Range Filter</h4>
+            <label>Min: <input type="range" id="minRange" min="0" max="1000" value="0"> <span id="minValue">0</span></label><br>
+            <label>Max: <input type="range" id="maxRange" min="0" max="1000" value="1000"> <span id="maxValue">1000</span></label>
+        </div>
+        
+        <div>
+            <button onclick="clearAllFilters()">Clear All Filters</button>
+            <button onclick="applyFilters()">Apply Filters</button>
+        </div>
+    </div>
+    
+    <div class="data-preview">
+        <h3>Data Preview (First 10 rows)</h3>
+        <div id="dataPreview"></div>
+    </div>
+    
+    <div id="debug">
+        <h4>Debug Info</h4>
+        <div id="debugInfo"></div>
+    </div>
+
+    <script>
+        // Test data
+        let rawData = [];
+        let columns = ['id', 'category', 'region', 'value', 'date'];
+        let filtered = [];
+        window.filteredRows = [];
+        
+        // Global filter state
+        let GF = {
+            state: {}
+        };
+
+        // Generate test data
+        function generateTestData() {
+            const categories = ['Category A', 'Category B', 'Category C', 'Category D'];
+            const regions = ['North', 'South', 'East', 'West'];
+            const dates = ['2023-01-01', '2023-02-01', '2023-03-01', '2023-04-01'];
+            
+            for (let i = 0; i < 100; i++) {
+                rawData.push({
+                    id: i + 1,
+                    category: categories[Math.floor(Math.random() * categories.length)],
+                    region: regions[Math.floor(Math.random() * regions.length)],
+                    value: Math.floor(Math.random() * 1000) + 100,
+                    date: dates[Math.floor(Math.random() * dates.length)]
+                });
+            }
+            
+            window.filteredRows = rawData.slice();
+            filtered = rawData.slice();
+            
+            updateSummary();
+            setupFilters();
+            updateDataPreview();
+            debug('Initial data generated: ' + rawData.length + ' rows');
+        }
+        
+        // Centralized filter application pipeline
+        function applyFiltersPipeline(live = false) {
+            debug('applyFiltersPipeline: live=' + live + ', GF.state=' + JSON.stringify(GF.state));
+            
+            // Apply filtering
+            window.filteredRows = rawData.filter(row => {
+                // Category filter
+                if (GF.state.category && GF.state.category.include && GF.state.category.include.size > 0) {
+                    if (!GF.state.category.include.has(row.category)) {
+                        return false;
+                    }
+                }
+                
+                // Value range filter
+                if (GF.state.value) {
+                    if (row.value < GF.state.value.min || row.value > GF.state.value.max) {
+                        return false;
+                    }
+                }
+                
+                return true;
+            });
+            
+            filtered = window.filteredRows.slice(); // For compatibility
+            
+            debug('applyFiltersPipeline: filteredRows.length=' + window.filteredRows.length);
+            
+            updateSummary();
+            updateDataPreview();
+        }
+        
+        // Debounced live preview
+        let livePreviewTimeout = null;
+        function debouncedLivePreview() {
+            if (livePreviewTimeout) {
+                clearTimeout(livePreviewTimeout);
+            }
+            livePreviewTimeout = setTimeout(() => {
+                applyFiltersPipeline(true);
+            }, 100);
+        }
+        
+        function updateSummary() {
+            document.getElementById('sumTotalRows').textContent = rawData.length.toLocaleString();
+            document.getElementById('sumTotalCols').textContent = columns.length.toString();
+            
+            // Use window.filteredRows as primary source
+            const currentFilteredRows = window.filteredRows || filtered || rawData || [];
+            document.getElementById('sumFilteredRows').textContent = currentFilteredRows.length.toLocaleString();
+        }
+        
+        function updateDataPreview() {
+            const preview = document.getElementById('dataPreview');
+            const currentData = window.filteredRows || filtered || rawData || [];
+            const previewData = currentData.slice(0, 10);
+            
+            if (previewData.length === 0) {
+                preview.innerHTML = '<p>No data matches current filters</p>';
+                return;
+            }
+            
+            let html = '<table border="1" cellpadding="5" style="border-collapse: collapse;"><tr>';
+            columns.forEach(col => {
+                html += `<th>${col}</th>`;
+            });
+            html += '</tr>';
+            
+            previewData.forEach(row => {
+                html += '<tr>';
+                columns.forEach(col => {
+                    html += `<td>${row[col]}</td>`;
+                });
+                html += '</tr>';
+            });
+            html += '</table>';
+            preview.innerHTML = html;
+        }
+        
+        function setupFilters() {
+            // Category filter chips
+            const categoryChips = document.getElementById('categoryChips');
+            const categories = [...new Set(rawData.map(r => r.category))];
+            
+            GF.state.category = { include: new Set() };
+            
+            categoryChips.innerHTML = '';
+            categories.forEach(cat => {
+                const chip = document.createElement('button');
+                chip.className = 'chip unselected';
+                chip.textContent = cat;
+                chip.onclick = () => toggleCategory(cat, chip);
+                categoryChips.appendChild(chip);
+            });
+            
+            // Value range sliders
+            const minRange = document.getElementById('minRange');
+            const maxRange = document.getElementById('maxRange');
+            const minValue = document.getElementById('minValue');
+            const maxValue = document.getElementById('maxValue');
+            
+            const values = rawData.map(r => r.value);
+            const minVal = Math.min(...values);
+            const maxVal = Math.max(...values);
+            
+            minRange.min = minVal;
+            minRange.max = maxVal;
+            minRange.value = minVal;
+            maxRange.min = minVal;
+            maxRange.max = maxVal;
+            maxRange.value = maxVal;
+            
+            GF.state.value = { min: minVal, max: maxVal };
+            
+            minRange.oninput = () => {
+                const val = parseInt(minRange.value);
+                minValue.textContent = val;
+                GF.state.value.min = val;
+                debouncedLivePreview();
+            };
+            
+            maxRange.oninput = () => {
+                const val = parseInt(maxRange.value);
+                maxValue.textContent = val;
+                GF.state.value.max = val;
+                debouncedLivePreview();
+            };
+            
+            minValue.textContent = minVal;
+            maxValue.textContent = maxVal;
+        }
+        
+        function toggleCategory(category, chipEl) {
+            if (GF.state.category.include.has(category)) {
+                GF.state.category.include.delete(category);
+                chipEl.className = 'chip unselected';
+            } else {
+                GF.state.category.include.add(category);
+                chipEl.className = 'chip selected';
+            }
+            debouncedLivePreview();
+        }
+        
+        function clearAllFilters() {
+            GF.state = {};
+            
+            // Reset category chips
+            document.querySelectorAll('#categoryChips .chip').forEach(chip => {
+                chip.className = 'chip unselected';
+            });
+            
+            // Reset range sliders
+            const minRange = document.getElementById('minRange');
+            const maxRange = document.getElementById('maxRange');
+            minRange.value = minRange.min;
+            maxRange.value = maxRange.max;
+            document.getElementById('minValue').textContent = minRange.min;
+            document.getElementById('maxValue').textContent = maxRange.max;
+            
+            setupFilters(); // Reset state
+            debouncedLivePreview();
+        }
+        
+        function applyFilters() {
+            applyFiltersPipeline(false);
+            debug('Final apply completed');
+        }
+        
+        function debug(message) {
+            const debugEl = document.getElementById('debugInfo');
+            const timestamp = new Date().toLocaleTimeString();
+            debugEl.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+            debugEl.scrollTop = debugEl.scrollHeight;
+            console.log('[DEBUG]', message);
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            generateTestData();
+            debug('Test page initialized');
+        });
+    </script>
+</body>
+</html>
