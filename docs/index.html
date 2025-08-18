@@ -581,6 +581,10 @@ let inspectorSelectedField = null;
     }
     
     rawData = sampleData;
+    
+    // Initialize window.filteredRows
+    window.filteredRows = rawData.slice();
+    
     columns = Object.keys(sampleData[0]);
     id('loadedBadge').textContent = `Loaded ${rawData.length.toLocaleString()} rows • ${columns.length} columns (Sample Data)`;
 
@@ -631,6 +635,10 @@ let inspectorSelectedField = null;
           }
           console.log('Successfully loaded CSV data:', res.data.length, 'rows');
           rawData = res.data;
+          
+          // Initialize window.filteredRows
+          window.filteredRows = rawData.slice();
+          
           columns = (res.meta && res.meta.fields && res.meta.fields.length)
             ? res.meta.fields
             : Object.keys(rawData[0] || {});
@@ -768,6 +776,17 @@ let inspectorSelectedField = null;
     });
   }
 
+  // Add debouncing for live preview
+  let livePreviewTimeout = null;
+  function debouncedLivePreview() {
+    if (livePreviewTimeout) {
+      clearTimeout(livePreviewTimeout);
+    }
+    livePreviewTimeout = setTimeout(() => {
+      applyFiltersPipeline(true);
+    }, 100); // 100ms debounce
+  }
+
   function gf_renderSelectedChips(live = false) {
     const chipsContainer = document.getElementById('gf-selected-chips');
     const chipsList = document.getElementById('gf-selected-chips-list');
@@ -782,17 +801,14 @@ let inspectorSelectedField = null;
     if (!hasFilters) {
       chipsList.innerHTML = '<span style="color:var(--gf-muted,#6b7280); font-size:14px; font-style:italic;">No filters applied</span>';
       if (live) {
-        // Live preview with no filters - reset to show all data
-        if (typeof rawData !== 'undefined') {
-          filtered = rawData.slice(); // Show all data
-          updateTable();
-          if (typeof charts !== 'undefined' && charts.forEach && typeof drawChart === 'function') {
-            charts.forEach(drawChart);
-          }
-          if (typeof updateInspectorSummary === 'function') {
-            updateInspectorSummary();
-          }
+        // Live preview with no filters - use centralized pipeline
+        window.filteredRows = rawData ? rawData.slice() : [];
+        filtered = window.filteredRows.slice(); // Keep compatibility
+        updateTable();
+        if (typeof charts !== 'undefined' && charts.forEach && typeof drawChart === 'function') {
+          charts.forEach(drawChart);
         }
+        updateInspectorSummary();
       }
       return;
     }
@@ -838,61 +854,16 @@ let inspectorSelectedField = null;
       chipsList.appendChild(chip);
     }
     
-    // Live preview functionality
+    // Live preview functionality - use centralized pipeline
     if (live) {
-      // Apply the current GF.state as a preview without closing the modal
-      if (typeof rawData !== 'undefined') {
-        filtered = rawData.filter(row=>{
-          for (const [col, sel] of Object.entries(GF.state)) {
-            const v0 = row[col];
-            const empty = (v0===null || v0===undefined || String(v0).trim()==='');
-
-            if (sel.type==='cat') {
-              const hit = sel.include.has(String(v0));
-              if (!hit && !(empty && sel.includeEmpty)) return false;
-            }
-            else if (sel.type==='num') {
-              if (empty) { if (!sel.includeEmpty) return false; }
-              else {
-                const num = Number(v0);
-                if (Number.isNaN(num) || num < sel.min || num > sel.max) return false;
-              }
-            }
-            else if (sel.type==='date') {
-              if (empty) { if (!sel.includeEmpty) return false; }
-              else {
-                const iso = new Date(v0).toISOString().slice(0,10);
-                if (sel.start && iso < sel.start) return false;
-                if (sel.end && iso > sel.end) return false;
-                if (sel.buckets && sel.buckets.size){
-                  // accept values matching any selected bucket for the chosen period
-                  const y  = iso.slice(0,4);
-                  const ym = iso.slice(0,7);
-                  const q  = `Q${Math.floor((Number(iso.slice(5,7))-1)/3)+1} ${y}`;
-                  const key = sel.period==='quarter'? q : (sel.period==='year'? y : ym);
-                  if (!sel.buckets.has(key)) return false;
-                }
-              }
-            }
-          }
-          return true;
-        });
-
-        // Update table and charts for live preview
-        updateTable();
-        if (typeof charts !== 'undefined' && charts.forEach && typeof drawChart === 'function') {
-          charts.forEach(drawChart);
-        }
-        if (typeof updateInspectorSummary === 'function') {
-          updateInspectorSummary();
-        }
-      }
+      debouncedLivePreview();
     }
   }
 
   function gf_removeFilter(fieldName) {
     delete GF.state[fieldName];
-    gf_renderSelectedChips(true);
+    gf_renderSelectedChips(false); // Update chips UI only
+    debouncedLivePreview(); // Then trigger debounced live preview
     
     // If this field is currently active, refresh its display
     if (GF.activeField === fieldName) {
@@ -957,7 +928,8 @@ let inspectorSelectedField = null;
       GF.state = {}; 
       gf_renderFieldList(GF._group||'all', document.getElementById('gf-field-search').value||''); 
       gf_showField(GF.activeField); 
-      gf_renderSelectedChips();
+      gf_renderSelectedChips(false); // Update chips UI only 
+      debouncedLivePreview(); // Then trigger debounced live preview
     };
     if (applyBtn) applyBtn.onclick = applyGlobalFilters;
 
@@ -1054,7 +1026,8 @@ let inspectorSelectedField = null;
         if (!GF.state[col]) GF.state[col] = {type:'cat', include:new Set(), includeEmpty:false};
         if (current.has(val)) current.delete(val); else current.add(val);
         gf_showField(col);
-        gf_renderSelectedChips(true);
+        gf_renderSelectedChips(false); // Update chips UI only
+        debouncedLivePreview(); // Then trigger debounced live preview
       };
 
       items.forEach(({v,count})=>{
@@ -1101,7 +1074,8 @@ let inspectorSelectedField = null;
           if (!GF.state[col]) GF.state[col] = {type:'cat', include:new Set(), includeEmpty:false};
           GF.state[col].includeEmpty = !GF.state[col].includeEmpty;
           gf_showField(col);
-          gf_renderSelectedChips(true);
+          gf_renderSelectedChips(false); // Update chips UI only
+          debouncedLivePreview(); // Then trigger debounced live preview
         };
         box.appendChild(chip);
       }
@@ -1109,9 +1083,19 @@ let inspectorSelectedField = null;
       const tools = document.createElement('div');
       tools.style.marginTop='8px';
       const allBtn = document.createElement('button'); allBtn.className='btn btn-xs btn-light'; allBtn.textContent='Select All';
-      allBtn.onclick = ()=>{ GF.state[col]={type:'cat', include:new Set(items.map(x=>x.v)), includeEmpty:GF.state[col]?.includeEmpty||false}; gf_showField(col); gf_renderSelectedChips(true); };
+      allBtn.onclick = ()=>{ 
+        GF.state[col]={type:'cat', include:new Set(items.map(x=>x.v)), includeEmpty:GF.state[col]?.includeEmpty||false}; 
+        gf_showField(col); 
+        gf_renderSelectedChips(false); // Update chips UI only
+        debouncedLivePreview(); // Then trigger debounced live preview
+      };
       const noneBtn = document.createElement('button'); noneBtn.className='btn btn-xs btn-light'; noneBtn.style.marginLeft='6px'; noneBtn.textContent='Deselect All';
-      noneBtn.onclick = ()=>{ GF.state[col]={type:'cat', include:new Set(), includeEmpty:false}; gf_showField(col); gf_renderSelectedChips(true); };
+      noneBtn.onclick = ()=>{ 
+        GF.state[col]={type:'cat', include:new Set(), includeEmpty:false}; 
+        gf_showField(col); 
+        gf_renderSelectedChips(false); // Update chips UI only
+        debouncedLivePreview(); // Then trigger debounced live preview
+      };
       tools.appendChild(allBtn); tools.appendChild(noneBtn); box.appendChild(tools);
 
       box.style.display='flex';
@@ -1187,8 +1171,10 @@ let inspectorSelectedField = null;
         sMin.value = String(a);
         sMax.value = String(b);
 
-        // Call live preview
-        gf_renderSelectedChips(true);
+        // Call live preview but without duplicating filter logic - just update chips UI first
+        gf_renderSelectedChips(false); // Update chips UI only
+        // Then trigger debounced live preview
+        debouncedLivePreview();
       };
 
       // wire text inputs with robust handling
@@ -1273,7 +1259,11 @@ let inspectorSelectedField = null;
       if (empty) empty.innerHTML = '';
       if (meta.empties > 0 && empty) {
         const chk = document.createElement('input'); chk.type = 'checkbox'; chk.checked = !!s.includeEmpty;
-        chk.onchange = () => { s.includeEmpty = chk.checked; gf_renderSelectedChips(true); };
+        chk.onchange = () => { 
+          s.includeEmpty = chk.checked; 
+          gf_renderSelectedChips(false); // Update chips UI only
+          debouncedLivePreview(); // Then trigger debounced live preview
+        };
         const lbl = document.createElement('label'); lbl.style.marginLeft = '6px'; lbl.textContent = `[EMPTY] ${meta.empties?.toLocaleString()}`;
         const wrapDiv = document.createElement('div'); wrapDiv.appendChild(chk); wrapDiv.appendChild(lbl);
         empty.appendChild(wrapDiv);
@@ -1290,9 +1280,22 @@ let inspectorSelectedField = null;
       const startEl  = document.getElementById('gf-date-start');
       const endEl    = document.getElementById('gf-date-end');
       if (periodEl) periodEl.value = s.period;
-      if (periodEl) periodEl.onchange = ()=>{ s.period = periodEl.value; gf_showField(col); gf_renderSelectedChips(true); };
-      if (startEl) startEl.onchange = ()=>{ s.start = startEl.value||null; gf_renderSelectedChips(true); };
-      if (endEl) endEl.onchange   = ()=>{ s.end   = endEl.value||null; gf_renderSelectedChips(true); };
+      if (periodEl) periodEl.onchange = ()=>{ 
+        s.period = periodEl.value; 
+        gf_showField(col); 
+        gf_renderSelectedChips(false); // Update chips UI only
+        debouncedLivePreview(); // Then trigger debounced live preview
+      };
+      if (startEl) startEl.onchange = ()=>{ 
+        s.start = startEl.value||null; 
+        gf_renderSelectedChips(false); // Update chips UI only
+        debouncedLivePreview(); // Then trigger debounced live preview
+      };
+      if (endEl) endEl.onchange = ()=>{ 
+        s.end = endEl.value||null; 
+        gf_renderSelectedChips(false); // Update chips UI only
+        debouncedLivePreview(); // Then trigger debounced live preview
+      };
 
       const bucketBox = document.getElementById('gf-date-buckets');
       if (bucketBox) bucketBox.innerHTML='';
@@ -1315,7 +1318,12 @@ let inspectorSelectedField = null;
         chip.className = 'btn btn-sm ' + (onSet.has(name)?'btn-primary':'btn-outline-secondary');
         chip.style.margin='4px';
         chip.textContent = `${name}  ${count.toLocaleString()}`;
-        chip.onclick = ()=>{ onSet.has(name)? onSet.delete(name) : onSet.add(name); gf_showField(col); gf_renderSelectedChips(true); };
+        chip.onclick = ()=>{ 
+          onSet.has(name)? onSet.delete(name) : onSet.add(name); 
+          gf_showField(col); 
+          gf_renderSelectedChips(false); // Update chips UI only
+          debouncedLivePreview(); // Then trigger debounced live preview
+        };
         if (bucketBox) bucketBox.appendChild(chip);
       });
 
@@ -1323,7 +1331,11 @@ let inspectorSelectedField = null;
       if (empty) empty.innerHTML='';      
       if (GF.meta?.[col]?.empties>0 && empty){
         const chk = document.createElement('input'); chk.type='checkbox'; chk.checked=!!s.includeEmpty;
-        chk.onchange = ()=>{ s.includeEmpty = chk.checked; gf_renderSelectedChips(true); };        
+        chk.onchange = ()=>{ 
+          s.includeEmpty = chk.checked; 
+          gf_renderSelectedChips(false); // Update chips UI only
+          debouncedLivePreview(); // Then trigger debounced live preview
+        };        
         const lbl = document.createElement('label'); lbl.style.marginLeft='6px'; lbl.textContent = `[EMPTY] ${GF.meta?.[col]?.empties?.toLocaleString()}`;
         const wrapDiv = document.createElement('div'); wrapDiv.appendChild(chk); wrapDiv.appendChild(lbl);
         empty.appendChild(wrapDiv);
@@ -1331,15 +1343,21 @@ let inspectorSelectedField = null;
     }
   }
 
-  function applyGlobalFilters() {
-    // Commit GF.state into app-level filters and force full redraw
+  // Centralized filter application pipeline
+  function applyFiltersPipeline(live = false) {
+    console.debug('applyFiltersPipeline: live=', live, 'GF.state=', GF.state);
     
-    // If window.appFilters exists, use buildFiltersFromGFState to translate
+    // Apply GF.state filtering to get filteredRows
     if (typeof window !== 'undefined' && typeof buildFiltersFromGFState === 'function') {
       window.appFilters = buildFiltersFromGFState(GF.state);
+      // Use existing applyFilters logic to get filtered result
+      const tempFiltered = filtered; // Store current
+      applyFilters(); // This should update filtered
+      window.filteredRows = filtered.slice(); // Copy the result
+      filtered = tempFiltered; // Restore if needed for compatibility
     } else {
-      // Fallback: directly apply GF.state filtering
-      filtered = rawData.filter(row=>{
+      // Direct filtering using GF.state
+      window.filteredRows = rawData.filter(row=>{
         for (const [col, sel] of Object.entries(GF.state)) {
           const v0 = row[col];
           const empty = (v0===null || v0===undefined || String(v0).trim()==='');
@@ -1374,19 +1392,17 @@ let inspectorSelectedField = null;
         }
         return true;
       });
+      
+      // Update the global filtered variable for compatibility
+      filtered = window.filteredRows.slice();
     }
 
-    // Call existing applyFilters if available, otherwise update manually
-    if (typeof applyFilters === 'function') {
-      applyFilters();
-    } else {
-      updateTable();
-    }
-    
-    // Update table
+    console.debug('applyFiltersPipeline: filteredRows.length=', window.filteredRows.length);
+
+    // Update all components with the filtered data
     updateTable();
     
-    // Redraw all charts - try multiple approaches for compatibility
+    // Redraw all charts
     if (typeof window !== 'undefined' && window.charts) {
       window.charts.forEach(chart => {
         if (typeof drawChart === 'function') drawChart(chart);
@@ -1402,12 +1418,17 @@ let inspectorSelectedField = null;
     }
     
     // Update inspector/summary
-    if (typeof updateInspectorSummary === 'function') {
-      updateInspectorSummary();
-    }
+    updateInspectorSummary();
     
-    // Close the modal
-    closeFiltersModal();
+    // Close modal only if not live preview
+    if (!live) {
+      closeFiltersModal();
+    }
+  }
+
+  function applyGlobalFilters() {
+    // Use the centralized pipeline for final apply
+    applyFiltersPipeline(false);
   }
 
   function gf_applyToDashboard() {
@@ -1625,6 +1646,9 @@ let inspectorSelectedField = null;
       }
       return true;
     });
+
+    // Set window.filteredRows for consistency
+    window.filteredRows = filtered.slice();
 
     updateTable();
     charts.forEach(drawChart);
@@ -2137,14 +2161,17 @@ let inspectorSelectedField = null;
     
     if (totalRowsEl) totalRowsEl.textContent = (rawData?.length ?? 0).toLocaleString();
     if (totalColsEl) totalColsEl.textContent = (columns?.length ?? 0).toLocaleString();
-    if (filteredRowsEl) filteredRowsEl.textContent = (filtered?.length ?? 0).toLocaleString();
+    
+    // Use window.filteredRows if available, otherwise fall back to filtered variable
+    const currentFilteredRows = window.filteredRows || filtered || rawData || [];
+    if (filteredRowsEl) filteredRowsEl.textContent = currentFilteredRows.length.toLocaleString();
 
     if (!dateCol || !dateRangeEl) { 
       if (dateRangeEl) dateRangeEl.textContent = '—'; 
       return; 
     }
 
-    const rowsForRange = (filtered && Array.isArray(filtered)) ? filtered : rawData;
+    const rowsForRange = currentFilteredRows.length > 0 ? currentFilteredRows : rawData;
     const dates = rowsForRange
       .map(r => parseValidDate(r[dateCol]))
       .filter(Boolean)
