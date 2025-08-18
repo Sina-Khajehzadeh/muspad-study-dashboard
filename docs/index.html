@@ -92,20 +92,39 @@
       right: 0;
       width: 20px;
       height: 20px;
-      background: linear-gradient(-45deg, transparent 0%, transparent 30%, #ccc 30%, #ccc 35%, transparent 35%, transparent 65%, #ccc 65%, #ccc 70%, transparent 70%);
+      background: repeating-linear-gradient(
+        -45deg,
+        #ccc,
+        #ccc 2px,
+        transparent 2px,
+        transparent 6px
+      );
       cursor: nw-resize;
       pointer-events: none;
       z-index: 10;
+      border-bottom-right-radius: 8px;
+      opacity: 0.6;
+      transition: opacity 0.2s ease;
     }
-    .resizable-corner::after {
-      content: '';
-      position: absolute;
-      bottom: 0;
-      right: 0;
-      width: 0;
-      height: 0;
-      border-left: 20px solid transparent;
-      border-bottom: 20px solid #f8f9fa;
+    .resizable-corner:hover {
+      opacity: 1;
+    }
+    
+    /* Make resize corners more visible on chart cards and panels */
+    .card-chart .resizable-corner,
+    .panel .resizable-corner {
+      background: repeating-linear-gradient(
+        -45deg,
+        #007bff,
+        #007bff 2px,
+        transparent 2px,
+        transparent 6px
+      );
+      opacity: 0.4;
+    }
+    .card-chart:hover .resizable-corner,
+    .panel:hover .resizable-corner {
+      opacity: 0.8;
     }
 
     /* Modal */
