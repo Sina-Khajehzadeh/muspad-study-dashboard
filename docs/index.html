@@ -768,7 +768,7 @@ let inspectorSelectedField = null;
     });
   }
 
-  function gf_renderSelectedChips() {
+  function gf_renderSelectedChips(live=false) {
     const chipsContainer = document.getElementById('gf-selected-chips');
     const chipsList = document.getElementById('gf-selected-chips-list');
     
@@ -781,6 +781,12 @@ let inspectorSelectedField = null;
     
     if (!hasFilters) {
       chipsList.innerHTML = '<span style="color:var(--gf-muted,#6b7280); font-size:14px; font-style:italic;">No filters applied</span>';
+      if (live) {
+        // Update UI for live preview even when no filters
+        updateTable(); 
+        charts.forEach(drawChart); 
+        updateInspectorSummary();
+      }
       return;
     }
     
@@ -825,6 +831,13 @@ let inspectorSelectedField = null;
       `;
       
       chipsList.appendChild(chip);
+    }
+    
+    // If live preview is requested, update the UI immediately
+    if (live) {
+      updateTable(); 
+      charts.forEach(drawChart); 
+      updateInspectorSummary();
     }
   }
 
@@ -898,7 +911,7 @@ let inspectorSelectedField = null;
       gf_renderSelectedChips();
     };
     if (applyBtn) applyBtn.onclick = () => { 
-      gf_applyToDashboard(); 
+      applyGlobalFilters(); 
       closeFiltersModal(); 
     };
 
@@ -995,7 +1008,7 @@ let inspectorSelectedField = null;
         if (!GF.state[col]) GF.state[col] = {type:'cat', include:new Set(), includeEmpty:false};
         if (current.has(val)) current.delete(val); else current.add(val);
         gf_showField(col);
-        gf_renderSelectedChips();
+        gf_renderSelectedChips(true);  // Enable live preview for category chips
       };
 
       items.forEach(({v,count})=>{
@@ -1126,7 +1139,7 @@ let inspectorSelectedField = null;
         sMin.value = String(a);
         sMax.value = String(b);
 
-        gf_renderSelectedChips();
+        gf_renderSelectedChips(true);  // Enable live preview for numeric ranges
       };
 
       // wire text inputs
@@ -1202,7 +1215,7 @@ let inspectorSelectedField = null;
       if (empty) empty.innerHTML = '';
       if (meta.empties > 0 && empty) {
         const chk = document.createElement('input'); chk.type = 'checkbox'; chk.checked = !!s.includeEmpty;
-        chk.onchange = () => { s.includeEmpty = chk.checked; gf_renderSelectedChips(); };
+        chk.onchange = () => { s.includeEmpty = chk.checked; gf_renderSelectedChips(true); };  // Enable live preview for empty checkboxes
         const lbl = document.createElement('label'); lbl.style.marginLeft = '6px'; lbl.textContent = `[EMPTY] ${meta.empties?.toLocaleString()}`;
         const wrapDiv = document.createElement('div'); wrapDiv.appendChild(chk); wrapDiv.appendChild(lbl);
         empty.appendChild(wrapDiv);
@@ -1219,9 +1232,9 @@ let inspectorSelectedField = null;
       const startEl  = document.getElementById('gf-date-start');
       const endEl    = document.getElementById('gf-date-end');
       if (periodEl) periodEl.value = s.period;
-      if (periodEl) periodEl.onchange = ()=>{ s.period = periodEl.value; gf_showField(col); gf_renderSelectedChips(); };
-      if (startEl) startEl.onchange = ()=>{ s.start = startEl.value||null; gf_renderSelectedChips(); };
-      if (endEl) endEl.onchange   = ()=>{ s.end   = endEl.value||null; gf_renderSelectedChips(); };
+      if (periodEl) periodEl.onchange = ()=>{ s.period = periodEl.value; gf_showField(col); gf_renderSelectedChips(); };  // Keep non-live for period changes
+      if (startEl) startEl.onchange = ()=>{ s.start = startEl.value||null; gf_renderSelectedChips(true); };  // Enable live preview for date range
+      if (endEl) endEl.onchange   = ()=>{ s.end   = endEl.value||null; gf_renderSelectedChips(true); };    // Enable live preview for date range
 
       const bucketBox = document.getElementById('gf-date-buckets');
       if (bucketBox) bucketBox.innerHTML='';
@@ -1244,7 +1257,7 @@ let inspectorSelectedField = null;
         chip.className = 'btn btn-sm ' + (onSet.has(name)?'btn-primary':'btn-outline-secondary');
         chip.style.margin='4px';
         chip.textContent = `${name}  ${count.toLocaleString()}`;
-        chip.onclick = ()=>{ onSet.has(name)? onSet.delete(name) : onSet.add(name); gf_showField(col); gf_renderSelectedChips(); };
+        chip.onclick = ()=>{ onSet.has(name)? onSet.delete(name) : onSet.add(name); gf_showField(col); gf_renderSelectedChips(true); };  // Enable live preview for date bucket chips
         if (bucketBox) bucketBox.appendChild(chip);
       });
 
@@ -1252,7 +1265,7 @@ let inspectorSelectedField = null;
       if (empty) empty.innerHTML='';      
       if (GF.meta?.[col]?.empties>0 && empty){
         const chk = document.createElement('input'); chk.type='checkbox'; chk.checked=!!s.includeEmpty;
-        chk.onchange = ()=>{ s.includeEmpty = chk.checked; gf_renderSelectedChips(); };        
+        chk.onchange = ()=>{ s.includeEmpty = chk.checked; gf_renderSelectedChips(true); };  // Enable live preview for empty checkboxes        
         const lbl = document.createElement('label'); lbl.style.marginLeft='6px'; lbl.textContent = `[EMPTY] ${GF.meta?.[col]?.empties?.toLocaleString()}`;
         const wrapDiv = document.createElement('div'); wrapDiv.appendChild(chk); wrapDiv.appendChild(lbl);
         empty.appendChild(wrapDiv);
@@ -1519,6 +1532,89 @@ let inspectorSelectedField = null;
     charts.forEach(drawChart);
 
     updateInspectorSummary();
+    if (inspectorSelectedField) {
+      showFieldStats(inspectorSelectedField);
+    }
+  }
+
+  function applyGlobalFilters() {
+    // Build/merge GF.state with the app-level filter representation  
+    // This combines both standard filters (date ranges, etc.) and global filters
+    const startDateEl = id('startDate');
+    const endDateEl = id('endDate');
+    const filterContainer = id('filter-container');
+    
+    const s = startDateEl?.value ? new Date(startDateEl.value) : null;
+    const e = endDateEl?.value ? new Date(endDateEl.value) : null;
+
+    const filterMap = {};
+    if (filterContainer) {
+      const filterSelects = filterContainer.querySelectorAll('select[data-col]');
+      filterSelects.forEach(sel => {
+        const col = sel.dataset.col;
+        const selected = Array.from(sel.selectedOptions).map(o => String(o.value));
+        filterMap[col] = selected;
+      });
+    }
+
+    // Apply combined filtering: both standard filters AND global filters
+    filtered = rawData.filter(row => {
+      // First apply standard date range filters
+      if (dateCol && (s || e)) {
+        const d = parseValidDate(row[dateCol]);
+        if (!d) return false;
+        if (s && d < s) return false;
+        if (e && d > e) return false;
+      }
+      
+      // Apply standard column filters
+      for (const col in filterMap) {
+        const selected = filterMap[col];
+        if (selected && selected.length) {
+          if (!selected.includes(String(row[col]))) return false;
+        }
+      }
+      
+      // Apply global filters from GF.state
+      for (const [col, sel] of Object.entries(GF.state)) {
+        const v0 = row[col];
+        const empty = (v0===null || v0===undefined || String(v0).trim()==='');
+
+        if (sel.type==='cat') {
+          const hit = sel.include.has(String(v0));
+          if (!hit && !(empty && sel.includeEmpty)) return false;
+        }
+        else if (sel.type==='num') {
+          if (empty) { if (!sel.includeEmpty) return false; }
+          else {
+            const num = Number(v0);
+            if (Number.isNaN(num) || num < sel.min || num > sel.max) return false;
+          }
+        }
+        else if (sel.type==='date') {
+          if (empty) { if (!sel.includeEmpty) return false; }
+          else {
+            const iso = new Date(v0).toISOString().slice(0,10);
+            if (sel.start && iso < sel.start) return false;
+            if (sel.end && iso > sel.end) return false;
+            if (sel.buckets && sel.buckets.size){
+              // accept values matching any selected bucket for the chosen period
+              const y  = iso.slice(0,4);
+              const ym = iso.slice(0,7);
+              const q  = `Q${Math.floor((Number(iso.slice(5,7))-1)/3)+1} ${y}`;
+              const key = sel.period==='quarter'? q : (sel.period==='year'? y : ym);
+              if (!sel.buckets.has(key)) return false;
+            }
+          }
+        }
+      }
+      return true;
+    });
+
+    // Keep current applyFilters behavior but ensure charts/tables re-render after.
+    updateTable();         // refresh data table view
+    charts.forEach(drawChart); // redraw all charts with the new filtered rows
+    updateInspectorSummary(); // update inspector totals and range
     if (inspectorSelectedField) {
       showFieldStats(inspectorSelectedField);
     }
