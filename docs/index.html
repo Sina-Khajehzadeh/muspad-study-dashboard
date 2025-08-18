@@ -95,8 +95,15 @@
       padding: 1rem;
     }
     #modal .sheet {
-      width: min(600px, 100%); background: #fff; border-radius: 10px; padding: 1rem 1rem 1.25rem;
+      width: min(600px, 100%); 
+      max-width: 95vw; 
+      max-height: 95vh; 
+      background: #fff; 
+      border-radius: 10px; 
+      padding: 1rem 1rem 1.25rem;
       box-shadow: 0 8px 24px rgba(0,0,0,.2);
+      resize: both;
+      overflow: auto;
     }
     #modal .grid { display: grid; gap: .75rem; }
     #modal .actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: .75rem; }
@@ -1895,6 +1902,68 @@ let inspectorSelectedField = null;
     a.remove();
     URL.revokeObjectURL(a.href);
   }
+
+  // ----------------------------
+  // Filters Panel Resize Functionality
+  // ----------------------------
+  function initFiltersResize() {
+    const handle = document.getElementById('filtersResizeHandle');
+    const panel = document.getElementById('filters-panel');
+    
+    if (!handle || !panel) return;
+    
+    let isResizing = false;
+    let startX = 0;
+    let startWidth = 0;
+    
+    handle.addEventListener('mousedown', (e) => {
+      isResizing = true;
+      startX = e.clientX;
+      startWidth = parseInt(window.getComputedStyle(panel).width, 10);
+      
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      
+      // Prevent text selection during resize
+      document.body.style.userSelect = 'none';
+      panel.style.transition = 'none';
+      
+      e.preventDefault();
+    });
+    
+    function handleMouseMove(e) {
+      if (!isResizing) return;
+      
+      const deltaX = e.clientX - startX;
+      const newWidth = startWidth + deltaX;
+      
+      // Set min and max constraints
+      const minWidth = 600;
+      const maxWidth = window.innerWidth * 0.9;
+      
+      if (newWidth >= minWidth && newWidth <= maxWidth) {
+        panel.style.width = newWidth + 'px';
+      }
+    }
+    
+    function handleMouseUp() {
+      if (!isResizing) return;
+      
+      isResizing = false;
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      
+      // Restore text selection and transition
+      document.body.style.userSelect = '';
+      panel.style.transition = '';
+    }
+  }
+
+  // Initialize resize functionality when filters are ready
+  document.addEventListener('DOMContentLoaded', () => {
+    // Small delay to ensure the Global Filters modal is properly initialized
+    setTimeout(initFiltersResize, 100);
+  });
   </script>
 
   <!-- ==================== Global Filters Modal (your inserted block) ==================== -->
@@ -1946,6 +2015,49 @@ let inspectorSelectedField = null;
   background: #fff;
   box-shadow: var(--gf-shadow);
   border: 1px solid var(--gf-border);
+  resize: horizontal;
+  overflow: auto;
+  min-width: 800px;
+  max-width: 90vw;
+}
+
+/* Resize handle for filters panel */
+#filtersResizeHandle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 20px;
+  height: 100%;
+  background: linear-gradient(90deg, transparent 0%, #e1e5e9 50%, transparent 100%);
+  cursor: ew-resize;
+  user-select: none;
+  border-top-right-radius: var(--gf-radius-lg);
+  border-bottom-right-radius: var(--gf-radius-lg);
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+#filtersResizeHandle:hover {
+  opacity: 1;
+  background: linear-gradient(90deg, transparent 0%, #b8c5d1 50%, transparent 100%);
+}
+
+#filtersResizeHandle::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 4px;
+  height: 30px;
+  background: repeating-linear-gradient(
+    to bottom,
+    #6b7280 0px,
+    #6b7280 2px,
+    transparent 2px,
+    transparent 6px
+  );
+  border-radius: 2px;
 }
 
 /* Header */
@@ -2005,6 +2117,7 @@ let inspectorSelectedField = null;
 <!-- Global Filters: Backdrop + Panel -->
 <div id="filters-backdrop">
   <div id="filters-panel" style="position:relative; max-width:1100px; background:#fff; border-radius:10px; box-shadow:0 12px 40px rgba(0,0,0,.2); padding:16px; max-height:90vh; overflow:auto;">
+    <div id="filtersResizeHandle"></div>
     <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
       <h3 style="margin:0; font-weight:700;">Global Filters</h3>
       <div style="margin-left:auto; display:flex; gap:8px;">
