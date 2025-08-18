@@ -1612,8 +1612,9 @@ let inspectorSelectedField = null;
           endDateEl.max   = maxISO;
           startDateEl.dataset.col = dateCol;
           endDateEl.dataset.col   = dateCol;
-          startDateEl.value = minISO;
-          endDateEl.value   = maxISO;
+          // Remove default values to avoid activating date filter on initial load
+          // startDateEl.value = minISO;
+          // endDateEl.value   = maxISO;
         }
       }
     }
@@ -1664,7 +1665,10 @@ let inspectorSelectedField = null;
       filterSelects.forEach(sel => {
         const col = sel.dataset.col;
         const selected = Array.from(sel.selectedOptions).map(o => String(o.value));
-        if (selected && selected.length > 0) {
+        const totalOptions = sel.options.length;
+        // Only create filter if some (but not all) options are selected
+        // This treats "all selected" as "no filter" to avoid excluding rows with empty values
+        if (selected && selected.length > 0 && selected.length < totalOptions) {
           Simple.categoryFilters[col] = selected;
         }
       });
