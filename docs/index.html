@@ -1226,36 +1226,32 @@ let inspectorSelectedField = null;
         sMax.min = domainMin; sMax.max = domainMax; sMax.step = '1';
       }
 
-      // helper to produce safe numeric/string values
+      // helper to produce safe numeric values
       const safeNumber = (v, fallback) => {
         const n = Number(v);
         return Number.isNaN(n) ? fallback : n;
       };
 
-      // initialize text inputs with saved state or meta
+      // initialize values with saved state or meta
       const initialMin = (s.min !== undefined && s.min !== null) ? Number(s.min) : domainMin;
       const initialMax = (s.max !== undefined && s.max !== null) ? Number(s.max) : domainMax;
 
       // clamp function
       const clamp = (v) => Math.max(domainMin, Math.min(domainMax, v));
 
-      // write values everywhere (use strings for .value)
-      if (minEl) minEl.value = String(clamp(initialMin));
-      if (maxEl) maxEl.value = String(clamp(initialMax));
+      // Initialize using valueAsNumber for min/max inputs and string values for sliders
+      if (minEl) minEl.valueAsNumber = clamp(initialMin);
+      if (maxEl) maxEl.valueAsNumber = clamp(initialMax);
       if (sMin) sMin.value = String(clamp(initialMin));
       if (sMax) sMax.value = String(clamp(initialMax));
 
-      // sync function: read number inputs, coerce, sort, clamp, write back
+      // sync function: uses valueAsNumber, clamps, orders, writes back to both sliders and inputs
       const sync = () => {
         if (!minEl || !maxEl || !sMin || !sMax) return;
         
-        // Guard against empty values during user input
-        let a = minEl.value === '' ? domainMin : safeNumber(minEl.value, domainMin);
-        let b = maxEl.value === '' ? domainMax : safeNumber(maxEl.value, domainMax);
-
-        // if one of editors is NaN after conversion, fallback to domain bounds
-        if (Number.isNaN(a)) a = domainMin;
-        if (Number.isNaN(b)) b = domainMax;
+        // Read using valueAsNumber - handles NaN gracefully
+        let a = Number.isNaN(minEl.valueAsNumber) ? domainMin : minEl.valueAsNumber;
+        let b = Number.isNaN(maxEl.valueAsNumber) ? domainMax : maxEl.valueAsNumber;
 
         // ensure ordering
         if (a > b) [a, b] = [b, a];
@@ -1266,9 +1262,9 @@ let inspectorSelectedField = null;
         // persist to state
         s.min = a; s.max = b;
 
-        // write back to all controls (strings) to prevent blank displays
-        minEl.value = String(a);
-        maxEl.value = String(b);
+        // write back to all controls using valueAsNumber for inputs and strings for sliders
+        minEl.valueAsNumber = a;
+        maxEl.valueAsNumber = b;
         sMin.value = String(a);
         sMax.value = String(b);
 
@@ -1281,9 +1277,9 @@ let inspectorSelectedField = null;
       if (minEl) {
         minEl.oninput = sync;
         minEl.onblur = () => {
-          // On blur, ensure value is never empty
-          if (minEl.value === '') {
-            minEl.value = String(domainMin);
+          // On blur, ensure value is never NaN
+          if (Number.isNaN(minEl.valueAsNumber)) {
+            minEl.valueAsNumber = domainMin;
           }
           sync();
         };
@@ -1291,22 +1287,22 @@ let inspectorSelectedField = null;
       if (maxEl) {
         maxEl.oninput = sync;
         maxEl.onblur = () => {
-          // On blur, ensure value is never empty
-          if (maxEl.value === '') {
-            maxEl.value = String(domainMax);
+          // On blur, ensure value is never NaN
+          if (Number.isNaN(maxEl.valueAsNumber)) {
+            maxEl.valueAsNumber = domainMax;
           }
           sync();
         };
       }
 
-      // wire range sliders (use numeric guard) with better sync
+      // wire range sliders - update number inputs and call sync
       if (sMin) {
         sMin.oninput = (e) => {
           const v = safeNumber(e.target.value, domainMin);
           // if slider produced NaN ignore
           if (Number.isNaN(v)) return;
           const clampedV = clamp(v);
-          if (minEl) minEl.value = String(clampedV);
+          if (minEl) minEl.valueAsNumber = clampedV;
           sync();
         };
       }
@@ -1315,7 +1311,7 @@ let inspectorSelectedField = null;
           const v = safeNumber(e.target.value, domainMax);
           if (Number.isNaN(v)) return;
           const clampedV = clamp(v);
-          if (maxEl) maxEl.value = String(clampedV);
+          if (maxEl) maxEl.valueAsNumber = clampedV;
           sync();
         };
       }
@@ -1347,8 +1343,8 @@ let inspectorSelectedField = null;
         chip.appendChild(countEl);
         
         chip.onclick = () => {
-          if (minEl) minEl.value = String(a);
-          if (maxEl) maxEl.value = String(b);
+          if (minEl) minEl.valueAsNumber = a;
+          if (maxEl) maxEl.valueAsNumber = b;
           sync();
         };
         bins.appendChild(chip);
@@ -2966,9 +2962,9 @@ let inspectorSelectedField = null;
         <div id="gf-num-wrap" style="display:none; gap:12px;">
           <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
             <label class="form-label form-label-sm" style="margin:0;">Range</label>
-            <input id="gf-num-min" type="number" class="form-control form-control-sm" style="max-width:120px;">
+            <input id="gf-num-min" type="number" step="any" class="form-control form-control-sm" style="max-width:120px;">
             <span>–</span>
-            <input id="gf-num-max" type="number" class="form-control form-control-sm" style="max-width:120px;">
+            <input id="gf-num-max" type="number" step="any" class="form-control form-control-sm" style="max-width:120px;">
           </div>
           <input id="gf-num-slider-min" type="range">
           <input id="gf-num-slider-max" type="range">
