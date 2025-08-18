@@ -54,7 +54,7 @@
     .date-range { display: flex; gap: .5rem; }
 
     /* Panels */
-    .panel { display: none; background: #f8f9fa; border-bottom: 1px solid #e1e1e1; padding: .75rem 1rem; overflow: auto; }
+    .panel { display: none; background: #f8f9fa; border-bottom: 1px solid #e1e1e1; padding: .75rem 1rem; overflow: auto; resize: both; position: relative; }
     .panel.active { display: block; }
     .panel h5 { margin-bottom: .75rem; }
 
@@ -70,6 +70,7 @@
       width: calc(50% - .5rem);
       min-width: var(--card-min);
       background: #fff; border: 1px solid #e1e1e1; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,.06);
+      resize: both; overflow: auto; position: relative;
     }
     .card-chart .card-header {
       display: flex; align-items: center; justify-content: space-between;
@@ -82,6 +83,29 @@
 
     @media (max-width: 800px) {
       .card-chart { width: 100%; min-width: 100%; }
+    }
+
+    /* Resizable corner handle for visual cues */
+    .resizable-corner {
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      width: 20px;
+      height: 20px;
+      background: linear-gradient(-45deg, transparent 0%, transparent 30%, #ccc 30%, #ccc 35%, transparent 35%, transparent 65%, #ccc 65%, #ccc 70%, transparent 70%);
+      cursor: nw-resize;
+      pointer-events: none;
+      z-index: 10;
+    }
+    .resizable-corner::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      width: 0;
+      height: 0;
+      border-left: 20px solid transparent;
+      border-bottom: 20px solid #f8f9fa;
     }
 
     /* Modal */
@@ -225,6 +249,7 @@
       <section id="panelFilters" class="panel" aria-label="Filters">
         <h5 class="mb-3">Filters</h5>
         <div id="filter-container"></div>
+        <div class="resizable-corner"></div>
       </section>
 
       <!-- Data table -->
@@ -258,12 +283,14 @@
             </div>
           </aside>
         </div>
+        <div class="resizable-corner"></div>
       </section>
 
       <!-- Settings -->
       <section id="panelSettings" class="panel" aria-label="Settings">
         <h5>Settings</h5>
         <p class="text-muted mb-0">Add theme/layout options here as needed.</p>
+        <div class="resizable-corner"></div>
       </section>
 
       <!-- Chart grid -->
@@ -351,6 +378,7 @@
         <button id="btnCancel" class="btn btn-outline-secondary">Cancel</button>
         <button id="btnCreate" class="btn btn-primary">Create</button>
       </div>
+      <div class="resizable-corner"></div>
     </div>
   </div>
 
@@ -394,6 +422,8 @@ let inspectorSelectedField = null;
   document.addEventListener('DOMContentLoaded', () => {
     wireUI();
     loadCSV();
+    // Initialize Plotly resize observer after a short delay to ensure elements are rendered
+    setTimeout(initPlotlyResizeObserver, 500);
   });
 
   function wireUI() {
@@ -1381,14 +1411,21 @@ let inspectorSelectedField = null;
         <button class="remove" title="Remove"><i class="bi bi-x-lg"></i></button>
       </div>
       <div class="plot"></div>
+      <div class="resizable-corner"></div>
     `;
     id('grid').appendChild(card);
     cfg._el = card.querySelector('.plot');
+    cfg._card = card;
     card.querySelector('.remove').addEventListener('click', () => {
       charts = charts.filter(c => c !== cfg);
       card.remove();
     });
     drawChart(cfg);
+    
+    // Ensure ResizeObserver is watching this plot element
+    if (window.plotlyResizeObserver && cfg._el) {
+      window.plotlyResizeObserver.observe(cfg._el);
+    }
   }
 
   function titleFor(cfg) {
@@ -1579,6 +1616,50 @@ let inspectorSelectedField = null;
     }
 
     Plotly.newPlot(el, fig.data, fig.layout, { responsive: true });
+  }
+
+  // ----------------------------
+  // Resize Observer for Auto-Resizing Plotly Charts
+  // ----------------------------
+  function initPlotlyResizeObserver() {
+    if (!window.ResizeObserver) return; // Fallback for browsers without ResizeObserver
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      entries.forEach((entry) => {
+        const plotElement = entry.target;
+        // Check if this is a plot element that contains a Plotly chart
+        if (plotElement.classList.contains('plot') && plotElement.children.length > 0) {
+          // Find the corresponding chart configuration
+          const chart = charts.find(cfg => cfg._el === plotElement);
+          if (chart) {
+            // Debounce the resize to avoid excessive redraws
+            clearTimeout(plotElement._resizeTimeout);
+            plotElement._resizeTimeout = setTimeout(() => {
+              try {
+                Plotly.Plots.resize(plotElement);
+              } catch (e) {
+                console.warn('Error resizing Plotly chart:', e);
+              }
+            }, 100);
+          }
+        }
+      });
+    });
+
+    // Store globally for access in addChart
+    window.plotlyResizeObserver = resizeObserver;
+
+    // Observe all existing plot elements
+    const observeExistingPlots = () => {
+      document.querySelectorAll('.plot').forEach(plotEl => {
+        resizeObserver.observe(plotEl);
+      });
+    };
+
+    // Initialize observation of existing plots
+    observeExistingPlots();
+
+    return resizeObserver;
   }
 
   // ===================== Inspector logic =====================
