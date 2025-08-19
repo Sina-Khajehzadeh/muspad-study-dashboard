@@ -690,6 +690,8 @@ let inspectorSelectedField = null;
     show('[data-role="needsSize"]', type === 'bubble');
     show('[data-role="comboToggles"]', ['barline','line','box'].includes(type));
     show('[data-role="histToggle"]', ['line','box'].includes(type));
+    
+    updateBuilderRoleOptionsByType();
   }
 
   // ----------------------------
@@ -1624,25 +1626,23 @@ let inspectorSelectedField = null;
     const xSel = id('fldX'), ySel = id('fldY'), cSel = id('fldColor');
     const y2Sel = id('fldY2'), yCatSel = id('fldYCat'), sizeSel = id('fldSize');
 
-    [xSel, ySel, cSel, y2Sel, yCatSel, sizeSel].forEach(s => {
+    [xSel, ySel, y2Sel, yCatSel, sizeSel].forEach(s => {
       if (s) s.innerHTML = '';
     });
 
-    const cats = categoricalCols.length ? categoricalCols : columns;
-    const nums = numericCols.length ? numericCols : columns;
-
-    cats.forEach(c => { 
+    // Keep X/Y showing all columns (per recent PR #18)
+    columns.forEach(c => { 
       if (xSel) appendOption(xSel, c); 
       if (yCatSel) appendOption(yCatSel, c); 
-      if (cSel) appendOption(cSel, c); 
     });
-    nums.forEach(c => { 
+    columns.forEach(c => { 
       if (ySel) appendOption(ySel, c); 
       if (y2Sel) appendOption(y2Sel, c); 
       if (sizeSel) appendOption(sizeSel, c); 
     });
 
     updateBuilderVisibility();
+    updateBuilderRoleOptionsByType();
   }
 
   // ----------------------------
@@ -1988,14 +1988,17 @@ let inspectorSelectedField = null;
       const g = groupBy(filtered, by);
       const xs = new Set(), colors = new Set();
       for (const k of g.map.keys()) {
-        const parts = k.split('¦'); xs.add(parts[0]); if (cfg.color) colors.add(parts[1]);
+        const parts = k.split('¦'); 
+        xs.add(parts[0]); 
+        if (cfg.color) colors.add(parts[1] || '(empty)');
       }
       const xArr = Array.from(xs), colorArr = cfg.color ? Array.from(colors) : [null];
 
       if (cfg.type === 'bar') {
         for (const cval of colorArr) {
           const y = xArr.map(xv => {
-            const key = cfg.color ? [xv, cval].join('¦') : String(xv);
+            const actualCval = cval === '(empty)' ? '' : cval;
+            const key = cfg.color ? [xv, actualCval].join('¦') : String(xv);
             return agg(g.map.get(key) || []);
           });
           fig.data.push({ x: xArr, y, type: 'bar', name: cval ?? 'value' });
@@ -2013,17 +2016,54 @@ let inspectorSelectedField = null;
     }
 
     else if (cfg.type === 'line' || cfg.type === 'timeseries') {
-      const g = groupBy(filtered, [cfg.x]);
-      const xVals = Array.from(g.map.keys()).map(k => k.split('¦')[0]);
-      const sorted = xVals.slice().sort((a,b) => {
-        const da = new Date(a), db = new Date(b);
-        if (!isNaN(da) && !isNaN(db)) return da - db;
-        const na = +a, nb = +b;
-        if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
-        return String(a).localeCompare(String(b));
-      });
-      const yVals = sorted.map(xv => agg(g.map.get(String(xv)) || g.map.get(xv) || []));
-      fig.data.push({ x: sorted, y: yVals, type: 'scatter', mode: 'lines+markers', name: cfg.y });
+      if (cfg.color && categoricalCols.includes(cfg.color)) {
+        // Color is categorical - render separate line traces per category (series split)
+        const g = groupBy(filtered, [cfg.x, cfg.color]);
+        const xVals = new Set();
+        const colorVals = new Set();
+        
+        for (const k of g.map.keys()) {
+          const parts = k.split('¦');
+          xVals.add(parts[0]);
+          colorVals.add(parts[1] || '(empty)');
+        }
+        
+        const sortedXVals = Array.from(xVals).sort((a,b) => {
+          const da = new Date(a), db = new Date(b);
+          if (!isNaN(da) && !isNaN(db)) return da - db;
+          const na = +a, nb = +b;
+          if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
+          return String(a).localeCompare(String(b));
+        });
+        
+        for (const colorVal of colorVals) {
+          const yVals = sortedXVals.map(xv => {
+            const key = [xv, colorVal === '(empty)' ? '' : colorVal].join('¦');
+            return agg(g.map.get(key) || []);
+          });
+          const traceName = colorVal === '(empty)' ? '(empty)' : colorVal;
+          fig.data.push({ 
+            x: sortedXVals, 
+            y: yVals, 
+            type: 'scatter', 
+            mode: 'lines+markers', 
+            name: traceName 
+          });
+        }
+      } else {
+        // No color or non-categorical color - render single aggregated line
+        const g = groupBy(filtered, [cfg.x]);
+        const xVals = Array.from(g.map.keys()).map(k => k.split('¦')[0]);
+        const sorted = xVals.slice().sort((a,b) => {
+          const da = new Date(a), db = new Date(b);
+          if (!isNaN(da) && !isNaN(db)) return da - db;
+          const na = +a, nb = +b;
+          if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
+          return String(a).localeCompare(String(b));
+        });
+        const yVals = sorted.map(xv => agg(g.map.get(String(xv)) || g.map.get(xv) || []));
+        fig.data.push({ x: sorted, y: yVals, type: 'scatter', mode: 'lines+markers', name: cfg.y });
+      }
 
       if (cfg.histOverlay) {
         const vals = filtered.map(r => +r[cfg.y]).filter(v => !Number.isNaN(v));
@@ -2038,16 +2078,81 @@ let inspectorSelectedField = null;
     }
 
     else if (cfg.type === 'scatter' || cfg.type === 'bubble') {
-      const x = filtered.map(r => r[cfg.x]), y = filtered.map(r => r[cfg.y]);
-      const trace = { x, y, mode: 'markers', type: 'scatter', name: cfg.y };
-      if (cfg.type === 'bubble' && cfg.size) {
-        const s = filtered.map(r => +r[cfg.size]);
-        const min = Math.min(...s.filter(v => !Number.isNaN(v))), max = Math.max(...s.filter(v => !Number.isNaN(v)));
-        const scaled = s.map(v => Number.isNaN(v) ? 5 : (10 + 30 * ((v - min) / Math.max(1e-9, max - min))));
-        trace.marker = { size: scaled, sizemode: 'diameter', opacity: 0.7 };
+      if (cfg.color && categoricalCols.includes(cfg.color)) {
+        // Color is categorical - split into multiple traces by category
+        const colorVals = [...new Set(filtered.map(r => r[cfg.color] || '(empty)'))];
+        
+        for (const colorVal of colorVals) {
+          const colorRows = filtered.filter(r => (r[cfg.color] || '(empty)') === colorVal);
+          const x = colorRows.map(r => r[cfg.x]);
+          const y = colorRows.map(r => r[cfg.y]);
+          
+          const trace = { 
+            x, 
+            y, 
+            mode: 'markers', 
+            type: 'scatter', 
+            name: colorVal === '(empty)' ? '(empty)' : colorVal 
+          };
+          
+          if (cfg.type === 'bubble' && cfg.size) {
+            const s = colorRows.map(r => +r[cfg.size]);
+            const min = Math.min(...s.filter(v => !Number.isNaN(v)));
+            const max = Math.max(...s.filter(v => !Number.isNaN(v)));
+            const scaled = s.map(v => Number.isNaN(v) ? 5 : (10 + 30 * ((v - min) / Math.max(1e-9, max - min))));
+            trace.marker = { size: scaled, sizemode: 'diameter', opacity: 0.7 };
+          }
+          
+          fig.data.push(trace);
+        }
+      } else if (cfg.color && numericCols.includes(cfg.color)) {
+        // Color is numeric - single trace with color scale
+        const x = filtered.map(r => r[cfg.x]);
+        const y = filtered.map(r => r[cfg.y]);
+        const colorValues = filtered.map(r => +r[cfg.color]);
+        
+        const trace = { 
+          x, 
+          y, 
+          mode: 'markers', 
+          type: 'scatter', 
+          name: cfg.y,
+          marker: {
+            color: colorValues,
+            colorscale: 'Viridis',
+            showscale: true,
+            colorbar: { title: cfg.color }
+          }
+        };
+        
+        if (cfg.type === 'bubble' && cfg.size) {
+          const s = filtered.map(r => +r[cfg.size]);
+          const min = Math.min(...s.filter(v => !Number.isNaN(v)));
+          const max = Math.max(...s.filter(v => !Number.isNaN(v)));
+          const scaled = s.map(v => Number.isNaN(v) ? 5 : (10 + 30 * ((v - min) / Math.max(1e-9, max - min))));
+          trace.marker.size = scaled;
+          trace.marker.sizemode = 'diameter';
+          trace.marker.opacity = 0.7;
+        }
+        
+        fig.data.push(trace);
+      } else {
+        // No color or invalid color - single trace without color
+        const x = filtered.map(r => r[cfg.x]);
+        const y = filtered.map(r => r[cfg.y]);
+        const trace = { x, y, mode: 'markers', type: 'scatter', name: cfg.y };
+        
+        if (cfg.type === 'bubble' && cfg.size) {
+          const s = filtered.map(r => +r[cfg.size]);
+          const min = Math.min(...s.filter(v => !Number.isNaN(v)));
+          const max = Math.max(...s.filter(v => !Number.isNaN(v)));
+          const scaled = s.map(v => Number.isNaN(v) ? 5 : (10 + 30 * ((v - min) / Math.max(1e-9, max - min))));
+          trace.marker = { size: scaled, sizemode: 'diameter', opacity: 0.7 };
+        }
+        
+        fig.data.push(trace);
       }
-      if (cfg.color) trace.text = filtered.map(r => r[cfg.color]);
-      fig.data.push(trace);
+      
       fig.layout.xaxis = { title: cfg.x };
       fig.layout.yaxis = { title: cfg.y };
     }
@@ -2571,6 +2676,75 @@ let inspectorSelectedField = null;
     const o = document.createElement('option');
     o.value = value; o.textContent = label ?? value;
     sel.appendChild(o);
+  }
+
+  function setSelectOptions(sel, values, includeBlank, blankLabel) {
+    if (!sel) return;
+    sel.innerHTML = '';
+    if (includeBlank) {
+      appendOption(sel, '', blankLabel || '');
+    }
+    values.forEach(v => appendOption(sel, v));
+  }
+
+  function updateBuilderRoleOptionsByType() {
+    const typeEl = id('fldType');
+    const cSel = id('fldColor');
+    if (!typeEl || !cSel) return;
+
+    const type = typeEl.value;
+    const colorLabel = cSel.closest('div')?.querySelector('label.form-label');
+    
+    if (['bar','box','barline','pivot','heatmap','line'].includes(type)) {
+      // For these types, color acts as categorical grouping (series split)
+      const cats = categoricalCols.length ? categoricalCols : columns.filter(c => looksCategoricalColumn(c));
+      setSelectOptions(cSel, cats, true);
+      if (colorLabel) {
+        colorLabel.textContent = 'Group (series) — categorical';
+      }
+    } else if (['scatter','bubble'].includes(type)) {
+      // For scatter/bubble, support both categorical (multiple traces) and numeric (color scale)
+      cSel.innerHTML = '';
+      appendOption(cSel, '', '');
+      
+      // Categorical optgroup
+      if (categoricalCols.length || columns.filter(c => looksCategoricalColumn(c)).length) {
+        const catGroup = document.createElement('optgroup');
+        catGroup.label = 'Categorical (group series)';
+        const cats = categoricalCols.length ? categoricalCols : columns.filter(c => looksCategoricalColumn(c));
+        cats.forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c;
+          opt.textContent = c;
+          catGroup.appendChild(opt);
+        });
+        cSel.appendChild(catGroup);
+      }
+      
+      // Numeric optgroup  
+      if (numericCols.length || columns.filter(c => looksNumericColumn(c)).length) {
+        const numGroup = document.createElement('optgroup');
+        numGroup.label = 'Numeric (color scale)';
+        const nums = numericCols.length ? numericCols : columns.filter(c => looksNumericColumn(c));
+        nums.forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c;
+          opt.textContent = c;
+          numGroup.appendChild(opt);
+        });
+        cSel.appendChild(numGroup);
+      }
+      
+      if (colorLabel) {
+        colorLabel.textContent = 'Color / Group (categorical=series | numeric=scale)';
+      }
+    } else {
+      // For other chart types (e.g., pie), hide color field entirely
+      setSelectOptions(cSel, [], true);
+      if (colorLabel) {
+        colorLabel.textContent = 'Color / Group (optional)';
+      }
+    }
   }
   function fillMultiSelect(sel, values) {
     sel.innerHTML = '';
