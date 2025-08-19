@@ -408,6 +408,7 @@
         <div>
           <label class="form-label">Chart type</label>
           <select id="fldType" class="form-select">
+            <option value="histogram">Histogram</option>
             <option value="bar">Column / Bar</option>
             <option value="barline">Bar + Line (combo)</option>
             <option value="pie">Pie Chart</option>
@@ -471,6 +472,80 @@
             <input class="form-check-input" type="checkbox" id="chkHistOverlay">
             <label class="form-check-label" for="chkHistOverlay">Add histogram overlay (Line / Box)</label>
           </div>
+        </div>
+      </div>
+
+      <!-- ADVANCED SECTION -->
+      <div class="mt-3">
+        <div class="d-flex align-items-center">
+          <h6 class="mb-0">Advanced</h6>
+          <button type="button" id="btnToggleAdvanced" class="btn btn-link btn-sm ms-2 p-0" style="font-size: 0.8rem;">
+            <i class="bi bi-chevron-down" id="iconAdvanced"></i> Show
+          </button>
+        </div>
+        <div id="advancedSection" class="mt-2" style="display: none;">
+          <div class="grid">
+            <!-- X binning for numeric -->
+            <div id="advancedXBinning" style="display: none;">
+              <label class="form-label">X binning (nbins)</label>
+              <input type="number" id="fldXBins" class="form-control" value="30" min="5" max="200">
+            </div>
+
+            <!-- X period for dates -->
+            <div id="advancedXPeriod" style="display: none;">
+              <label class="form-label">X period</label>
+              <select id="fldXPeriod" class="form-select">
+                <option value="day">Day</option>
+                <option value="week">Week</option>
+                <option value="month" selected>Month</option>
+                <option value="quarter">Quarter</option>
+                <option value="year">Year</option>
+              </select>
+            </div>
+
+            <!-- X categorical order -->
+            <div id="advancedXOrder" style="display: none;">
+              <label class="form-label">X categorical order</label>
+              <select id="fldXOrder" class="form-select">
+                <option value="alphabetical" selected>Alphabetical</option>
+                <option value="frequency_desc">Frequency (high to low)</option>
+                <option value="frequency_asc">Frequency (low to high)</option>
+              </select>
+            </div>
+
+            <!-- Categorical encoding -->
+            <div id="advancedCategoricalEncoding">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="chkEncodeCategorical">
+                <label class="form-check-label" for="chkEncodeCategorical">
+                  Encode categorical X/Y (ordinal indices)
+                </label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="chkAddJitter">
+                <label class="form-check-label" for="chkAddJitter">
+                  Add jitter to points (scatter/line)
+                </label>
+              </div>
+            </div>
+
+            <!-- Histogram-specific options -->
+            <div id="advancedHistogram" style="display: none;">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="chkShowRangeslider">
+                <label class="form-check-label" for="chkShowRangeslider">
+                  Show rangeslider
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TRANSFORMATION SUMMARY -->
+      <div class="mt-3">
+        <div id="transformationSummary" class="alert alert-info py-2 px-3" style="font-size: 0.9rem; margin-bottom: 0;">
+          Select chart type and fields to see transformation details.
         </div>
       </div>
 
@@ -636,7 +711,14 @@ let inspectorSelectedField = null;
         size:    id('fldSize')?.value || null,
         agg:     id('fldAgg')?.value || 'count',
         dualAxis:    id('chkDualAxis')?.checked || false,
-        histOverlay:id('chkHistOverlay')?.checked || false
+        histOverlay: id('chkHistOverlay')?.checked || false,
+        // Advanced options
+        xBins:       parseInt(id('fldXBins')?.value) || 30,
+        xPeriod:     id('fldXPeriod')?.value || 'month',
+        xOrder:      id('fldXOrder')?.value || 'alphabetical',
+        encodeCategorical: id('chkEncodeCategorical')?.checked || false,
+        addJitter:   id('chkAddJitter')?.checked || false,
+        showRangeslider: id('chkShowRangeslider')?.checked || false
       };
       addChart(cfg);
       closeModal();
@@ -652,19 +734,55 @@ let inspectorSelectedField = null;
     // Update builder visibility when chart type changes
     const fldType = id('fldType');
     if (fldType) {
-      fldType.addEventListener('change', updateBuilderVisibility);
+      fldType.addEventListener('change', () => {
+        updateBuilderVisibility();
+        updateAdvancedVisibility();
+        updateTransformationSummary();
+      });
       updateBuilderVisibility();
+      updateAdvancedVisibility();
+    }
+    
+    // Wire up field changes to update transformation summary
+    ['fldX', 'fldY', 'fldColor', 'fldXBins', 'fldXPeriod', 'fldXOrder'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener('change', () => {
+          updateAdvancedVisibility();
+          updateTransformationSummary();
+        });
+      }
+    });
+    
+    ['chkEncodeCategorical', 'chkAddJitter', 'chkShowRangeslider'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener('change', updateTransformationSummary);
+      }
+    });
+    
+    // Advanced section toggle
+    const btnToggleAdvanced = id('btnToggleAdvanced');
+    const advancedSection = id('advancedSection');
+    const iconAdvanced = id('iconAdvanced');
+    if (btnToggleAdvanced && advancedSection) {
+      btnToggleAdvanced.addEventListener('click', () => {
+        const isHidden = advancedSection.style.display === 'none';
+        advancedSection.style.display = isHidden ? 'block' : 'none';
+        iconAdvanced.className = isHidden ? 'bi bi-chevron-up' : 'bi bi-chevron-down';
+        btnToggleAdvanced.textContent = isHidden ? ' Hide' : ' Show';
+      });
     }
      
     // Download filtered CSV
     const btnDownload = id('btnDownloadFiltered');
     if (btnDownload) {
       btnDownload.addEventListener('click', () => {
-        if (!filtered.length) {
+        if (!filteredRows || !filteredRows.length) {
           alert('No rows in the current filter.');
           return;
         }
-        downloadCSV('filtered_data.csv', columns, filtered.map(r => columns.map(c => r[c])));
+        downloadCSV('filtered_data.csv', columns, filteredRows.map(r => columns.map(c => r[c])));
       });
     }
   }
@@ -682,16 +800,16 @@ let inspectorSelectedField = null;
         if (el) el.style.display = on ? '' : 'none';
       });
     };
-    show('[data-role="needsNumeric"]', !['pie','heatmap','pivot','datatable','funnel'].includes(type));
-    show('[data-role="needsAgg"]', !['scatter','bubble','box','datatable','pivot'].includes(type));
-    show('[data-role="needsColor"]', ['bar','line','scatter','bubble','box','barline'].includes(type));
+    
+    // Show/hide fields based on chart type
+    show('[data-role="needsNumeric"]', !['pie','heatmap','pivot','datatable','funnel','histogram'].includes(type));
+    show('[data-role="needsAgg"]', !['scatter','bubble','box','datatable','pivot','histogram'].includes(type));
+    show('[data-role="needsColor"]', ['bar','line','scatter','bubble','box','barline','histogram'].includes(type));
     show('[data-role="needsSecondCat"]', ['heatmap','pivot'].includes(type));
     show('[data-role="needsY2"]', type === 'barline');
     show('[data-role="needsSize"]', type === 'bubble');
     show('[data-role="comboToggles"]', ['barline','line','box'].includes(type));
     show('[data-role="histToggle"]', ['line','box'].includes(type));
-    
-    updateBuilderRoleOptionsByType();
   }
 
   // ----------------------------
@@ -717,6 +835,10 @@ let inspectorSelectedField = null;
     
     rawData = sampleData;
     columns = Object.keys(sampleData[0]);
+    
+    // Compute dose_interval_days derived column
+    computeDoseIntervalDays();
+    
     id('loadedBadge').textContent = `Loaded ${rawData.length.toLocaleString()} rows • ${columns.length} columns (Sample Data)`;
 
     detectColumns();
@@ -769,6 +891,10 @@ let inspectorSelectedField = null;
           columns = (res.meta && res.meta.fields && res.meta.fields.length)
             ? res.meta.fields
             : Object.keys(rawData[0] || {});
+          
+          // Compute dose_interval_days derived column
+          computeDoseIntervalDays();
+          
           id('loadedBadge').textContent = `Loaded ${rawData.length.toLocaleString()} rows • ${columns.length} columns`;
 
           detectColumns();
@@ -794,6 +920,181 @@ let inspectorSelectedField = null;
 
   tryNext();    // ✅ call it OUTSIDE the function body
 }               // ✅ closes loadCSV
+
+  // ----------------------------
+  // Helper utilities for type-agnostic chart building
+  // ----------------------------
+
+  function isDateCol(col) {
+    // First check if it's in the detected date columns
+    if (col === dateCol) return true;
+    
+    // Check column name hints
+    const nameHint = /(date|time|_dt|_time|timestamp)/i;
+    if (nameHint.test(col)) return true;
+    
+    // Sample values and check if they parse as dates in a reasonable range
+    const vals = sampleValues(col, 100);
+    let parsed = 0, withinRange = 0;
+    for (const v of vals) {
+      const d = new Date(v);
+      if (!isNaN(d)) {
+        parsed++;
+        const y = d.getUTCFullYear();
+        if (y >= 2010 && y <= 2030) withinRange++;
+      }
+    }
+    const rate = vals.length ? parsed / vals.length : 0;
+    const rangeRate = vals.length ? withinRange / vals.length : 0;
+    return rate >= 0.7 && rangeRate >= 0.7;
+  }
+
+  function encodeCategorical(arr) {
+    // Create ordinal mapping for categorical values
+    const unique = [...new Set(arr.filter(v => v != null && v !== ''))];
+    const valueToIndex = new Map();
+    const ticks = [];
+    
+    unique.forEach((val, idx) => {
+      valueToIndex.set(String(val), idx);
+      ticks.push({ value: idx, label: String(val) });
+    });
+    
+    const values = arr.map(v => 
+      v == null || v === '' ? null : valueToIndex.get(String(v))
+    );
+    
+    return { values, ticks };
+  }
+
+  function jitter(values, amplitude = 0.2) {
+    // Add small random noise to encoded categorical values
+    return values.map(v => 
+      v == null ? null : v + (Math.random() - 0.5) * amplitude
+    );
+  }
+
+  function binNumeric(values, nbins = 30) {
+    // Bin numeric values into histogram bins
+    const validVals = values.filter(v => typeof v === 'number' && !isNaN(v));
+    if (validVals.length === 0) return { bins: [], counts: [] };
+    
+    const min = Math.min(...validVals);
+    const max = Math.max(...validVals);
+    const range = max - min;
+    const binWidth = range / nbins;
+    
+    const bins = [];
+    const counts = [];
+    
+    for (let i = 0; i < nbins; i++) {
+      const binStart = min + i * binWidth;
+      const binEnd = min + (i + 1) * binWidth;
+      const binCenter = (binStart + binEnd) / 2;
+      bins.push(binCenter);
+      
+      const count = validVals.filter(v => 
+        i === nbins - 1 ? v >= binStart && v <= binEnd : v >= binStart && v < binEnd
+      ).length;
+      counts.push(count);
+    }
+    
+    return { bins, counts, min, max, binWidth };
+  }
+
+  function binDates(values, period = 'month') {
+    // Group date values by specified period
+    const groups = new Map();
+    
+    values.forEach(v => {
+      if (!v) return;
+      const d = new Date(v);
+      if (isNaN(d)) return;
+      
+      let key;
+      const year = d.getUTCFullYear();
+      const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+      
+      switch (period) {
+        case 'day':
+          key = d.toISOString().slice(0, 10);
+          break;
+        case 'week':
+          const weekStart = new Date(d);
+          weekStart.setUTCDate(d.getUTCDate() - d.getUTCDay());
+          key = weekStart.toISOString().slice(0, 10);
+          break;
+        case 'month':
+          key = `${year}-${month}`;
+          break;
+        case 'quarter':
+          const quarter = Math.floor((d.getUTCMonth() + 3) / 3);
+          key = `Q${quarter} ${year}`;
+          break;
+        case 'year':
+          key = String(year);
+          break;
+        default:
+          key = `${year}-${month}`;
+      }
+      
+      groups.set(key, (groups.get(key) || 0) + 1);
+    });
+    
+    const labels = Array.from(groups.keys()).sort();
+    const counts = labels.map(label => groups.get(label));
+    
+    return { labels, counts };
+  }
+
+  function getColumnType(col) {
+    // Determine if column is numeric, categorical, or date
+    if (isDateCol(col)) return 'date';
+    if (looksNumericColumn(col)) return 'numeric';
+    if (looksCategoricalColumn(col)) return 'categorical';
+    return 'other';
+  }
+
+  function computeDoseIntervalDays() {
+    // Compute dose_interval_days as difference between second and first vaccination dates
+    const firstDateCols = [
+      'X20_21_vacc_first_date',
+      'vacc_first_date', 
+      'first_vaccination_date',
+      'first_dose_date'
+    ];
+    const secondDateCols = [
+      'X20_21_vacc_second_date',
+      'vacc_second_date',
+      'second_vaccination_date', 
+      'second_dose_date'
+    ];
+    
+    const firstDateCol = firstDateCols.find(col => columns.includes(col));
+    const secondDateCol = secondDateCols.find(col => columns.includes(col));
+    
+    if (firstDateCol && secondDateCol) {
+      console.log(`Computing dose_interval_days from ${firstDateCol} and ${secondDateCol}`);
+      
+      rawData.forEach(row => {
+        const firstDate = new Date(row[firstDateCol]);
+        const secondDate = new Date(row[secondDateCol]);
+        
+        if (!isNaN(firstDate) && !isNaN(secondDate)) {
+          const diffTime = secondDate.getTime() - firstDate.getTime();
+          const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+          row.dose_interval_days = diffDays;
+        } else {
+          row.dose_interval_days = null;
+        }
+      });
+      
+      // Add to columns if not already present
+      if (!columns.includes('dose_interval_days')) {
+        columns.push('dose_interval_days');
+      }
+    }
+  }
 
   // ----------------------------
   // Color utilities
@@ -1626,23 +1927,233 @@ let inspectorSelectedField = null;
     const xSel = id('fldX'), ySel = id('fldY'), cSel = id('fldColor');
     const y2Sel = id('fldY2'), yCatSel = id('fldYCat'), sizeSel = id('fldSize');
 
-    [xSel, ySel, y2Sel, yCatSel, sizeSel].forEach(s => {
+    // Clear all selects
+    [xSel, ySel, y2Sel, yCatSel, sizeSel, cSel].forEach(s => {
       if (s) s.innerHTML = '';
     });
 
-    // Keep X/Y showing all columns (per recent PR #18)
-    columns.forEach(c => { 
-      if (xSel) appendOption(xSel, c); 
-      if (yCatSel) appendOption(yCatSel, c); 
-    });
-    columns.forEach(c => { 
-      if (ySel) appendOption(ySel, c); 
-      if (y2Sel) appendOption(y2Sel, c); 
-      if (sizeSel) appendOption(sizeSel, c); 
-    });
+    // Helper function to populate select with optgroups
+    function populateSelectWithOptgroups(select, includeEmpty = true) {
+      if (!select) return;
+      
+      if (includeEmpty) {
+        const emptyOption = document.createElement('option');
+        emptyOption.value = '';
+        emptyOption.textContent = '';
+        select.appendChild(emptyOption);
+      }
+      
+      // Group columns by type
+      const categoricalCols = [];
+      const numericCols = [];
+      const dateCols = [];
+      const otherCols = [];
+      
+      columns.forEach(col => {
+        const type = getColumnType(col);
+        switch (type) {
+          case 'categorical': categoricalCols.push(col); break;
+          case 'numeric': numericCols.push(col); break;
+          case 'date': dateCols.push(col); break;
+          default: otherCols.push(col); break;
+        }
+      });
+      
+      // Add optgroups
+      if (categoricalCols.length > 0) {
+        const catGroup = document.createElement('optgroup');
+        catGroup.label = 'Categorical';
+        categoricalCols.forEach(col => {
+          const opt = document.createElement('option');
+          opt.value = col;
+          opt.textContent = col;
+          catGroup.appendChild(opt);
+        });
+        select.appendChild(catGroup);
+      }
+      
+      if (numericCols.length > 0) {
+        const numGroup = document.createElement('optgroup');
+        numGroup.label = 'Numeric';
+        numericCols.forEach(col => {
+          const opt = document.createElement('option');
+          opt.value = col;
+          opt.textContent = col;
+          numGroup.appendChild(opt);
+        });
+        select.appendChild(numGroup);
+      }
+      
+      if (dateCols.length > 0) {
+        const dateGroup = document.createElement('optgroup');
+        dateGroup.label = 'Date/Time';
+        dateCols.forEach(col => {
+          const opt = document.createElement('option');
+          opt.value = col;
+          opt.textContent = col;
+          dateGroup.appendChild(opt);
+        });
+        select.appendChild(dateGroup);
+      }
+      
+      if (otherCols.length > 0) {
+        const otherGroup = document.createElement('optgroup');
+        otherGroup.label = 'Other';
+        otherCols.forEach(col => {
+          const opt = document.createElement('option');
+          opt.value = col;
+          opt.textContent = col;
+          otherGroup.appendChild(opt);
+        });
+        select.appendChild(otherGroup);
+      }
+    }
+    
+    // Populate all selects with optgroups
+    populateSelectWithOptgroups(xSel, true);
+    populateSelectWithOptgroups(ySel, true);
+    populateSelectWithOptgroups(cSel, true);
+    populateSelectWithOptgroups(y2Sel, true);
+    populateSelectWithOptgroups(yCatSel, true);
+    populateSelectWithOptgroups(sizeSel, true);
 
     updateBuilderVisibility();
-    updateBuilderRoleOptionsByType();
+    updateTransformationSummary();
+  }
+
+  function updateTransformationSummary() {
+    const summaryEl = id('transformationSummary');
+    if (!summaryEl) return;
+    
+    const type = id('fldType')?.value;
+    const xField = id('fldX')?.value;
+    const yField = id('fldY')?.value;
+    const colorField = id('fldColor')?.value;
+    
+    if (!type || !xField) {
+      summaryEl.textContent = 'Select chart type and X field to see transformation details.';
+      return;
+    }
+    
+    const xType = getColumnType(xField);
+    const yType = yField ? getColumnType(yField) : null;
+    const colorType = colorField ? getColumnType(colorField) : null;
+    
+    let summary = [];
+    
+    // X transformations
+    if (type === 'histogram') {
+      if (xField === 'dose_interval_days') {
+        summary.push('X → dose interval preset (clip [0,200], 50 bins, rangeslider)');
+      } else if (xType === 'numeric') {
+        const bins = id('fldXBins')?.value || '30';
+        summary.push(`X → numeric binned (${bins} bins)`);
+      } else if (xType === 'date') {
+        const period = id('fldXPeriod')?.value || 'month';
+        summary.push(`X → date grouped by ${period}`);
+      } else {
+        summary.push('X → categorical bins (count per category)');
+      }
+    } else if (type === 'bar') {
+      if (xType === 'categorical') {
+        summary.push('X → categorical axis');
+      } else if (xType === 'numeric') {
+        const bins = id('fldXBins')?.value || '30';
+        summary.push(`X → numeric auto-binned (${bins} bins)`);
+      } else if (xType === 'date') {
+        const period = id('fldXPeriod')?.value || 'month';
+        summary.push(`X → date binned by ${period}`);
+      }
+    } else if (['line', 'timeseries'].includes(type)) {
+      if (xType === 'date' || xType === 'numeric') {
+        summary.push('X → sorted axis');
+      } else {
+        const order = id('fldXOrder')?.value || 'alphabetical';
+        summary.push(`X → categorical (${order} order)`);
+        if (id('chkEncodeCategorical')?.checked) {
+          summary.push('categorical encoded to ordinal');
+        }
+      }
+    } else if (['scatter', 'bubble'].includes(type)) {
+      if (xType === 'categorical') {
+        summary.push('X → categorical');
+        if (id('chkEncodeCategorical')?.checked) {
+          summary.push('encoded to ordinal');
+        }
+        if (id('chkAddJitter')?.checked) {
+          summary.push('with jitter');
+        }
+      } else {
+        summary.push(`X → ${xType} axis`);
+      }
+    } else {
+      summary.push(`X → ${xType}`);
+    }
+    
+    // Y transformations
+    if (yField && !['histogram'].includes(type)) {
+      if (yType === 'categorical' && type === 'box') {
+        summary.push('Y → non-numeric (converted to frequency bars)');
+      } else {
+        const agg = id('fldAgg')?.value || 'count';
+        if (agg === 'count' && !yField) {
+          summary.push('Y → count');
+        } else {
+          summary.push(`Y → ${agg}(${yField})`);
+        }
+      }
+    }
+    
+    // Color transformations
+    if (colorField) {
+      if (colorType === 'categorical') {
+        summary.push(`Color → split series by ${colorField}`);
+      } else if (colorType === 'numeric' && ['scatter', 'bubble'].includes(type)) {
+        summary.push(`Color → continuous scale (${colorField})`);
+      } else if (colorType === 'numeric') {
+        summary.push(`Color → quantile groups (${colorField})`);
+      }
+    }
+    
+    summaryEl.textContent = summary.length > 0 ? summary.join(', ') : 'No transformations applied.';
+  }
+
+  function updateAdvancedVisibility() {
+    const type = id('fldType')?.value;
+    const xField = id('fldX')?.value;
+    const xType = xField ? getColumnType(xField) : null;
+    
+    // Show/hide advanced controls based on field selections
+    const xBinning = id('advancedXBinning');
+    const xPeriod = id('advancedXPeriod');
+    const xOrder = id('advancedXOrder');
+    const histogram = id('advancedHistogram');
+    
+    if (xBinning) {
+      xBinning.style.display = (xType === 'numeric') ? 'block' : 'none';
+      // Set default nbins for dose preset
+      if (xField === 'dose_interval_days') {
+        const binsEl = id('fldXBins');
+        if (binsEl) binsEl.value = '50';
+      }
+    }
+    
+    if (xPeriod) {
+      xPeriod.style.display = (xType === 'date') ? 'block' : 'none';
+    }
+    
+    if (xOrder) {
+      xOrder.style.display = (xType === 'categorical') ? 'block' : 'none';
+    }
+    
+    if (histogram) {
+      histogram.style.display = (type === 'histogram') ? 'block' : 'none';
+      // Set default rangeslider for dose preset
+      if (type === 'histogram' && xField === 'dose_interval_days') {
+        const rangesliderEl = id('chkShowRangeslider');
+        if (rangesliderEl) rangesliderEl.checked = true;
+      }
+    }
   }
 
   // ----------------------------
@@ -1932,6 +2443,8 @@ let inspectorSelectedField = null;
 
   function drawChart(cfg) {
     const el = cfg._el;
+    
+    // Handle datatable and pivot separately (no change)
     if (cfg.type === 'datatable') {
       el.innerHTML = '';
       const wrap = document.createElement('div');
@@ -1944,7 +2457,7 @@ let inspectorSelectedField = null;
       columns.forEach(c => { const th = document.createElement('th'); th.textContent = c; trh.appendChild(th); });
       thead.appendChild(trh);
       const tbody = document.createElement('tbody');
-      (filtered.slice(0,200)).forEach(r => {
+      (filteredRows.slice(0,200)).forEach(r => {
         const tr = document.createElement('tr');
         columns.forEach(c => {
           const td = document.createElement('td'); td.textContent = (r[c] ?? ''); tr.appendChild(td);
@@ -1957,193 +2470,469 @@ let inspectorSelectedField = null;
     }
 
     if (cfg.type === 'pivot') {
-      const matrix = makePivotMatrix(filtered, cfg.x, cfg.yCat, cfg.y, cfg.agg);
+      const matrix = makePivotMatrix(filteredRows, cfg.x, cfg.yCat, cfg.y, cfg.agg);
       el.innerHTML = matrix.html;
       return;
     }
 
-    if (!filtered.length) { el.innerHTML = '<div class="text-muted p-2">No data</div>'; return; }
+    if (!filteredRows.length) { el.innerHTML = '<div class="text-muted p-2">No data</div>'; return; }
 
+    // Get data for the chart
+    const data = filteredRows;
+    
+    // Initialize Plotly figure
+    let fig = { 
+      data: [], 
+      layout: { 
+        margin: {l:50,r:20,b:50,t:40}, 
+        title: titleFor(cfg)
+      } 
+    };
+
+    // Type-agnostic rendering
+    if (cfg.type === 'histogram') {
+      drawHistogram(cfg, data, fig);
+    } else if (cfg.type === 'bar') {
+      drawBar(cfg, data, fig);  
+    } else if (cfg.type === 'line' || cfg.type === 'timeseries') {
+      drawLine(cfg, data, fig);
+    } else if (cfg.type === 'scatter' || cfg.type === 'bubble') {
+      drawScatter(cfg, data, fig);
+    } else if (cfg.type === 'pie') {
+      drawPie(cfg, data, fig);
+    } else if (cfg.type === 'box') {
+      drawBox(cfg, data, fig);
+    } else if (cfg.type === 'barline') {
+      drawBarLine(cfg, data, fig);
+    } else if (cfg.type === 'heatmap') {
+      drawHeatmap(cfg, data, fig);
+    } else if (cfg.type === 'funnel') {
+      drawFunnel(cfg, data, fig);
+    }
+
+    Plotly.newPlot(el, fig.data, fig.layout, { responsive: true });
+  }
+
+  function drawHistogram(cfg, data, fig) {
+    if (!cfg.x) return;
+    
+    const xField = cfg.x;
+    const xType = getColumnType(xField);
+    const xVals = data.map(r => r[xField]).filter(v => v != null && v !== '');
+    
+    if (xType === 'numeric') {
+      // Special handling for dose_interval_days preset
+      if (xField === 'dose_interval_days') {
+        const clippedVals = xVals.filter(v => v >= 0 && v <= 200);
+        fig.data.push({
+          x: clippedVals,
+          type: 'histogram',
+          nbinsx: cfg.xBins || 50,
+          name: 'Count'
+        });
+        
+        // Add rangeslider and set initial zoom
+        if (cfg.showRangeslider) {
+          fig.layout.xaxis = { 
+            title: xField,
+            rangeslider: { visible: true },
+            range: [0, 100]  // Initial zoom to [0,100]
+          };
+        } else {
+          fig.layout.xaxis = { title: xField };
+        }
+      } else {
+        // Regular numeric histogram
+        fig.data.push({
+          x: xVals,
+          type: 'histogram', 
+          nbinsx: cfg.xBins || 30,
+          name: 'Count'
+        });
+        
+        fig.layout.xaxis = { title: xField };
+        if (cfg.showRangeslider) {
+          fig.layout.xaxis.rangeslider = { visible: true };
+        }
+      }
+    } else if (xType === 'date') {
+      // Date histogram - group by period and render as bars
+      const period = cfg.xPeriod || 'month';
+      const { labels, counts } = binDates(xVals, period);
+      
+      fig.data.push({
+        x: labels,
+        y: counts,
+        type: 'bar',
+        name: 'Count'
+      });
+      
+      fig.layout.xaxis = { title: `${xField} (${period})` };
+    } else {
+      // Categorical histogram - count per category  
+      const groups = {};
+      xVals.forEach(v => {
+        const key = String(v);
+        groups[key] = (groups[key] || 0) + 1;
+      });
+      
+      // Apply ordering
+      let sortedKeys = Object.keys(groups);
+      if (cfg.xOrder === 'frequency_desc') {
+        sortedKeys.sort((a, b) => groups[b] - groups[a]);
+      } else if (cfg.xOrder === 'frequency_asc') {
+        sortedKeys.sort((a, b) => groups[a] - groups[b]);
+      } else {
+        sortedKeys.sort();
+      }
+      
+      fig.data.push({
+        x: sortedKeys,
+        y: sortedKeys.map(k => groups[k]),
+        type: 'bar',
+        name: 'Count'
+      });
+      
+      fig.layout.xaxis = { title: xField };
+    }
+    
+    fig.layout.yaxis = { title: 'Count' };
+  }
+
+  function drawBar(cfg, data, fig) {
+    if (!cfg.x) return;
+    
+    const xField = cfg.x;
+    const xType = getColumnType(xField);
+    const colorField = cfg.color;
+    const colorType = colorField ? getColumnType(colorField) : null;
+    
+    // Group data by X and optionally by color
     const groupBy = (rows, keys) => {
       const map = new Map();
       for (const r of rows) {
-        const key = keys.map(k => String(r[k])).join('¦');
+        const key = keys.map(k => String(r[k] || '')).join('¦');
         if (!map.has(key)) map.set(key, []);
         map.get(key).push(r);
       }
       return { map, keys };
     };
+    
     const agg = (rows) => {
       if (cfg.agg === 'count') return rows.length;
+      if (!cfg.y) return rows.length;
       const vals = rows.map(r => +r[cfg.y]).filter(v => !Number.isNaN(v));
       if (!vals.length) return 0;
-      if (cfg.agg === 'sum')  return vals.reduce((a,b)=>a+b,0);
+      if (cfg.agg === 'sum') return vals.reduce((a,b)=>a+b,0);
       return vals.reduce((a,b)=>a+b,0) / vals.length; // mean
     };
-
-    let fig = { data: [], layout: { margin: {l:50,r:20,b:50,t:40}, title: titleFor(cfg) } };
-
-    if (cfg.type === 'bar' || cfg.type === 'pie') {
-      const by = cfg.color ? [cfg.x, cfg.color] : [cfg.x];
-      const g = groupBy(filtered, by);
+    
+    if (xType === 'categorical') {
+      // Standard categorical bars
+      const by = colorField ? [xField, colorField] : [xField];
+      const g = groupBy(data, by);
       const xs = new Set(), colors = new Set();
+      
       for (const k of g.map.keys()) {
         const parts = k.split('¦'); 
         xs.add(parts[0]); 
-        if (cfg.color) colors.add(parts[1] || '(empty)');
+        if (colorField) colors.add(parts[1] || '(empty)');
       }
-      const xArr = Array.from(xs), colorArr = cfg.color ? Array.from(colors) : [null];
-
-      if (cfg.type === 'bar') {
-        for (const cval of colorArr) {
-          const y = xArr.map(xv => {
-            const actualCval = cval === '(empty)' ? '' : cval;
-            const key = cfg.color ? [xv, actualCval].join('¦') : String(xv);
-            return agg(g.map.get(key) || []);
+      
+      const xArr = Array.from(xs);
+      const colorArr = colorField ? Array.from(colors) : [null];
+      
+      // Apply categorical ordering
+      if (cfg.xOrder === 'frequency_desc' || cfg.xOrder === 'frequency_asc') {
+        const counts = {};
+        xArr.forEach(x => {
+          const rows = Array.from(g.map.entries())
+            .filter(([k]) => k.split('¦')[0] === x)
+            .flatMap(([,rows]) => rows);
+          counts[x] = rows.length;
+        });
+        xArr.sort((a, b) => cfg.xOrder === 'frequency_desc' ? 
+          counts[b] - counts[a] : counts[a] - counts[b]);
+      } else {
+        xArr.sort();
+      }
+      
+      for (const cval of colorArr) {
+        const y = xArr.map(xv => {
+          const actualCval = cval === '(empty)' ? '' : cval;
+          const key = colorField ? [xv, actualCval].join('¦') : String(xv);
+          return agg(g.map.get(key) || []);
+        });
+        fig.data.push({ x: xArr, y, type: 'bar', name: cval ?? 'value' });
+      }
+      
+      fig.layout.barmode = colorField ? 'group' : 'stack';
+      fig.layout.xaxis = { title: xField };
+      
+    } else if (xType === 'numeric' || xType === 'date') {
+      // Auto-bin numeric/date X, then aggregate Y within bins
+      let binData;
+      if (xType === 'numeric') {
+        const xVals = data.map(r => r[xField]).filter(v => typeof v === 'number' && !isNaN(v));
+        binData = binNumeric(xVals, cfg.xBins || 30);
+      } else {
+        const xVals = data.map(r => r[xField]).filter(v => v != null);
+        binData = binDates(xVals, cfg.xPeriod || 'month');
+      }
+      
+      if (colorField && colorType === 'categorical') {
+        // Split by color categories
+        const colorVals = [...new Set(data.map(r => r[colorField] || '(empty)'))];
+        
+        for (const colorVal of colorVals) {
+          const colorRows = data.filter(r => (r[colorField] || '(empty)') === colorVal);
+          
+          let y;
+          if (xType === 'numeric') {
+            y = binData.bins.map(binCenter => {
+              const binMin = binCenter - binData.binWidth / 2;
+              const binMax = binCenter + binData.binWidth / 2;
+              const binRows = colorRows.filter(r => {
+                const xVal = r[xField];
+                return typeof xVal === 'number' && !isNaN(xVal) && xVal >= binMin && xVal < binMax;
+              });
+              return agg(binRows);
+            });
+          } else {
+            y = binData.labels.map(label => {
+              const binRows = colorRows.filter(r => {
+                const period = cfg.xPeriod || 'month';
+                const d = new Date(r[xField]);
+                if (isNaN(d)) return false;
+                
+                let key;
+                const year = d.getUTCFullYear();
+                const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+                
+                switch (period) {
+                  case 'day': key = d.toISOString().slice(0, 10); break;
+                  case 'month': key = `${year}-${month}`; break;
+                  case 'quarter': 
+                    const quarter = Math.floor((d.getUTCMonth() + 3) / 3);
+                    key = `Q${quarter} ${year}`; break;
+                  case 'year': key = String(year); break;
+                  default: key = `${year}-${month}`;
+                }
+                return key === label;
+              });
+              return agg(binRows);
+            });
+          }
+          
+          fig.data.push({ 
+            x: xType === 'numeric' ? binData.bins : binData.labels, 
+            y, 
+            type: 'bar', 
+            name: colorVal === '(empty)' ? '(empty)' : colorVal 
           });
-          fig.data.push({ x: xArr, y, type: 'bar', name: cval ?? 'value' });
         }
         fig.layout.barmode = 'group';
-        fig.layout.xaxis = { title: cfg.x };
-        if (cfg.y) fig.layout.yaxis = { title: `${cfg.agg}(${cfg.y})` };
       } else {
-        const values = xArr.map(xv => {
-          const rows = Array.from(g.map.entries()).filter(([k]) => k.split('¦')[0] == xv).flatMap(([,rows]) => rows);
-          return agg(rows);
+        // Single series
+        fig.data.push({ 
+          x: xType === 'numeric' ? binData.bins : binData.labels, 
+          y: xType === 'numeric' ? binData.counts : binData.counts, 
+          type: 'bar', 
+          name: 'value' 
         });
-        fig.data.push({ labels: xArr, values, type: 'pie', hole: .35 });
       }
+      
+      const xTitle = xType === 'numeric' ? 
+        `${xField} (${cfg.xBins || 30} bins)` : 
+        `${xField} (${cfg.xPeriod || 'month'})`;
+      fig.layout.xaxis = { title: xTitle };
     }
+    
+    if (cfg.y) fig.layout.yaxis = { title: `${cfg.agg}(${cfg.y})` };
+    else fig.layout.yaxis = { title: 'Count' };
+  }
 
-    else if (cfg.type === 'line' || cfg.type === 'timeseries') {
-      if (cfg.color && categoricalCols.includes(cfg.color)) {
-        // Color is categorical - render separate line traces per category (series split)
-        const g = groupBy(filtered, [cfg.x, cfg.color]);
-        const xVals = new Set();
-        const colorVals = new Set();
-        
-        for (const k of g.map.keys()) {
-          const parts = k.split('¦');
-          xVals.add(parts[0]);
-          colorVals.add(parts[1] || '(empty)');
-        }
-        
-        const sortedXVals = Array.from(xVals).sort((a,b) => {
+  function drawLine(cfg, data, fig) {
+    if (!cfg.x) return;
+    
+    const xField = cfg.x;
+    const xType = getColumnType(xField);
+    const colorField = cfg.color;
+    const colorType = colorField ? getColumnType(colorField) : null;
+    
+    // Group by X and optionally color
+    const groupBy = (rows, keys) => {
+      const map = new Map();
+      for (const r of rows) {
+        const key = keys.map(k => String(r[k] || '')).join('¦');
+        if (!map.has(key)) map.set(key, []);
+        map.get(key).push(r);
+      }
+      return { map, keys };
+    };
+    
+    const agg = (rows) => {
+      if (cfg.agg === 'count') return rows.length;
+      if (!cfg.y) return rows.length;
+      const vals = rows.map(r => +r[cfg.y]).filter(v => !Number.isNaN(v));
+      if (!vals.length) return 0;
+      if (cfg.agg === 'sum') return vals.reduce((a,b)=>a+b,0);
+      return vals.reduce((a,b)=>a+b,0) / vals.length;
+    };
+    
+    if (colorField && colorType === 'categorical') {
+      // Multiple lines per color category
+      const g = groupBy(data, [xField, colorField]);
+      const xVals = new Set();
+      const colorVals = new Set();
+      
+      for (const k of g.map.keys()) {
+        const parts = k.split('¦');
+        xVals.add(parts[0]);
+        colorVals.add(parts[1] || '(empty)');
+      }
+      
+      const sortedXVals = Array.from(xVals).sort((a,b) => {
+        if (xType === 'date') {
           const da = new Date(a), db = new Date(b);
           if (!isNaN(da) && !isNaN(db)) return da - db;
-          const na = +a, nb = +b;
-          if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
-          return String(a).localeCompare(String(b));
-        });
-        
-        for (const colorVal of colorVals) {
-          const yVals = sortedXVals.map(xv => {
-            const key = [xv, colorVal === '(empty)' ? '' : colorVal].join('¦');
-            return agg(g.map.get(key) || []);
-          });
-          const traceName = colorVal === '(empty)' ? '(empty)' : colorVal;
-          fig.data.push({ 
-            x: sortedXVals, 
-            y: yVals, 
-            type: 'scatter', 
-            mode: 'lines+markers', 
-            name: traceName 
-          });
         }
-      } else {
-        // No color or non-categorical color - render single aggregated line
-        const g = groupBy(filtered, [cfg.x]);
-        const xVals = Array.from(g.map.keys()).map(k => k.split('¦')[0]);
-        const sorted = xVals.slice().sort((a,b) => {
-          const da = new Date(a), db = new Date(b);
-          if (!isNaN(da) && !isNaN(db)) return da - db;
+        if (xType === 'numeric') {
           const na = +a, nb = +b;
           if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
-          return String(a).localeCompare(String(b));
+        }
+        return String(a).localeCompare(String(b));
+      });
+      
+      for (const colorVal of colorVals) {
+        let xData = sortedXVals;
+        let yData = sortedXVals.map(xv => {
+          const key = [xv, colorVal === '(empty)' ? '' : colorVal].join('¦');
+          return agg(g.map.get(key) || []);
         });
-        const yVals = sorted.map(xv => agg(g.map.get(String(xv)) || g.map.get(xv) || []));
-        fig.data.push({ x: sorted, y: yVals, type: 'scatter', mode: 'lines+markers', name: cfg.y });
-      }
-
-      if (cfg.histOverlay) {
-        const vals = filtered.map(r => +r[cfg.y]).filter(v => !Number.isNaN(v));
-        fig.data.push({ x: vals, type: 'histogram', opacity: 0.35, xaxis: 'x2', yaxis: 'y2', name: 'Histogram' });
-        fig.layout.grid = { rows: 1, columns: 2, pattern: 'independent' };
-        fig.layout.xaxis2 = {};
-        fig.layout.yaxis2 = {};
-        fig.layout.title += ' · + Histogram';
-      }
-      fig.layout.xaxis = { title: cfg.x };
-      if (cfg.y) fig.layout.yaxis = { title: `${cfg.agg}(${cfg.y})` };
-    }
-
-    else if (cfg.type === 'scatter' || cfg.type === 'bubble') {
-      if (cfg.color && categoricalCols.includes(cfg.color)) {
-        // Color is categorical - split into multiple traces by category
-        const colorVals = [...new Set(filtered.map(r => r[cfg.color] || '(empty)'))];
         
-        for (const colorVal of colorVals) {
-          const colorRows = filtered.filter(r => (r[cfg.color] || '(empty)') === colorVal);
-          const x = colorRows.map(r => r[cfg.x]);
-          const y = colorRows.map(r => r[cfg.y]);
-          
-          const trace = { 
-            x, 
-            y, 
-            mode: 'markers', 
-            type: 'scatter', 
-            name: colorVal === '(empty)' ? '(empty)' : colorVal 
-          };
-          
-          if (cfg.type === 'bubble' && cfg.size) {
-            const s = colorRows.map(r => +r[cfg.size]);
-            const min = Math.min(...s.filter(v => !Number.isNaN(v)));
-            const max = Math.max(...s.filter(v => !Number.isNaN(v)));
-            const scaled = s.map(v => Number.isNaN(v) ? 5 : (10 + 30 * ((v - min) / Math.max(1e-9, max - min))));
-            trace.marker = { size: scaled, sizemode: 'diameter', opacity: 0.7 };
+        // Handle categorical X with encoding
+        if (xType === 'categorical' && cfg.encodeCategorical) {
+          const encoded = encodeCategorical(xData);
+          xData = encoded.values;
+          if (cfg.addJitter) {
+            xData = jitter(xData);
           }
-          
-          fig.data.push(trace);
         }
-      } else if (cfg.color && numericCols.includes(cfg.color)) {
-        // Color is numeric - single trace with color scale
-        const x = filtered.map(r => r[cfg.x]);
-        const y = filtered.map(r => r[cfg.y]);
-        const colorValues = filtered.map(r => +r[cfg.color]);
+        
+        const traceName = colorVal === '(empty)' ? '(empty)' : colorVal;
+        fig.data.push({ 
+          x: xData, 
+          y: yData, 
+          type: 'scatter', 
+          mode: 'lines+markers', 
+          name: traceName 
+        });
+      }
+      
+    } else {
+      // Single line
+      const g = groupBy(data, [xField]);
+      let xVals = Array.from(g.map.keys()).map(k => k.split('¦')[0]);
+      
+      // Sort appropriately
+      xVals.sort((a,b) => {
+        if (xType === 'date') {
+          const da = new Date(a), db = new Date(b);
+          if (!isNaN(da) && !isNaN(db)) return da - db;
+        }
+        if (xType === 'numeric') {
+          const na = +a, nb = +b;
+          if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
+        }
+        // Categorical ordering
+        if (xType === 'categorical') {
+          if (cfg.xOrder === 'frequency_desc' || cfg.xOrder === 'frequency_asc') {
+            const counts = {};
+            xVals.forEach(x => counts[x] = (g.map.get(x) || []).length);
+            return cfg.xOrder === 'frequency_desc' ? counts[b] - counts[a] : counts[a] - counts[b];
+          }
+        }
+        return String(a).localeCompare(String(b));
+      });
+      
+      let yVals = xVals.map(xv => agg(g.map.get(String(xv)) || g.map.get(xv) || []));
+      let xData = xVals;
+      
+      // Handle categorical X encoding
+      if (xType === 'categorical' && cfg.encodeCategorical) {
+        const encoded = encodeCategorical(xData);
+        xData = encoded.values;
+        if (cfg.addJitter) {
+          xData = jitter(xData);
+        }
+        // Store tick info for axis
+        fig.layout.xaxis = { 
+          title: xField,
+          tickvals: encoded.ticks.map(t => t.value),
+          ticktext: encoded.ticks.map(t => t.label)
+        };
+      } else {
+        fig.layout.xaxis = { title: xField };
+      }
+      
+      fig.data.push({ x: xData, y: yVals, type: 'scatter', mode: 'lines+markers', name: cfg.y || 'count' });
+    }
+    
+    if (cfg.histOverlay) {
+      const vals = data.map(r => +r[cfg.y]).filter(v => !Number.isNaN(v));
+      fig.data.push({ x: vals, type: 'histogram', opacity: 0.35, xaxis: 'x2', yaxis: 'y2', name: 'Histogram' });
+      fig.layout.grid = { rows: 1, columns: 2, pattern: 'independent' };
+      fig.layout.xaxis2 = {};
+      fig.layout.yaxis2 = {};
+      fig.layout.title += ' · + Histogram';
+    }
+    
+    if (!fig.layout.xaxis) fig.layout.xaxis = { title: xField };
+    if (cfg.y) fig.layout.yaxis = { title: `${cfg.agg}(${cfg.y})` };
+    else fig.layout.yaxis = { title: 'Count' };
+  }
+
+  function drawScatter(cfg, data, fig) {
+    if (!cfg.x || !cfg.y) return;
+    
+    const xField = cfg.x;
+    const yField = cfg.y;
+    const xType = getColumnType(xField);
+    const yType = getColumnType(yField);
+    const colorField = cfg.color;
+    const colorType = colorField ? getColumnType(colorField) : null;
+    
+    if (colorField && colorType === 'categorical') {
+      // Split into multiple traces by category
+      const colorVals = [...new Set(data.map(r => r[colorField] || '(empty)'))];
+      
+      for (const colorVal of colorVals) {
+        const colorRows = data.filter(r => (r[colorField] || '(empty)') === colorVal);
+        let x = colorRows.map(r => r[xField]);
+        let y = colorRows.map(r => r[yField]);
+        
+        // Handle categorical axis encoding
+        if (xType === 'categorical' && cfg.encodeCategorical) {
+          const encoded = encodeCategorical(x);
+          x = encoded.values;
+          if (cfg.addJitter) x = jitter(x);
+        }
+        if (yType === 'categorical' && cfg.encodeCategorical) {
+          const encoded = encodeCategorical(y);
+          y = encoded.values;
+          if (cfg.addJitter) y = jitter(y);
+        }
         
         const trace = { 
-          x, 
-          y, 
+          x, y, 
           mode: 'markers', 
           type: 'scatter', 
-          name: cfg.y,
-          marker: {
-            color: colorValues,
-            colorscale: 'Viridis',
-            showscale: true,
-            colorbar: { title: cfg.color }
-          }
+          name: colorVal === '(empty)' ? '(empty)' : colorVal 
         };
         
         if (cfg.type === 'bubble' && cfg.size) {
-          const s = filtered.map(r => +r[cfg.size]);
-          const min = Math.min(...s.filter(v => !Number.isNaN(v)));
-          const max = Math.max(...s.filter(v => !Number.isNaN(v)));
-          const scaled = s.map(v => Number.isNaN(v) ? 5 : (10 + 30 * ((v - min) / Math.max(1e-9, max - min))));
-          trace.marker.size = scaled;
-          trace.marker.sizemode = 'diameter';
-          trace.marker.opacity = 0.7;
-        }
-        
-        fig.data.push(trace);
-      } else {
-        // No color or invalid color - single trace without color
-        const x = filtered.map(r => r[cfg.x]);
-        const y = filtered.map(r => r[cfg.y]);
-        const trace = { x, y, mode: 'markers', type: 'scatter', name: cfg.y };
-        
-        if (cfg.type === 'bubble' && cfg.size) {
-          const s = filtered.map(r => +r[cfg.size]);
+          const s = colorRows.map(r => +r[cfg.size]);
           const min = Math.min(...s.filter(v => !Number.isNaN(v)));
           const max = Math.max(...s.filter(v => !Number.isNaN(v)));
           const scaled = s.map(v => Number.isNaN(v) ? 5 : (10 + 30 * ((v - min) / Math.max(1e-9, max - min))));
@@ -2153,67 +2942,306 @@ let inspectorSelectedField = null;
         fig.data.push(trace);
       }
       
-      fig.layout.xaxis = { title: cfg.x };
-      fig.layout.yaxis = { title: cfg.y };
+    } else if (colorField && colorType === 'numeric') {
+      // Single trace with color scale
+      let x = data.map(r => r[xField]);
+      let y = data.map(r => r[yField]);
+      const colorValues = data.map(r => +r[colorField]);
+      
+      // Handle categorical axis encoding
+      if (xType === 'categorical' && cfg.encodeCategorical) {
+        const encoded = encodeCategorical(x);
+        x = encoded.values;
+        if (cfg.addJitter) x = jitter(x);
+      }
+      if (yType === 'categorical' && cfg.encodeCategorical) {
+        const encoded = encodeCategorical(y);
+        y = encoded.values;
+        if (cfg.addJitter) y = jitter(y);
+      }
+      
+      const trace = { 
+        x, y, 
+        mode: 'markers', 
+        type: 'scatter', 
+        name: yField,
+        marker: {
+          color: colorValues,
+          colorscale: 'Viridis',
+          showscale: true,
+          colorbar: { title: colorField }
+        }
+      };
+      
+      if (cfg.type === 'bubble' && cfg.size) {
+        const s = data.map(r => +r[cfg.size]);
+        const min = Math.min(...s.filter(v => !Number.isNaN(v)));
+        const max = Math.max(...s.filter(v => !Number.isNaN(v)));
+        const scaled = s.map(v => Number.isNaN(v) ? 5 : (10 + 30 * ((v - min) / Math.max(1e-9, max - min))));
+        trace.marker.size = scaled;
+        trace.marker.sizemode = 'diameter';
+        trace.marker.opacity = 0.7;
+      }
+      
+      fig.data.push(trace);
+      
+    } else {
+      // No color or invalid color
+      let x = data.map(r => r[xField]);
+      let y = data.map(r => r[yField]);
+      
+      // Handle categorical axis encoding
+      if (xType === 'categorical' && cfg.encodeCategorical) {
+        const encoded = encodeCategorical(x);
+        x = encoded.values;
+        if (cfg.addJitter) x = jitter(x);
+      }
+      if (yType === 'categorical' && cfg.encodeCategorical) {
+        const encoded = encodeCategorical(y);
+        y = encoded.values;
+        if (cfg.addJitter) y = jitter(y);
+      }
+      
+      const trace = { x, y, mode: 'markers', type: 'scatter', name: yField };
+      
+      if (cfg.type === 'bubble' && cfg.size) {
+        const s = data.map(r => +r[cfg.size]);
+        const min = Math.min(...s.filter(v => !Number.isNaN(v)));
+        const max = Math.max(...s.filter(v => !Number.isNaN(v)));
+        const scaled = s.map(v => Number.isNaN(v) ? 5 : (10 + 30 * ((v - min) / Math.max(1e-9, max - min))));
+        trace.marker = { size: scaled, sizemode: 'diameter', opacity: 0.7 };
+      }
+      
+      fig.data.push(trace);
     }
+    
+    fig.layout.xaxis = { title: xField };
+    fig.layout.yaxis = { title: yField };
+  }
 
-    else if (cfg.type === 'box') {
-      if (!cfg.y) { el.innerHTML = '<div class="text-muted p-2">Please select a numeric Y.</div>'; return; }
+  function drawPie(cfg, data, fig) {
+    if (!cfg.x) return;
+    
+    const xField = cfg.x;
+    const xType = getColumnType(xField);
+    
+    const agg = (rows) => {
+      if (cfg.agg === 'count') return rows.length;
+      if (!cfg.y) return rows.length;
+      const vals = rows.map(r => +r[cfg.y]).filter(v => !Number.isNaN(v));
+      if (!vals.length) return 0;
+      if (cfg.agg === 'sum') return vals.reduce((a,b)=>a+b,0);
+      return vals.reduce((a,b)=>a+b,0) / vals.length;
+    };
+    
+    if (xType === 'categorical') {
+      // Standard categorical pie
       const groups = {};
-      filtered.forEach(r => {
-        const key = r[cfg.x]; const val = +r[cfg.y];
-        if (Number.isNaN(val)) return;
-        (groups[key] ||= []).push(val);
+      data.forEach(r => {
+        const key = String(r[xField] || '(empty)');
+        (groups[key] ||= []).push(r);
       });
-      Object.keys(groups).forEach(k => fig.data.push({ y: groups[k], name: String(k), type: 'box' }));
-      fig.layout.xaxis = { title: cfg.x }; fig.layout.yaxis = { title: cfg.y };
+      
+      const labels = Object.keys(groups);
+      const values = labels.map(k => agg(groups[k]));
+      fig.data.push({ labels, values, type: 'pie', hole: .35 });
+      
+    } else if (xType === 'numeric') {
+      // Auto-bin numeric X
+      const xVals = data.map(r => r[xField]).filter(v => typeof v === 'number' && !isNaN(v));
+      const binData = binNumeric(xVals, cfg.xBins || 30);
+      
+      const labels = binData.bins.map(b => b.toFixed(1));
+      const values = binData.counts;
+      fig.data.push({ labels, values, type: 'pie', hole: .35 });
+      
+    } else if (xType === 'date') {
+      // Auto-bin date X
+      const xVals = data.map(r => r[xField]).filter(v => v != null);
+      const binData = binDates(xVals, cfg.xPeriod || 'month');
+      
+      fig.data.push({ labels: binData.labels, values: binData.counts, type: 'pie', hole: .35 });
+    }
+  }
 
+  function drawBox(cfg, data, fig) {
+    if (!cfg.y) { 
+      // No Y field selected - will be handled by the main drawChart function
+      return; 
+    }
+    
+    const xField = cfg.x;
+    const yField = cfg.y;
+    const yType = getColumnType(yField);
+    
+    if (yType !== 'numeric') {
+      // Fallback to frequency bar chart
+      const groups = {};
+      data.forEach(r => {
+        const key = String(r[yField] || '(empty)');
+        groups[key] = (groups[key] || 0) + 1;
+      });
+      
+      const labels = Object.keys(groups).sort();
+      const values = labels.map(k => groups[k]);
+      
+      fig.data.push({ x: labels, y: values, type: 'bar', name: 'Count' });
+      fig.layout.title += ' (auto-converted: non-numeric Y)';
+      fig.layout.xaxis = { title: yField };
+      fig.layout.yaxis = { title: 'Count' };
+    } else {
+      // Standard box plot
+      if (xField) {
+        const xType = getColumnType(xField);
+        
+        if (xType === 'categorical') {
+          const groups = {};
+          data.forEach(r => {
+            const key = String(r[xField] || '(empty)');
+            const val = +r[yField];
+            if (!Number.isNaN(val)) {
+              (groups[key] ||= []).push(val);
+            }
+          });
+          
+          Object.keys(groups).forEach(k => 
+            fig.data.push({ y: groups[k], name: k, type: 'box' }));
+            
+        } else {
+          // Auto-bin numeric/date X
+          let binData;
+          if (xType === 'numeric') {
+            const xVals = data.map(r => r[xField]).filter(v => typeof v === 'number' && !isNaN(v));
+            binData = binNumeric(xVals, cfg.xBins || 30);
+            
+            binData.bins.forEach((binCenter, i) => {
+              const binMin = binCenter - binData.binWidth / 2;
+              const binMax = binCenter + binData.binWidth / 2;
+              const binRows = data.filter(r => {
+                const xVal = r[xField];
+                return typeof xVal === 'number' && !isNaN(xVal) && xVal >= binMin && xVal < binMax;
+              });
+              const yVals = binRows.map(r => +r[yField]).filter(v => !Number.isNaN(v));
+              if (yVals.length > 0) {
+                fig.data.push({ y: yVals, name: `${binCenter.toFixed(1)}`, type: 'box' });
+              }
+            });
+          } else if (xType === 'date') {
+            const xVals = data.map(r => r[xField]).filter(v => v != null);
+            binData = binDates(xVals, cfg.xPeriod || 'month');
+            
+            binData.labels.forEach(label => {
+              const binRows = data.filter(r => {
+                const period = cfg.xPeriod || 'month';
+                const d = new Date(r[xField]);
+                if (isNaN(d)) return false;
+                
+                let key;
+                const year = d.getUTCFullYear();
+                const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+                
+                switch (period) {
+                  case 'day': key = d.toISOString().slice(0, 10); break;
+                  case 'month': key = `${year}-${month}`; break;
+                  case 'quarter': 
+                    const quarter = Math.floor((d.getUTCMonth() + 3) / 3);
+                    key = `Q${quarter} ${year}`; break;
+                  case 'year': key = String(year); break;
+                  default: key = `${year}-${month}`;
+                }
+                return key === label;
+              });
+              const yVals = binRows.map(r => +r[yField]).filter(v => !Number.isNaN(v));
+              if (yVals.length > 0) {
+                fig.data.push({ y: yVals, name: label, type: 'box' });
+              }
+            });
+          }
+        }
+      } else {
+        // No X field - single box for all Y values
+        const yVals = data.map(r => +r[yField]).filter(v => !Number.isNaN(v));
+        fig.data.push({ y: yVals, name: yField, type: 'box' });
+      }
+      
+      fig.layout.xaxis = { title: xField || 'Category' };
+      fig.layout.yaxis = { title: yField };
+      
       if (cfg.histOverlay) {
-        const vals = filtered.map(r => +r[cfg.y]).filter(v => !Number.isNaN(v));
+        const vals = data.map(r => +r[yField]).filter(v => !Number.isNaN(v));
         fig.data.push({ x: vals, type: 'histogram', opacity: 0.3, xaxis: 'x2', yaxis: 'y2', name: 'Histogram' });
         fig.layout.grid = { rows: 1, columns: 2, pattern: 'independent' };
         fig.layout.title += ' · + Histogram';
       }
     }
+  }
 
-    else if (cfg.type === 'barline') {
-      const g = groupBy(filtered, [cfg.x]);
-      const xs = Array.from(g.map.keys()).map(k => k.split('¦')[0]).sort((a,b)=>String(a).localeCompare(String(b)));
-      const aggSeries = (yField) => xs.map(xv => {
-        const rows = g.map.get(String(xv)) || g.map.get(xv) || [];
-        if (!yField) return 0;
-        const vals = rows.map(r => +r[yField]).filter(v => !Number.isNaN(v));
-        if (!vals.length) return 0;
-        if (cfg.agg === 'sum') return vals.reduce((a,b)=>a+b,0);
-        if (cfg.agg === 'mean') return vals.reduce((a,b)=>a+b,0)/vals.length;
-        return rows.length;
-      });
-      const yBar = aggSeries(cfg.y);
-      const yLine = aggSeries(cfg.y2);
+  function drawBarLine(cfg, data, fig) {
+    // Keep existing barline implementation
+    const groupBy = (rows, keys) => {
+      const map = new Map();
+      for (const r of rows) {
+        const key = keys.map(k => String(r[k])).join('¦');
+        if (!map.has(key)) map.set(key, []);
+        map.get(key).push(r);
+      }
+      return { map, keys };
+    };
+    
+    const g = groupBy(data, [cfg.x]);
+    const xs = Array.from(g.map.keys()).map(k => k.split('¦')[0]).sort((a,b)=>String(a).localeCompare(String(b)));
+    const aggSeries = (yField) => xs.map(xv => {
+      const rows = g.map.get(String(xv)) || g.map.get(xv) || [];
+      if (!yField) return 0;
+      const vals = rows.map(r => +r[yField]).filter(v => !Number.isNaN(v));
+      if (!vals.length) return 0;
+      if (cfg.agg === 'sum') return vals.reduce((a,b)=>a+b,0);
+      if (cfg.agg === 'mean') return vals.reduce((a,b)=>a+b,0)/vals.length;
+      return rows.length;
+    });
+    const yBar = aggSeries(cfg.y);
+    const yLine = aggSeries(cfg.y2);
 
-      fig.data.push({ x: xs, y: yBar, type: 'bar', name: `${cfg.agg}(${cfg.y})` });
-      const lineTrace = { x: xs, y: yLine, type: 'scatter', mode: 'lines+markers', name: `${cfg.agg}(${cfg.y2})` };
-      if (cfg.dualAxis) { lineTrace.yaxis = 'y2'; fig.layout.yaxis2 = { overlaying: 'y', side: 'right' }; }
-      fig.data.push(lineTrace);
-      fig.layout.xaxis = { title: cfg.x };
-    }
+    fig.data.push({ x: xs, y: yBar, type: 'bar', name: `${cfg.agg}(${cfg.y})` });
+    const lineTrace = { x: xs, y: yLine, type: 'scatter', mode: 'lines+markers', name: `${cfg.agg}(${cfg.y2})` };
+    if (cfg.dualAxis) { lineTrace.yaxis = 'y2'; fig.layout.yaxis2 = { overlaying: 'y', side: 'right' }; }
+    fig.data.push(lineTrace);
+    fig.layout.xaxis = { title: cfg.x };
+  }
 
-    else if (cfg.type === 'heatmap') {
-      const M = makePivotMatrix(filtered, cfg.x, cfg.yCat, cfg.y, cfg.agg);
-      fig.data.push({ z: M.z, x: M.cols, y: M.rows, type: 'heatmap', colorscale: 'Viridis' });
-      fig.layout.xaxis = { title: cfg.yCat };
-      fig.layout.yaxis = { title: cfg.x };
-    }
+  function drawHeatmap(cfg, data, fig) {
+    // Keep existing heatmap implementation
+    const M = makePivotMatrix(data, cfg.x, cfg.yCat, cfg.y, cfg.agg);
+    fig.data.push({ z: M.z, x: M.cols, y: M.rows, type: 'heatmap', colorscale: 'Viridis' });
+    fig.layout.xaxis = { title: cfg.yCat };
+    fig.layout.yaxis = { title: cfg.x };
+  }
 
-    else if (cfg.type === 'funnel') {
-      const g = groupBy(filtered, [cfg.x]);
-      const labels = Array.from(g.map.keys()).map(k => k.split('¦')[0]);
-      const values = labels.map(l => agg(g.map.get(String(l)) || []));
-      const sorted = labels.map((l,i)=>({l, v: values[i]})).sort((a,b)=>b.v-a.v);
-      fig.data.push({ type: 'funnel', y: sorted.map(s=>s.l), x: sorted.map(s=>s.v) });
-    }
-
-    Plotly.newPlot(el, fig.data, fig.layout, { responsive: true });
+  function drawFunnel(cfg, data, fig) {
+    // Keep existing funnel implementation
+    const groupBy = (rows, keys) => {
+      const map = new Map();
+      for (const r of rows) {
+        const key = keys.map(k => String(r[k])).join('¦');
+        if (!map.has(key)) map.set(key, []);
+        map.get(key).push(r);
+      }
+      return { map, keys };
+    };
+    
+    const agg = (rows) => {
+      if (cfg.agg === 'count') return rows.length;
+      const vals = rows.map(r => +r[cfg.y]).filter(v => !Number.isNaN(v));
+      if (!vals.length) return 0;
+      if (cfg.agg === 'sum')  return vals.reduce((a,b)=>a+b,0);
+      return vals.reduce((a,b)=>a+b,0) / vals.length; // mean
+    };
+    
+    const g = groupBy(data, [cfg.x]);
+    const labels = Array.from(g.map.keys()).map(k => k.split('¦')[0]);
+    const values = labels.map(l => agg(g.map.get(String(l)) || []));
+    const sorted = labels.map((l,i)=>({l, v: values[i]})).sort((a,b)=>b.v-a.v);
+    fig.data.push({ type: 'funnel', y: sorted.map(s=>s.l), x: sorted.map(s=>s.v) });
   }
 
   // ----------------------------
@@ -2687,64 +3715,9 @@ let inspectorSelectedField = null;
     values.forEach(v => appendOption(sel, v));
   }
 
+  // This function is now replaced by optgroups in populateBuilderSelects
   function updateBuilderRoleOptionsByType() {
-    const typeEl = id('fldType');
-    const cSel = id('fldColor');
-    if (!typeEl || !cSel) return;
-
-    const type = typeEl.value;
-    const colorLabel = cSel.closest('div')?.querySelector('label.form-label');
-    
-    if (['bar','box','barline','pivot','heatmap','line'].includes(type)) {
-      // For these types, color acts as categorical grouping (series split)
-      const cats = categoricalCols.length ? categoricalCols : columns.filter(c => looksCategoricalColumn(c));
-      setSelectOptions(cSel, cats, true);
-      if (colorLabel) {
-        colorLabel.textContent = 'Group (series) — categorical';
-      }
-    } else if (['scatter','bubble'].includes(type)) {
-      // For scatter/bubble, support both categorical (multiple traces) and numeric (color scale)
-      cSel.innerHTML = '';
-      appendOption(cSel, '', '');
-      
-      // Categorical optgroup
-      if (categoricalCols.length || columns.filter(c => looksCategoricalColumn(c)).length) {
-        const catGroup = document.createElement('optgroup');
-        catGroup.label = 'Categorical (group series)';
-        const cats = categoricalCols.length ? categoricalCols : columns.filter(c => looksCategoricalColumn(c));
-        cats.forEach(c => {
-          const opt = document.createElement('option');
-          opt.value = c;
-          opt.textContent = c;
-          catGroup.appendChild(opt);
-        });
-        cSel.appendChild(catGroup);
-      }
-      
-      // Numeric optgroup  
-      if (numericCols.length || columns.filter(c => looksNumericColumn(c)).length) {
-        const numGroup = document.createElement('optgroup');
-        numGroup.label = 'Numeric (color scale)';
-        const nums = numericCols.length ? numericCols : columns.filter(c => looksNumericColumn(c));
-        nums.forEach(c => {
-          const opt = document.createElement('option');
-          opt.value = c;
-          opt.textContent = c;
-          numGroup.appendChild(opt);
-        });
-        cSel.appendChild(numGroup);
-      }
-      
-      if (colorLabel) {
-        colorLabel.textContent = 'Color / Group (categorical=series | numeric=scale)';
-      }
-    } else {
-      // For other chart types (e.g., pie), hide color field entirely
-      setSelectOptions(cSel, [], true);
-      if (colorLabel) {
-        colorLabel.textContent = 'Color / Group (optional)';
-      }
-    }
+    // No longer needed - all selects now use optgroups with all columns
   }
   function fillMultiSelect(sel, values) {
     sel.innerHTML = '';
