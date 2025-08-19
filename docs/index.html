@@ -3285,7 +3285,12 @@ let inspectorSelectedField = null;
       fig.layout.yaxis = { title: yField };
       
       if (cfg.histOverlay) {
-        const vals = data.map(r => +r[yField]).filter(v => !Number.isNaN(v));
+        // Fix: prevent null/empty coercion to 0 in histogram overlay
+        const vals = data
+          .map(r => r[yField])
+          .filter(v => v != null && v !== '')  // Remove null, undefined, empty string first
+          .map(v => Number(v))                 // Convert to number
+          .filter(v => Number.isFinite(v));    // Keep only finite numbers
         fig.data.push({ x: vals, type: 'histogram', opacity: 0.3, xaxis: 'x2', yaxis: 'y2', name: 'Histogram' });
         fig.layout.grid = { rows: 1, columns: 2, pattern: 'independent' };
         fig.layout.title += ' · + Histogram';
