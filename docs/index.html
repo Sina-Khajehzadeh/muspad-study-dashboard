@@ -208,6 +208,47 @@
       position: relative;
     }
 
+    /* Edit FAB (Floating Action Button) */
+    .chart-edit-fab {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #007bff;
+      color: white;
+      border: none;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      cursor: pointer;
+      z-index: 100;
+      transition: all 0.2s ease;
+      opacity: 0;
+      transform: scale(0.8);
+      box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
+      tabindex: 0;
+    }
+    .chart-edit-fab:hover {
+      background: #0056b3;
+      transform: scale(1);
+      box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4);
+    }
+    .chart-edit-fab:focus {
+      outline: 2px solid #0056b3;
+      outline-offset: 2px;
+    }
+    .chart-edit-fab.visible {
+      display: flex;
+      opacity: 1;
+      transform: scale(1);
+    }
+    .card-chart {
+      position: relative;
+    }
+
     /* Modal */
     #modal {
       position: fixed; 
@@ -574,6 +615,9 @@
   let categoricalCols = [];
 let inspectorSelectedField = null;
 
+  // Edit mode state
+  let editingChart = null; // Points to the chart config being edited
+
   // Simple filters state (for legacy selects and date range)
   let Simple = {
     dateRange: { start: null, end: null },
@@ -684,6 +728,7 @@ let inspectorSelectedField = null;
     id('btnData').addEventListener('click', () => toggle('panelData'));
     id('btnSettings').addEventListener('click', () => toggle('panelSettings'));
     id('btnAdd').addEventListener('click', () => {
+      resetModalToCreateMode();
       updateBuilderVisibility();
       openModal();
     });
@@ -699,35 +744,53 @@ let inspectorSelectedField = null;
     const btnCreate = id('btnCreate');
     const modal = id('modal');
     
-    if (btnCancel) btnCancel.addEventListener('click', closeModal);
+    if (btnCancel) btnCancel.addEventListener('click', () => {
+      resetModalToCreateMode();
+      closeModal();
+    });
     if (btnCreate) btnCreate.addEventListener('click', () => {
-      const cfg = {
-        type:    id('fldType')?.value || 'bar',
-        x:       id('fldX')?.value || null,
-        y:       id('fldY')?.value || null,
-        y2:      id('fldY2')?.value || null,
-        yCat:    id('fldYCat')?.value || null,
-        color:   id('fldColor')?.value || null,
-        size:    id('fldSize')?.value || null,
-        agg:     id('fldAgg')?.value || 'count',
-        dualAxis:    id('chkDualAxis')?.checked || false,
-        histOverlay: id('chkHistOverlay')?.checked || false,
-        // Advanced options
-        xBins:       parseInt(id('fldXBins')?.value) || 30,
-        xPeriod:     id('fldXPeriod')?.value || 'month',
-        xOrder:      id('fldXOrder')?.value || 'alphabetical',
-        encodeCategorical: id('chkEncodeCategorical')?.checked || false,
-        addJitter:   id('chkAddJitter')?.checked || false,
-        showRangeslider: id('chkShowRangeslider')?.checked || false
-      };
-      addChart(cfg);
+      if (editingChart) {
+        // Update existing chart
+        readBuilderToConfig(editingChart);
+        // Update title in case it changed
+        const titleEl = editingChart._card.querySelector('.card-header h6');
+        if (titleEl) titleEl.textContent = titleFor(editingChart);
+        // Redraw chart with new configuration
+        drawChart(editingChart);
+        resetModalToCreateMode();
+      } else {
+        // Create new chart
+        const cfg = {
+          type:    id('fldType')?.value || 'bar',
+          x:       id('fldX')?.value || null,
+          y:       id('fldY')?.value || null,
+          y2:      id('fldY2')?.value || null,
+          yCat:    id('fldYCat')?.value || null,
+          color:   id('fldColor')?.value || null,
+          size:    id('fldSize')?.value || null,
+          agg:     id('fldAgg')?.value || 'count',
+          dualAxis:    id('chkDualAxis')?.checked || false,
+          histOverlay: id('chkHistOverlay')?.checked || false,
+          // Advanced options
+          xBins:       parseInt(id('fldXBins')?.value) || 30,
+          xPeriod:     id('fldXPeriod')?.value || 'month',
+          xOrder:      id('fldXOrder')?.value || 'alphabetical',
+          encodeCategorical: id('chkEncodeCategorical')?.checked || false,
+          addJitter:   id('chkAddJitter')?.checked || false,
+          showRangeslider: id('chkShowRangeslider')?.checked || false
+        };
+        addChart(cfg);
+      }
       closeModal();
     });
 
     // Close builder by clicking backdrop
     if (modal) {
       modal.addEventListener('click', (e) => {
-        if (e.target === modal) closeModal();
+        if (e.target === modal) {
+          resetModalToCreateMode();
+          closeModal();
+        }
       });
     }
 
@@ -2426,6 +2489,9 @@ let inspectorSelectedField = null;
     // Make the card draggable
     makeDraggable(card);
     
+    // Attach edit FAB
+    attachEditFab(card, cfg);
+    
     // Ensure ResizeObserver is watching this plot element
     if (window.plotlyResizeObserver && cfg._el) {
       window.plotlyResizeObserver.observe(cfg._el);
@@ -3767,6 +3833,155 @@ let inspectorSelectedField = null;
     a.click();
     a.remove();
     URL.revokeObjectURL(a.href);
+  }
+
+  // ----------------------------
+  // Chart Edit FAB Functions
+  // ----------------------------
+  function attachEditFab(card, cfg) {
+    const plotEl = card.querySelector('.plot');
+    if (!plotEl) return;
+
+    // Create FAB element
+    const fab = document.createElement('button');
+    fab.className = 'chart-edit-fab';
+    fab.title = 'Edit chart';
+    fab.setAttribute('aria-label', 'Edit chart');
+    fab.tabIndex = 0;
+    fab.innerHTML = '<i class="bi bi-pencil-square"></i>';
+
+    // Insert FAB into the plot container
+    plotEl.style.position = 'relative';
+    plotEl.appendChild(fab);
+
+    // Hover detection for proximity to top-right corner
+    let isNearCorner = false;
+    let fabVisible = false;
+
+    const checkProximity = (e) => {
+      const rect = plotEl.getBoundingClientRect();
+      const proximityZone = 60; // 60px proximity zone
+      
+      const distFromTopRight = Math.sqrt(
+        Math.pow(e.clientX - (rect.right - proximityZone/2), 2) + 
+        Math.pow(e.clientY - (rect.top + proximityZone/2), 2)
+      );
+      
+      isNearCorner = distFromTopRight <= proximityZone;
+      updateFabVisibility();
+    };
+
+    const updateFabVisibility = () => {
+      const shouldShow = isNearCorner || fab === document.activeElement;
+      if (shouldShow !== fabVisible) {
+        fabVisible = shouldShow;
+        if (fabVisible) {
+          fab.classList.add('visible');
+        } else {
+          fab.classList.remove('visible');
+        }
+      }
+    };
+
+    // Event listeners
+    card.addEventListener('mousemove', checkProximity);
+    card.addEventListener('mouseleave', () => {
+      isNearCorner = false;
+      updateFabVisibility();
+    });
+
+    fab.addEventListener('focus', updateFabVisibility);
+    fab.addEventListener('blur', updateFabVisibility);
+    
+    fab.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      openEditModal(cfg);
+    });
+
+    fab.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        openEditModal(cfg);
+      }
+    });
+  }
+
+  function openEditModal(cfg) {
+    editingChart = cfg;
+    
+    // Populate form with current config
+    populateBuilderFromConfig(cfg);
+    
+    // Change modal title and button text
+    const modalTitle = id('modalTitle');
+    const btnCreate = id('btnCreate');
+    if (modalTitle) modalTitle.textContent = 'Edit chart';
+    if (btnCreate) btnCreate.textContent = 'Update chart';
+    
+    // Update builder visibility based on current config
+    updateBuilderVisibility();
+    updateAdvancedVisibility();
+    updateTransformationSummary();
+    
+    // Open modal
+    openModal();
+  }
+
+  function populateBuilderFromConfig(cfg) {
+    // Basic fields
+    if (id('fldType')) id('fldType').value = cfg.type || 'bar';
+    if (id('fldX')) id('fldX').value = cfg.x || '';
+    if (id('fldY')) id('fldY').value = cfg.y || '';
+    if (id('fldY2')) id('fldY2').value = cfg.y2 || '';
+    if (id('fldYCat')) id('fldYCat').value = cfg.yCat || '';
+    if (id('fldColor')) id('fldColor').value = cfg.color || '';
+    if (id('fldSize')) id('fldSize').value = cfg.size || '';
+    if (id('fldAgg')) id('fldAgg').value = cfg.agg || 'count';
+    
+    // Checkboxes
+    if (id('chkDualAxis')) id('chkDualAxis').checked = cfg.dualAxis || false;
+    if (id('chkHistOverlay')) id('chkHistOverlay').checked = cfg.histOverlay || false;
+    
+    // Advanced options
+    if (id('fldXBins')) id('fldXBins').value = cfg.xBins || 30;
+    if (id('fldXPeriod')) id('fldXPeriod').value = cfg.xPeriod || 'month';
+    if (id('fldXOrder')) id('fldXOrder').value = cfg.xOrder || 'alphabetical';
+    if (id('chkEncodeCategorical')) id('chkEncodeCategorical').checked = cfg.encodeCategorical || false;
+    if (id('chkAddJitter')) id('chkAddJitter').checked = cfg.addJitter || false;
+    if (id('chkShowRangeslider')) id('chkShowRangeslider').checked = cfg.showRangeslider || false;
+  }
+
+  function readBuilderToConfig(cfg) {
+    // Update config with form values
+    cfg.type = id('fldType')?.value || 'bar';
+    cfg.x = id('fldX')?.value || null;
+    cfg.y = id('fldY')?.value || null;
+    cfg.y2 = id('fldY2')?.value || null;
+    cfg.yCat = id('fldYCat')?.value || null;
+    cfg.color = id('fldColor')?.value || null;
+    cfg.size = id('fldSize')?.value || null;
+    cfg.agg = id('fldAgg')?.value || 'count';
+    cfg.dualAxis = id('chkDualAxis')?.checked || false;
+    cfg.histOverlay = id('chkHistOverlay')?.checked || false;
+    
+    // Advanced options
+    cfg.xBins = parseInt(id('fldXBins')?.value) || 30;
+    cfg.xPeriod = id('fldXPeriod')?.value || 'month';
+    cfg.xOrder = id('fldXOrder')?.value || 'alphabetical';
+    cfg.encodeCategorical = id('chkEncodeCategorical')?.checked || false;
+    cfg.addJitter = id('chkAddJitter')?.checked || false;
+    cfg.showRangeslider = id('chkShowRangeslider')?.checked || false;
+    
+    return cfg;
+  }
+
+  function resetModalToCreateMode() {
+    editingChart = null;
+    const modalTitle = id('modalTitle');
+    const btnCreate = id('btnCreate');
+    if (modalTitle) modalTitle.textContent = 'Create chart';
+    if (btnCreate) btnCreate.textContent = 'Create';
   }
 
   // ----------------------------
