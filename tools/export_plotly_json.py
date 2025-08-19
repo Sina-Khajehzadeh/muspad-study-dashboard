@@ -51,19 +51,22 @@ def _compute_seroprevalence_fig(df3: pd.DataFrame):
     base_title = "COVID-19 Seroprevalence (%)"
     title = f"{base_title} ({DATASET_TAG})"
 
-    # Add color mapping for per-bar colors
-    color_map = {"seronegative": "#636EFA", "seropositive": "#EF553B"}
-
+    # Create bar chart without color parameter to get single trace
     fig_sero = px.bar(
         sero_df, x="serostatus", y="percent",
         title=title,
         labels={"serostatus": "Serostatus", "percent": "Percent of Participants"},
         text="percent",
-        color="serostatus",
-        color_discrete_map=color_map,
     )
-    fig_sero.update_traces(texttemplate="%{text:.1f}%", textposition="outside",
-                           hovertemplate=" %{x}<br>%{y:.1f}%<extra></extra>")
+    
+    # Manually set colors after creation
+    colors = ["#636EFA", "#EF553B"]  # seronegative, seropositive
+    fig_sero.update_traces(
+        texttemplate="%{text:.1f}%", 
+        textposition="outside",
+        hovertemplate=" %{x}<br>%{y:.1f}%<extra></extra>",
+        marker_color=colors
+    )
     fig_sero.update_layout(yaxis_range=[0, 100], margin=dict(t=50, b=50, l=50, r=50))
     return fig_sero
 
@@ -87,19 +90,22 @@ def _compute_vaccination_fig(df3: pd.DataFrame):
     base_title = "COVID-19 Vaccination Coverage (%)"
     title = f"{base_title} ({DATASET_TAG})"
 
-    # Add color mapping for per-bar colors
-    color_map = {"First Dose": "#636EFA", "Second Dose": "#EF553B"}
-
+    # Create bar chart without color parameter to get single trace
     fig_vac = px.bar(
         vac_df, x="dose", y="percent",
         title=title,
         labels={"dose": "Dose", "percent": "Percent of Participants"},
         text="percent",
-        color="dose",
-        color_discrete_map=color_map,
     )
-    fig_vac.update_traces(texttemplate="%{text:.1f}%", textposition="outside",
-                          hovertemplate=" %{x}<br>%{y:.1f}%<extra></extra>")
+    
+    # Manually set colors after creation
+    colors = ["#636EFA", "#EF553B"]  # First Dose, Second Dose
+    fig_vac.update_traces(
+        texttemplate="%{text:.1f}%", 
+        textposition="outside",
+        hovertemplate=" %{x}<br>%{y:.1f}%<extra></extra>",
+        marker_color=colors
+    )
     fig_vac.update_layout(yaxis_range=[0, 100], margin=dict(t=50, b=50, l=50, r=50))
     return fig_vac, {
         "n1_yes": int(n1_yes), "n1_valid": int(n1_valid),
