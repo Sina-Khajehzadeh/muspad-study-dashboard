@@ -2977,8 +2977,10 @@ let inspectorSelectedField = null;
     // Make the card draggable
     makeDraggable(card);
     
-    // Attach edit FAB
-    attachEditFab(card, cfg);
+    // Only attach edit FAB for charts without custom render functions
+    if (!cfg.render) {
+      attachEditFab(card, cfg);
+    }
     
     // Ensure ResizeObserver is watching this plot element
     if (window.plotlyResizeObserver && cfg._el) {
@@ -3002,6 +3004,12 @@ let inspectorSelectedField = null;
 
   function drawChart(cfg) {
     const el = cfg._el;
+    
+    // Handle insight charts with custom render functions
+    if (cfg.isInsightChart && cfg.render) {
+      cfg.render(cfg);
+      return;
+    }
     
     // Handle insight charts with predefined data
     if (cfg.isInsightChart) {
@@ -4051,6 +4059,11 @@ let inspectorSelectedField = null;
       charts.forEach(drawChart);
     }
     
+    // Redraw insights charts
+    if (insightsCharts && insightsCharts.forEach && typeof drawChart === 'function') {
+      insightsCharts.forEach(drawChart);
+    }
+    
     // For non-live mode, also update the main table
     if (!live && typeof updateTable === 'function') {
       updateTable();
@@ -4520,10 +4533,218 @@ let inspectorSelectedField = null;
     };
   }
   
+  // ----------------------------
+  // Dynamic Insights Chart Renderers
+  // ----------------------------
+  function renderSeroprevalence(cfg) {
+    const el = cfg._el;
+    
+    if (!el || !filteredRows) {
+      console.warn('Missing element or filtered data for seroprevalence chart');
+      return;
+    }
+
+    // Check if Plotly is available
+    if (typeof Plotly === 'undefined') {
+      el.innerHTML = `<div style="padding: 2rem; text-align: center; color: #6c757d; height: 100%; display: flex; flex-direction: column; justify-content: center;">
+        <i class="bi bi-graph-up" style="font-size: 3rem; display: block; margin-bottom: 1rem; opacity: 0.3;"></i>
+        <h6 style="margin-bottom: 0.5rem;">${cfg.title}</h6>
+        <small>Chart ready to display when Plotly is available</small>
+      </div>`;
+      return;
+    }
+
+    // Process X20_21_serostatus column
+    const serostatus_col = 'X20_21_serostatus';
+    const validRows = filteredRows.filter(row => 
+      row[serostatus_col] != null && 
+      row[serostatus_col] !== '' && 
+      row[serostatus_col] !== 'undefined'
+    );
+
+    // Count occurrences and calculate percentages
+    const counts = {};
+    validRows.forEach(row => {
+      const status = row[serostatus_col];
+      counts[status] = (counts[status] || 0) + 1;
+    });
+
+    const total = validRows.length;
+    const categories = Object.keys(counts).sort();
+    const percentages = categories.map(cat => total > 0 ? (counts[cat] / total) * 100 : 0);
+    const rawCounts = categories.map(cat => counts[cat] || 0);
+
+    // Prepare hover text
+    const hoverText = categories.map((cat, i) => 
+      `${cat}<br>Count: ${rawCounts[i]}<br>Percent: ${percentages[i].toFixed(1)}%`
+    );
+
+    // Create Plotly data
+    const data = [{
+      x: categories,
+      y: percentages,
+      type: 'bar',
+      text: percentages.map(p => `${p.toFixed(1)}%`),
+      textposition: 'outside',
+      texttemplate: '%{text}',
+      hovertext: hoverText,
+      hovertemplate: '%{hovertext}<extra></extra>',
+      marker: {
+        color: window.DashboardTheme ? window.DashboardTheme.getColorway()[0] : '#1f77b4'
+      }
+    }];
+
+    // Create layout with theme
+    const layout = window.DashboardTheme ? 
+      window.DashboardTheme.getBaseLayout({
+        title: 'COVID-19 Seroprevalence (%)',
+        xaxis: { title: 'Serostatus' },
+        yaxis: { 
+          title: 'Percent (%)',
+          range: [0, 100]
+        }
+      }) : {
+        title: 'COVID-19 Seroprevalence (%)',
+        xaxis: { title: 'Serostatus' },
+        yaxis: { 
+          title: 'Percent (%)',
+          range: [0, 100]
+        }
+      };
+
+    try {
+      Plotly.newPlot(el, data, layout, {
+        responsive: true,
+        displayModeBar: false
+      });
+    } catch (error) {
+      console.error('Error creating seroprevalence chart:', error);
+      el.innerHTML = `<div style="padding: 2rem; text-align: center; color: #6c757d;">
+        <i class="bi bi-exclamation-triangle" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+        Error loading seroprevalence chart
+      </div>`;
+    }
+  }
+
+  function renderVaccinationCoverage(cfg) {
+    const el = cfg._el;
+    
+    if (!el || !filteredRows) {
+      console.warn('Missing element or filtered data for vaccination coverage chart');
+      return;
+    }
+
+    // Check if Plotly is available
+    if (typeof Plotly === 'undefined') {
+      el.innerHTML = `<div style="padding: 2rem; text-align: center; color: #6c757d; height: 100%; display: flex; flex-direction: column; justify-content: center;">
+        <i class="bi bi-graph-up" style="font-size: 3rem; display: block; margin-bottom: 1rem; opacity: 0.3;"></i>
+        <h6 style="margin-bottom: 0.5rem;">${cfg.title}</h6>
+        <small>Chart ready to display when Plotly is available</small>
+      </div>`;
+      return;
+    }
+
+    // Process vaccination columns
+    const first_col = 'X20_21_kurzfragen_cov19_vaccination_first_yn';
+    const second_col = 'X20_21_kurzfragen_cov19_vaccination_second_yn';
+
+    // Filter valid rows and convert to numeric
+    const getNumericValue = (val) => {
+      if (val === 1 || val === '1' || val === 1.0) return 1;
+      if (val === 0 || val === '0' || val === 0.0) return 0;
+      return null; // Treat as NaN/missing
+    };
+
+    const firstDoseData = filteredRows
+      .map(row => getNumericValue(row[first_col]))
+      .filter(val => val !== null);
+    
+    const secondDoseData = filteredRows
+      .map(row => getNumericValue(row[second_col]))
+      .filter(val => val !== null);
+
+    // Calculate percentages
+    const firstYesCount = firstDoseData.filter(val => val === 1).length;
+    const firstValidCount = firstDoseData.length;
+    const firstPercent = firstValidCount > 0 ? (firstYesCount / firstValidCount) * 100 : 0;
+
+    const secondYesCount = secondDoseData.filter(val => val === 1).length;
+    const secondValidCount = secondDoseData.length;
+    const secondPercent = secondValidCount > 0 ? (secondYesCount / secondValidCount) * 100 : 0;
+
+    // Prepare data
+    const categories = ['First Dose', 'Second Dose'];
+    const percentages = [firstPercent, secondPercent];
+    const yesCounts = [firstYesCount, secondYesCount];
+    const validCounts = [firstValidCount, secondValidCount];
+
+    // Prepare hover text
+    const hoverText = categories.map((cat, i) => 
+      `${cat}<br>n_yes: ${yesCounts[i]}<br>n_valid: ${validCounts[i]}<br>Percent: ${percentages[i].toFixed(1)}%`
+    );
+
+    // Create Plotly data
+    const data = [{
+      x: categories,
+      y: percentages,
+      type: 'bar',
+      text: percentages.map(p => `${p.toFixed(1)}%`),
+      textposition: 'outside',
+      texttemplate: '%{text}',
+      hovertext: hoverText,
+      hovertemplate: '%{hovertext}<extra></extra>',
+      marker: {
+        color: window.DashboardTheme ? window.DashboardTheme.getColorway()[1] : '#ff7f0e'
+      }
+    }];
+
+    // Create layout with theme
+    const layout = window.DashboardTheme ? 
+      window.DashboardTheme.getBaseLayout({
+        title: 'COVID-19 Vaccination Coverage (%)',
+        xaxis: { title: 'Vaccination Dose' },
+        yaxis: { 
+          title: 'Percent (%)',
+          range: [0, 100]
+        }
+      }) : {
+        title: 'COVID-19 Vaccination Coverage (%)',
+        xaxis: { title: 'Vaccination Dose' },
+        yaxis: { 
+          title: 'Percent (%)',
+          range: [0, 100]
+        }
+      };
+
+    try {
+      Plotly.newPlot(el, data, layout, {
+        responsive: true,
+        displayModeBar: false
+      });
+    } catch (error) {
+      console.error('Error creating vaccination coverage chart:', error);
+      el.innerHTML = `<div style="padding: 2rem; text-align: center; color: #6c757d;">
+        <i class="bi bi-exclamation-triangle" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+        Error loading vaccination coverage chart
+      </div>`;
+    }
+  }
+
   function createDefaultInsightsCharts() {
     // Add default charts when insights panel is first opened
-    addInsightChart(createSerologyTrendsChart());
-    addInsightChart(createAntibodyDistributionChart());
+    addInsightChart({
+      type: 'bar',
+      title: 'COVID-19 Seroprevalence (%)',
+      isInsightChart: true,
+      render: renderSeroprevalence
+    });
+    
+    addInsightChart({
+      type: 'bar', 
+      title: 'COVID-19 Vaccination Coverage (%)',
+      isInsightChart: true,
+      render: renderVaccinationCoverage
+    });
   }
 
   // ----------------------------
