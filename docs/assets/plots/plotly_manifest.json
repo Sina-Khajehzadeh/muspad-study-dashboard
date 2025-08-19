@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "basePath": "assets/plots/",
+  "charts": [
+    {
+      "id": "sero-prevalence",
+      "title": "COVID-19 Seroprevalence (%) (X20_21)",
+      "file": "serology_seroprevalence.json",
+      "width": 800,
+      "height": 500
+    },
+    {
+      "id": "vaccination-coverage",
+      "title": "COVID-19 Vaccination Coverage (%) (X20_21)",
+      "file": "vaccination_coverage.json",
+      "width": 800,
+      "height": 500
+    }
+  ]
+}

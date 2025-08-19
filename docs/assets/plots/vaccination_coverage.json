@@ -1,0 +1,59 @@
+{
+  "data": [
+    {
+      "x": ["First Dose", "Second Dose"],
+      "y": [82.3, 67.8],
+      "type": "bar",
+      "marker": {
+        "color": ["#3498DB", "#9B59B6"],
+        "opacity": 0.8
+      },
+      "text": ["82.3%", "67.8%"],
+      "textposition": "outside",
+      "textfont": {
+        "size": 14,
+        "color": "#2C3E50"
+      },
+      "hovertemplate": "%{x}: %{y}%<extra></extra>"
+    }
+  ],
+  "layout": {
+    "title": {
+      "text": "COVID-19 Vaccination Coverage (%) (X20_21)",
+      "font": {
+        "size": 16,
+        "color": "#2C3E50"
+      },
+      "x": 0,
+      "xanchor": "left"
+    },
+    "xaxis": {
+      "title": "Vaccination Dose",
+      "tickfont": {
+        "size": 12
+      }
+    },
+    "yaxis": {
+      "title": "Coverage (%)",
+      "range": [0, 100],
+      "tickfont": {
+        "size": 12
+      }
+    },
+    "plot_bgcolor": "white",
+    "paper_bgcolor": "white",
+    "margin": {
+      "l": 50,
+      "r": 20,
+      "b": 50,
+      "t": 60,
+      "pad": 4
+    },
+    "font": {
+      "family": "Inter, 'Segoe UI', Roboto, sans-serif",
+      "size": 12,
+      "color": "#2C3E50"
+    },
+    "showlegend": false
+  }
+}
