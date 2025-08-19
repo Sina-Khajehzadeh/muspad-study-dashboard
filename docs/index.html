@@ -1047,75 +1047,10 @@ let inspectorSelectedField = null;
   }
 
   /**
-   * Create demo charts to demonstrate the functionality
+   * Create demo charts to demonstrate the functionality - REMOVED
+   * This functionality is now handled by createDefaultInsightsCharts() 
+   * which uses the proper addInsightChart() method with resizable cards.
    */
-  function createInsightsCharts() {
-    // Check if Plotly is available
-    if (typeof Plotly === 'undefined') {
-      console.warn('Plotly not available, skipping insights charts');
-      return;
-    }
-
-    // Demo Chart 1: Time series showing serology trends
-    const chart1Data = [
-      {
-        x: ['2023-01', '2023-02', '2023-03', '2023-04', '2023-05', '2023-06', '2023-07', '2023-08'],
-        y: [45, 52, 38, 67, 71, 58, 63, 69],
-        type: 'scatter',
-        mode: 'lines+markers',
-        name: 'IgG Positive Rate (%)',
-        line: { width: 3 }
-      },
-      {
-        x: ['2023-01', '2023-02', '2023-03', '2023-04', '2023-05', '2023-06', '2023-07', '2023-08'],
-        y: [12, 18, 15, 23, 28, 22, 19, 24],
-        type: 'scatter',
-        mode: 'lines+markers',
-        name: 'IgM Positive Rate (%)',
-        line: { width: 3 }
-      }
-    ];
-
-    const chart1Layout = {
-      title: 'Monthly Serology Positivity Rates',
-      xaxis: { title: 'Month' },
-      yaxis: { title: 'Positive Rate (%)' },
-      hovermode: 'x unified'
-    };
-
-    // Use the helper function to render with theme
-    renderPlotlyFromJson('insightChart1', {
-      data: chart1Data,
-      layout: chart1Layout
-    });
-
-    // Demo Chart 2: Distribution chart showing antibody levels
-    const chart2Data = [
-      {
-        x: ['< 0.5', '0.5-1.0', '1.0-2.0', '2.0-4.0', '4.0-8.0', '> 8.0'],
-        y: [120, 95, 180, 220, 150, 85],
-        type: 'bar',
-        name: 'Sample Count',
-        marker: { 
-          color: '#1f77b4',
-          opacity: 0.8 
-        }
-      }
-    ];
-
-    const chart2Layout = {
-      title: 'Antibody Titer Distribution',
-      xaxis: { title: 'Antibody Titer Range' },
-      yaxis: { title: 'Number of Samples' },
-      bargap: 0.1
-    };
-
-    // Use the helper function to render with theme
-    renderPlotlyFromJson('insightChart2', {
-      data: chart2Data,
-      layout: chart2Layout
-    });
-  }
 
   // ----------------------------
   // Boot
