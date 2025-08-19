@@ -77,15 +77,23 @@
       min-width: var(--card-min);
       background: #fff; border: 1px solid #e1e1e1; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,.06);
       resize: both; overflow: auto; position: relative;
+      display: flex; flex-direction: column;
+      min-height: 400px;
     }
     .card-chart .card-header {
       display: flex; align-items: center; justify-content: space-between;
       padding: .5rem .75rem; border-bottom: 1px solid #eee;
+      flex-shrink: 0;
     }
     .card-chart .card-header h6 { margin: 0; font-size: 1rem; font-weight: 600; }
     .card-chart .remove { border: 0; background: transparent; color: #6c757d; font-size: 1.1rem; }
     .card-chart .remove:hover { color: #dc3545; }
-    .card-chart .plot { height: 320px; padding: .5rem; }
+    .card-chart .plot { 
+      flex: 1 1 auto; 
+      padding: .5rem; 
+      min-height: 320px;
+      overflow: hidden;
+    }
 
     @media (max-width: 800px) {
       .card-chart { width: 100%; min-width: 100%; }
@@ -3140,7 +3148,10 @@ let inspectorSelectedField = null;
       drawFunnel(cfg, data, fig);
     }
 
-    Plotly.newPlot(el, fig.data, fig.layout, { responsive: true });
+    Plotly.newPlot(el, fig.data, fig.layout, { 
+      responsive: true,
+      displayModeBar: false
+    });
   }
 
   function drawInsightChart(cfg) {

@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Resize Test</title>
+  <script src="https://cdn.plot.ly/plotly-2.25.2.min.js"></script>
+  <style>
+    body { 
+      font-family: Arial, sans-serif; 
+      margin: 20px; 
+      background: #f5f5f5; 
+    }
+    
+    .card-chart {
+      width: 500px;
+      min-width: 400px;
+      background: #fff; 
+      border: 1px solid #e1e1e1; 
+      border-radius: 8px; 
+      box-shadow: 0 2px 4px rgba(0,0,0,.06);
+      resize: both; 
+      overflow: auto; 
+      position: relative;
+      display: flex; 
+      flex-direction: column;
+      min-height: 400px;
+      margin: 20px;
+    }
+    
+    .card-chart .card-header {
+      display: flex; 
+      align-items: center; 
+      justify-content: space-between;
+      padding: .5rem .75rem; 
+      border-bottom: 1px solid #eee;
+      flex-shrink: 0;
+      background: #f8f9fa;
+    }
+    
+    .card-chart .card-header h6 { 
+      margin: 0; 
+      font-size: 1rem; 
+      font-weight: 600; 
+    }
+    
+    .card-chart .plot { 
+      flex: 1 1 auto; 
+      padding: .5rem; 
+      min-height: 320px;
+      overflow: hidden;
+    }
+    
+    .resizable-corner {
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      width: 16px;
+      height: 16px;
+      cursor: nw-resize;
+      background: repeating-linear-gradient(
+        -45deg,
+        #007bff,
+        #007bff 2px,
+        transparent 2px,
+        transparent 6px
+      );
+      opacity: 0.4;
+      transition: opacity 0.2s ease;
+    }
+    
+    .card-chart:hover .resizable-corner {
+      opacity: 0.8;
+    }
+  </style>
+</head>
+<body>
+  <h1>Resizable Chart Card Test</h1>
+  <p>Drag the corners of the charts below to resize them. The Plotly charts should automatically resize to fit.</p>
+  
+  <div class="card-chart">
+    <div class="card-header">
+      <h6>Sample Bar Chart</h6>
+    </div>
+    <div class="plot" id="plot1"></div>
+    <div class="resizable-corner"></div>
+  </div>
+  
+  <div class="card-chart">
+    <div class="card-header">
+      <h6>Sample Line Chart</h6>
+    </div>
+    <div class="plot" id="plot2"></div>
+    <div class="resizable-corner"></div>
+  </div>
+
+  <script>
+    // Initialize ResizeObserver for auto-resizing Plotly charts
+    function initPlotlyResizeObserver() {
+      if (!window.ResizeObserver) return;
+
+      const resizeObserver = new ResizeObserver((entries) => {
+        entries.forEach((entry) => {
+          const plotElement = entry.target;
+          if (plotElement.classList.contains('plot') && plotElement.children.length > 0) {
+            clearTimeout(plotElement._resizeTimeout);
+            plotElement._resizeTimeout = setTimeout(() => {
+              try {
+                Plotly.Plots.resize(plotElement);
+              } catch (e) {
+                console.warn('Error resizing Plotly chart:', e);
+              }
+            }, 100);
+          }
+        });
+      });
+
+      // Observe all plot elements
+      document.querySelectorAll('.plot').forEach(plotEl => {
+        resizeObserver.observe(plotEl);
+      });
+
+      return resizeObserver;
+    }
+
+    // Create sample charts
+    function createCharts() {
+      // Bar chart
+      const barData = [{
+        x: ['A', 'B', 'C', 'D'],
+        y: [10, 15, 13, 17],
+        type: 'bar'
+      }];
+      
+      const barLayout = {
+        title: 'Sample Bar Chart',
+        autosize: true,
+        margin: { l: 50, r: 20, b: 50, t: 40 }
+      };
+      
+      Plotly.newPlot('plot1', barData, barLayout, {
+        responsive: true,
+        displayModeBar: false
+      });
+
+      // Line chart  
+      const lineData = [{
+        x: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        y: [2, 6, 3, 8, 4, 9, 5, 10, 6, 12],
+        type: 'scatter',
+        mode: 'lines+markers'
+      }];
+      
+      const lineLayout = {
+        title: 'Sample Line Chart', 
+        autosize: true,
+        margin: { l: 50, r: 20, b: 50, t: 40 }
+      };
+      
+      Plotly.newPlot('plot2', lineData, lineLayout, {
+        responsive: true,
+        displayModeBar: false
+      });
+    }
+
+    // Initialize everything when page loads
+    window.addEventListener('load', () => {
+      createCharts();
+      initPlotlyResizeObserver();
+    });
+  </script>
+</body>
+</html>
