@@ -276,6 +276,84 @@
     #modal .grid { display: grid; gap: .75rem; }
     #modal .actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: .75rem; }
 
+    /* Custom Analytics Modal */
+    #customAnalyticsModal { 
+      position: fixed; 
+      inset: 0; 
+      display: none; 
+      place-items: center; 
+      background: rgba(0,0,0,.45); 
+      z-index: 1000;
+      padding: 1rem;
+    }
+    #customAnalyticsModal.show { display: grid; }
+    #customAnalyticsModal .sheet {
+      width: min(700px, 100%); 
+      max-width: 95vw; 
+      max-height: 95vh; 
+      background: #fff; 
+      border-radius: 10px; 
+      padding: 1rem 1rem 1.25rem;
+      box-shadow: 0 8px 24px rgba(0,0,0,.2);
+      resize: both;
+      overflow: auto;
+    }
+    
+    .available-charts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+    
+    .chart-template {
+      border: 2px solid #e1e1e1;
+      border-radius: 8px;
+      padding: 1rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      background: #fff;
+    }
+    
+    .chart-template:hover {
+      border-color: #007bff;
+      box-shadow: 0 2px 8px rgba(0, 123, 255, 0.15);
+    }
+    
+    .chart-template.selected {
+      border-color: #007bff;
+      background: #f8f9ff;
+      box-shadow: 0 2px 8px rgba(0, 123, 255, 0.2);
+    }
+    
+    .chart-template-preview {
+      text-align: center;
+      margin-bottom: 0.5rem;
+      font-size: 2rem;
+      color: #6c757d;
+    }
+    
+    .chart-template.selected .chart-template-preview {
+      color: #007bff;
+    }
+    
+    .chart-template-info h6 {
+      margin: 0 0 0.25rem 0;
+      font-weight: 600;
+    }
+    
+    .chart-template-info .small {
+      font-size: 0.875rem;
+      margin: 0;
+    }
+    
+    #customAnalyticsModal .actions { 
+      display: flex; 
+      justify-content: flex-end; 
+      gap: .5rem; 
+      margin-top: .75rem; 
+    }
+
     /* ===== Inspector panel styles START ===== */
     #dataLayout {
       display: grid;
@@ -361,6 +439,32 @@
     /* ===== Inspector panel styles END ===== */
 
     /* ===== Insights panel styles START ===== */
+    .insights-panel {
+      max-height: 70vh;
+      overflow-y: auto;
+    }
+    
+    .insights-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.75rem;
+    }
+    
+    .insights-header h5 {
+      margin: 0;
+    }
+    
+    .insights-grid-container {
+      flex: 1;
+      overflow: auto;
+      padding-right: 0.5rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    
+    /* Legacy grid styles for backward compatibility */
     .insights-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
@@ -411,6 +515,12 @@
       
       .chart-container {
         height: 300px;
+      }
+      
+      .insights-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
       }
     }
     /* ===== Insights panel styles END ===== */
@@ -512,30 +622,18 @@
       </section>
 
       <!-- Insights Panel -->
-      <section id="panelInsights" class="panel" aria-label="Serology Insights">
-        <h5>Serology Insights</h5>
+      <section id="panelInsights" class="panel insights-panel" aria-label="Serology Insights">
+        <div class="insights-header">
+          <h5>Serology Insights</h5>
+          <button id="btnCustomAnalytics" class="btn btn-sm btn-outline-primary" title="Custom analytics">
+            <i class="bi bi-graph-up"></i> Custom Analytics
+          </button>
+        </div>
         <p class="text-muted mb-3">Curated analyses and advanced visualizations for serology data.</p>
         
-        <div class="insights-grid">
-          <!-- Demo Chart 1: Serology Trends -->
-          <div class="insight-card">
-            <div class="insight-card-header">
-              <h2 class="insight-card-title">Serology Trends Over Time</h2>
-            </div>
-            <div class="insight-card-body">
-              <div id="insightChart1" class="chart-container"></div>
-            </div>
-          </div>
-
-          <!-- Demo Chart 2: Antibody Distribution -->
-          <div class="insight-card">
-            <div class="insight-card-header">
-              <h2 class="insight-card-title">Antibody Response Distribution</h2>
-            </div>
-            <div class="insight-card-body">
-              <div id="insightChart2" class="chart-container"></div>
-            </div>
-          </div>
+        <!-- Insights Grid Container -->
+        <div id="insightsGrid" class="insights-grid-container">
+          <!-- Charts will be dynamically added here -->
         </div>
         
         <div class="resizable-corner"></div>
@@ -705,6 +803,62 @@
     </div>
   </div>
 
+  <!-- Custom Analytics Modal -->
+  <div id="customAnalyticsModal" role="dialog" aria-modal="true" aria-labelledby="customAnalyticsTitle">
+    <div class="sheet">
+      <h5 id="customAnalyticsTitle" class="mb-3">Add Custom Analytics</h5>
+      <p class="text-muted mb-3">Select from available chart templates to add to your Insights panel.</p>
+      
+      <div class="available-charts-grid">
+        <div class="chart-template" data-chart-type="serology-trends">
+          <div class="chart-template-preview">
+            <i class="bi bi-graph-up-arrow"></i>
+          </div>
+          <div class="chart-template-info">
+            <h6>Serology Trends</h6>
+            <p class="text-muted small">Time series of antibody positivity rates</p>
+          </div>
+        </div>
+        
+        <div class="chart-template" data-chart-type="antibody-distribution">
+          <div class="chart-template-preview">
+            <i class="bi bi-bar-chart"></i>
+          </div>
+          <div class="chart-template-info">
+            <h6>Antibody Distribution</h6>
+            <p class="text-muted small">Distribution of antibody titer levels</p>
+          </div>
+        </div>
+        
+        <div class="chart-template" data-chart-type="demographic-breakdown">
+          <div class="chart-template-preview">
+            <i class="bi bi-pie-chart"></i>
+          </div>
+          <div class="chart-template-info">
+            <h6>Demographic Breakdown</h6>
+            <p class="text-muted small">Serology results by demographic groups</p>
+          </div>
+        </div>
+        
+        <div class="chart-template" data-chart-type="custom-json">
+          <div class="chart-template-preview">
+            <i class="bi bi-code-square"></i>
+          </div>
+          <div class="chart-template-info">
+            <h6>Python Plotly JSON</h6>
+            <p class="text-muted small">Import chart from Python Plotly JSON</p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="actions">
+        <button id="btnCustomAnalyticsCancel" class="btn btn-outline-secondary">Cancel</button>
+        <button id="btnAddInsightChart" class="btn btn-primary" disabled>Add Selected Chart</button>
+      </div>
+      <div class="resizable-corner"></div>
+    </div>
+  </div>
+
   <!-- ==================== Main App Script ==================== -->
   <script>
   // ----------------------------
@@ -715,6 +869,7 @@
   let filteredRows = []; // Canonical source of truth for filtered dataset
   let columns = [];
   let charts = [];
+  let insightsCharts = []; // Separate array for insights panel charts
   let dateCol = null;
   let ageCol  = null;
   let empCol  = null;
@@ -929,12 +1084,17 @@ let inspectorSelectedField = null;
     id('btnData').addEventListener('click', () => toggle('panelData'));
     id('btnInsights').addEventListener('click', () => {
       toggle('panelInsights');
-      // Initialize charts when panel is shown
+      // Initialize default charts when panel is shown for the first time
       setTimeout(() => {
-        if (id('panelInsights').classList.contains('active')) {
-          createInsightsCharts();
+        if (id('panelInsights').classList.contains('active') && insightsCharts.length === 0) {
+          createDefaultInsightsCharts();
         }
       }, 100);
+    });
+    
+    // Custom Analytics button
+    id('btnCustomAnalytics')?.addEventListener('click', () => {
+      openCustomAnalyticsModal();
     });
     id('btnSettings').addEventListener('click', () => toggle('panelSettings'));
     id('btnAdd').addEventListener('click', () => {
@@ -1000,6 +1160,38 @@ let inspectorSelectedField = null;
         if (e.target === modal) {
           resetModalToCreateMode();
           closeModal();
+        }
+      });
+    }
+
+    // Custom Analytics Modal controls
+    const customAnalyticsModal = id('customAnalyticsModal');
+    const btnCustomAnalyticsCancel = id('btnCustomAnalyticsCancel');
+    const btnAddInsightChart = id('btnAddInsightChart');
+    
+    if (btnCustomAnalyticsCancel) btnCustomAnalyticsCancel.addEventListener('click', () => {
+      closeCustomAnalyticsModal();
+    });
+    
+    if (btnAddInsightChart) btnAddInsightChart.addEventListener('click', () => {
+      addSelectedInsightChart();
+    });
+    
+    // Chart template selection
+    if (customAnalyticsModal) {
+      customAnalyticsModal.addEventListener('click', (e) => {
+        if (e.target === customAnalyticsModal) {
+          closeCustomAnalyticsModal();
+        }
+        
+        const template = e.target.closest('.chart-template');
+        if (template) {
+          // Clear previous selections
+          customAnalyticsModal.querySelectorAll('.chart-template').forEach(t => t.classList.remove('selected'));
+          // Select clicked template
+          template.classList.add('selected');
+          // Enable add button
+          if (btnAddInsightChart) btnAddInsightChart.disabled = false;
         }
       });
     }
@@ -2651,8 +2843,10 @@ let inspectorSelectedField = null;
       card.style.margin = '';
       card.style.zIndex = '';
       
-      // Calculate drop position within grid
-      const gridRect = id('grid').getBoundingClientRect();
+      // Calculate drop position within appropriate grid
+      const isInsightCard = card.closest('#insightsGrid') !== null;
+      const targetGrid = isInsightCard ? id('insightsGrid') : id('grid');
+      const gridRect = targetGrid.getBoundingClientRect();
       const cardRect = card.getBoundingClientRect();
       
       // Only reorder if dropped within grid bounds
@@ -2662,8 +2856,7 @@ let inspectorSelectedField = null;
           cardRect.bottom <= gridRect.bottom) {
         
         // Find the best insertion point
-        const grid = id('grid');
-        const allCards = Array.from(grid.querySelectorAll('.card-chart'));
+        const allCards = Array.from(targetGrid.querySelectorAll('.card-chart'));
         const draggedCard = card;
         
         let insertBeforeCard = null;
@@ -2686,9 +2879,9 @@ let inspectorSelectedField = null;
         
         // Reorder in DOM
         if (insertBeforeCard) {
-          grid.insertBefore(draggedCard, insertBeforeCard);
+          targetGrid.insertBefore(draggedCard, insertBeforeCard);
         } else {
-          grid.appendChild(draggedCard);
+          targetGrid.appendChild(draggedCard);
         }
       }
       
@@ -2741,7 +2934,45 @@ let inspectorSelectedField = null;
     }
   }
 
+  function addInsightChart(cfg) {
+    insightsCharts.push(cfg);
+    const card = document.createElement('div');
+    card.className = 'card-chart';
+    card.innerHTML = `
+      <div class="card-header">
+        <h6>${titleFor(cfg)}</h6>
+        <button class="remove" title="Remove"><i class="bi bi-x-lg"></i></button>
+      </div>
+      <div class="plot"></div>
+      <div class="resizable-corner"></div>
+    `;
+    id('insightsGrid').appendChild(card);
+    cfg._el = card.querySelector('.plot');
+    cfg._card = card;
+    card.querySelector('.remove').addEventListener('click', () => {
+      insightsCharts = insightsCharts.filter(c => c !== cfg);
+      card.remove();
+    });
+    drawChart(cfg);
+    
+    // Make the card draggable
+    makeDraggable(card);
+    
+    // Attach edit FAB
+    attachEditFab(card, cfg);
+    
+    // Ensure ResizeObserver is watching this plot element
+    if (window.plotlyResizeObserver && cfg._el) {
+      window.plotlyResizeObserver.observe(cfg._el);
+    }
+  }
+
   function titleFor(cfg) {
+    // For insight charts, use the predefined title
+    if (cfg.isInsightChart && cfg.title) {
+      return cfg.title;
+    }
+    
     const t = cfg.type[0].toUpperCase() + cfg.type.slice(1);
     const parts = [`${t}`];
     if (cfg.x) parts.push(`X: ${cfg.x}`);
@@ -2752,6 +2983,12 @@ let inspectorSelectedField = null;
 
   function drawChart(cfg) {
     const el = cfg._el;
+    
+    // Handle insight charts with predefined data
+    if (cfg.isInsightChart) {
+      drawInsightChart(cfg);
+      return;
+    }
     
     // Handle datatable and pivot separately (no change)
     if (cfg.type === 'datatable') {
@@ -2819,6 +3056,39 @@ let inspectorSelectedField = null;
     }
 
     Plotly.newPlot(el, fig.data, fig.layout, { responsive: true });
+  }
+
+  function drawInsightChart(cfg) {
+    const el = cfg._el;
+    
+    if (!cfg.chartData || !cfg.chartLayout) {
+      console.warn('Insight chart missing data or layout:', cfg);
+      return;
+    }
+    
+    // Apply theme to the layout
+    const themedLayout = window.DashboardTheme ? 
+      window.DashboardTheme.getBaseLayout(cfg.chartLayout) : 
+      cfg.chartLayout;
+    
+    // Handle different chart types
+    let data = cfg.chartData;
+    if (!Array.isArray(data)) {
+      data = [data];
+    }
+    
+    try {
+      Plotly.newPlot(el, data, themedLayout, {
+        responsive: true,
+        displayModeBar: false
+      });
+    } catch (error) {
+      console.error('Error creating insight chart:', error);
+      el.innerHTML = `<div style="padding: 2rem; text-align: center; color: #6c757d;">
+        <i class="bi bi-exclamation-triangle" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+        Error loading chart: ${cfg.title}
+      </div>`;
+    }
   }
 
   function drawHistogram(cfg, data, fig) {
@@ -4079,6 +4349,151 @@ let inspectorSelectedField = null;
   function closeModal(){ 
     const modal = id('modal');
     if (modal) modal.style.display = 'none'; 
+  }
+
+  function openCustomAnalyticsModal() {
+    const modal = id('customAnalyticsModal');
+    if (modal) {
+      modal.classList.add('show');
+      // Reset selections
+      modal.querySelectorAll('.chart-template').forEach(t => t.classList.remove('selected'));
+      const btnAdd = id('btnAddInsightChart');
+      if (btnAdd) btnAdd.disabled = true;
+    }
+  }
+  
+  function closeCustomAnalyticsModal() {
+    const modal = id('customAnalyticsModal');
+    if (modal) modal.classList.remove('show');
+  }
+  
+  function addSelectedInsightChart() {
+    const modal = id('customAnalyticsModal');
+    const selectedTemplate = modal?.querySelector('.chart-template.selected');
+    
+    if (!selectedTemplate) return;
+    
+    const chartType = selectedTemplate.dataset.chartType;
+    let cfg;
+    
+    switch (chartType) {
+      case 'serology-trends':
+        cfg = createSerologyTrendsChart();
+        break;
+      case 'antibody-distribution':
+        cfg = createAntibodyDistributionChart();
+        break;
+      case 'demographic-breakdown':
+        cfg = createDemographicBreakdownChart();
+        break;
+      case 'custom-json':
+        cfg = createCustomJsonChart();
+        break;
+      default:
+        console.warn('Unknown chart type:', chartType);
+        return;
+    }
+    
+    if (cfg) {
+      addInsightChart(cfg);
+      closeCustomAnalyticsModal();
+    }
+  }
+
+  // ----------------------------
+  // Insights Chart Templates
+  // ----------------------------
+  function createSerologyTrendsChart() {
+    return {
+      type: 'timeseries',
+      title: 'Serology Trends Over Time',
+      isInsightChart: true,
+      chartData: {
+        x: ['2023-01', '2023-02', '2023-03', '2023-04', '2023-05', '2023-06', '2023-07', '2023-08'],
+        y: [45, 52, 38, 67, 71, 58, 63, 69],
+        type: 'scatter',
+        mode: 'lines+markers',
+        name: 'IgG Positive Rate (%)',
+        line: { width: 3 }
+      },
+      chartLayout: {
+        title: 'Serology Trends Over Time',
+        xaxis: { title: 'Month' },
+        yaxis: { title: 'Positive Rate (%)' },
+        hovermode: 'x unified'
+      }
+    };
+  }
+  
+  function createAntibodyDistributionChart() {
+    return {
+      type: 'bar',
+      title: 'Antibody Response Distribution',
+      isInsightChart: true,
+      chartData: {
+        x: ['< 0.5', '0.5-1.0', '1.0-2.0', '2.0-4.0', '4.0-8.0', '> 8.0'],
+        y: [120, 95, 180, 220, 150, 85],
+        type: 'bar',
+        name: 'Sample Count',
+        marker: { 
+          color: '#1f77b4',
+          opacity: 0.8 
+        }
+      },
+      chartLayout: {
+        title: 'Antibody Titer Distribution',
+        xaxis: { title: 'Antibody Titer Range' },
+        yaxis: { title: 'Number of Samples' },
+        bargap: 0.1
+      }
+    };
+  }
+  
+  function createDemographicBreakdownChart() {
+    return {
+      type: 'pie',
+      title: 'Demographic Breakdown',
+      isInsightChart: true,
+      chartData: {
+        values: [35, 28, 22, 15],
+        labels: ['18-30 years', '31-45 years', '46-60 years', '60+ years'],
+        type: 'pie',
+        marker: {
+          colors: ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4']
+        }
+      },
+      chartLayout: {
+        title: 'Serology Results by Age Group'
+      }
+    };
+  }
+  
+  function createCustomJsonChart() {
+    // Placeholder for Python Plotly JSON import
+    return {
+      type: 'custom',
+      title: 'Custom Plotly Chart',
+      isInsightChart: true,
+      chartData: {},
+      chartLayout: {
+        title: 'Custom Chart (Placeholder)',
+        annotations: [{
+          x: 0.5,
+          y: 0.5,
+          text: 'Import Python Plotly JSON here',
+          xanchor: 'center',
+          yanchor: 'middle',
+          showarrow: false,
+          font: { size: 16 }
+        }]
+      }
+    };
+  }
+  
+  function createDefaultInsightsCharts() {
+    // Add default charts when insights panel is first opened
+    addInsightChart(createSerologyTrendsChart());
+    addInsightChart(createAntibodyDistributionChart());
   }
 
   function downloadCSV(filename, headers, rows) {
