@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chart Builder Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .modal { display: block; }
+        .form-select, .form-control, .form-check-input { margin: 5px; padding: 5px; }
+        .btn { padding: 8px 12px; margin: 5px; }
+        .alert { background: #e3f2fd; padding: 10px; margin: 10px 0; border-radius: 4px; }
+        select { width: 200px; }
+        #advancedSection { border: 1px solid #ddd; padding: 10px; margin: 10px 0; }
+        optgroup { font-weight: bold; }
+        option { font-weight: normal; }
+    </style>
+</head>
+<body>
+    <h2>Type-Agnostic Chart Builder Test</h2>
+    
+    <div class="modal">
+        <h3>Create Chart</h3>
+        
+        <div>
+            <label>Chart Type:</label>
+            <select id="fldType" class="form-select">
+                <option value="histogram">Histogram</option>
+                <option value="bar">Bar</option>
+                <option value="scatter">Scatter</option>
+                <option value="line">Line</option>
+            </select>
+        </div>
+        
+        <div>
+            <label>X Field:</label>
+            <select id="fldX" class="form-select"></select>
+        </div>
+        
+        <div>
+            <label>Color/Group:</label>
+            <select id="fldColor" class="form-select"></select>
+        </div>
+        
+        <div>
+            <button id="btnToggleAdvanced" class="btn">Show Advanced</button>
+        </div>
+        
+        <div id="advancedSection" style="display: none;">
+            <h4>Advanced Options</h4>
+            
+            <div id="advancedXBinning" style="display: none;">
+                <label>X binning (nbins):</label>
+                <input type="number" id="fldXBins" value="30" min="5" max="200">
+            </div>
+            
+            <div id="advancedXPeriod" style="display: none;">
+                <label>X period:</label>
+                <select id="fldXPeriod">
+                    <option value="day">Day</option>
+                    <option value="week">Week</option>
+                    <option value="month" selected>Month</option>
+                    <option value="quarter">Quarter</option>
+                    <option value="year">Year</option>
+                </select>
+            </div>
+            
+            <div id="advancedXOrder" style="display: none;">
+                <label>X categorical order:</label>
+                <select id="fldXOrder">
+                    <option value="alphabetical" selected>Alphabetical</option>
+                    <option value="frequency_desc">Frequency (high to low)</option>
+                    <option value="frequency_asc">Frequency (low to high)</option>
+                </select>
+            </div>
+            
+            <div>
+                <label><input type="checkbox" id="chkEncodeCategorical"> Encode categorical X/Y</label><br>
+                <label><input type="checkbox" id="chkAddJitter"> Add jitter to points</label><br>
+                <label><input type="checkbox" id="chkShowRangeslider"> Show rangeslider</label>
+            </div>
+        </div>
+        
+        <div id="transformationSummary" class="alert">
+            Select fields to see transformation details.
+        </div>
+        
+        <button id="testBtn" class="btn">Test Functions</button>
+    </div>
+
+    <script>
+        // Mock data for testing
+        const sampleData = [
+            {id: 1, category: 'A', value: 10, date: '2023-01-15', score: 85.5},
+            {id: 2, category: 'B', value: 20, date: '2023-02-20', score: 92.1},
+            {id: 3, category: 'A', value: 15, date: '2023-03-10', score: 78.3},
+            {id: 4, category: 'C', value: 30, date: '2023-04-05', score: 95.7},
+            {id: 5, category: 'B', value: 25, date: '2023-05-12', score: 88.9},
+            // Add vaccine dates for dose interval test
+            {id: 6, X20_21_vacc_first_date: '2021-03-01', X20_21_vacc_second_date: '2021-03-22', category: 'A'},
+            {id: 7, X20_21_vacc_first_date: '2021-04-15', X20_21_vacc_second_date: '2021-05-13', category: 'B'},
+            {id: 8, X20_21_vacc_first_date: '2021-02-10', X20_21_vacc_second_date: '2021-03-17', category: 'C'}
+        ];
+        
+        const columns = Object.keys(sampleData[0]);
+        
+        // Helper functions from the main implementation
+        function isDateCol(col) {
+            const nameHint = /(date|time|_dt|_time|timestamp)/i;
+            if (nameHint.test(col)) return true;
+            
+            const vals = sampleData.slice(0, 5).map(r => r[col]).filter(v => v);
+            let parsed = 0, withinRange = 0;
+            for (const v of vals) {
+                const d = new Date(v);
+                if (!isNaN(d)) {
+                    parsed++;
+                    const y = d.getUTCFullYear();
+                    if (y >= 2010 && y <= 2030) withinRange++;
+                }
+            }
+            const rate = vals.length ? parsed / vals.length : 0;
+            const rangeRate = vals.length ? withinRange / vals.length : 0;
+            return rate >= 0.7 && rangeRate >= 0.7;
+        }
+        
+        function looksNumericColumn(col) {
+            const vals = sampleData.slice(0, 5).map(r => r[col]).filter(v => v !== null && v !== '');
+            if (!vals.length) return false;
+            let nums = 0;
+            for (const v of vals) if (typeof v === 'number' && !Number.isNaN(v)) nums++;
+            return nums / vals.length >= 0.7;
+        }
+        
+        function looksCategoricalColumn(col) {
+            const vals = sampleData.map(r => r[col]).filter(v => v !== null && v !== '');
+            const uniq = new Set(vals.map(String));
+            const mostlyNums = looksNumericColumn(col);
+            return !mostlyNums && uniq.size >= 2 && uniq.size <= 20;
+        }
+        
+        function getColumnType(col) {
+            if (isDateCol(col)) return 'date';
+            if (looksNumericColumn(col)) return 'numeric';
+            if (looksCategoricalColumn(col)) return 'categorical';
+            return 'other';
+        }
+        
+        function computeDoseIntervalDays() {
+            const firstDateCol = columns.find(c => c.includes('vacc_first_date'));
+            const secondDateCol = columns.find(c => c.includes('vacc_second_date'));
+            
+            if (firstDateCol && secondDateCol) {
+                console.log(`Computing dose_interval_days from ${firstDateCol} and ${secondDateCol}`);
+                
+                sampleData.forEach(row => {
+                    const firstDate = new Date(row[firstDateCol]);
+                    const secondDate = new Date(row[secondDateCol]);
+                    
+                    if (!isNaN(firstDate) && !isNaN(secondDate)) {
+                        const diffTime = secondDate.getTime() - firstDate.getTime();
+                        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+                        row.dose_interval_days = diffDays;
+                    } else {
+                        row.dose_interval_days = null;
+                    }
+                });
+                
+                // Add to columns if not already present
+                if (!columns.includes('dose_interval_days')) {
+                    columns.push('dose_interval_days');
+                }
+            }
+        }
+        
+        function populateSelect(select, includeEmpty = true) {
+            select.innerHTML = '';
+            
+            if (includeEmpty) {
+                const emptyOption = document.createElement('option');
+                emptyOption.value = '';
+                emptyOption.textContent = '';
+                select.appendChild(emptyOption);
+            }
+            
+            // Group columns by type
+            const categoricalCols = columns.filter(c => getColumnType(c) === 'categorical');
+            const numericCols = columns.filter(c => getColumnType(c) === 'numeric');
+            const dateCols = columns.filter(c => getColumnType(c) === 'date');
+            const otherCols = columns.filter(c => getColumnType(c) === 'other');
+            
+            // Add optgroups
+            if (categoricalCols.length > 0) {
+                const catGroup = document.createElement('optgroup');
+                catGroup.label = 'Categorical';
+                categoricalCols.forEach(col => {
+                    const opt = document.createElement('option');
+                    opt.value = col;
+                    opt.textContent = col;
+                    catGroup.appendChild(opt);
+                });
+                select.appendChild(catGroup);
+            }
+            
+            if (numericCols.length > 0) {
+                const numGroup = document.createElement('optgroup');
+                numGroup.label = 'Numeric';
+                numericCols.forEach(col => {
+                    const opt = document.createElement('option');
+                    opt.value = col;
+                    opt.textContent = col;
+                    numGroup.appendChild(opt);
+                });
+                select.appendChild(numGroup);
+            }
+            
+            if (dateCols.length > 0) {
+                const dateGroup = document.createElement('optgroup');
+                dateGroup.label = 'Date/Time';
+                dateCols.forEach(col => {
+                    const opt = document.createElement('option');
+                    opt.value = col;
+                    opt.textContent = col;
+                    dateGroup.appendChild(opt);
+                });
+                select.appendChild(dateGroup);
+            }
+            
+            if (otherCols.length > 0) {
+                const otherGroup = document.createElement('optgroup');
+                otherGroup.label = 'Other';
+                otherCols.forEach(col => {
+                    const opt = document.createElement('option');
+                    opt.value = col;
+                    opt.textContent = col;
+                    otherGroup.appendChild(opt);
+                });
+                select.appendChild(otherGroup);
+            }
+        }
+        
+        function updateAdvancedVisibility() {
+            const type = document.getElementById('fldType').value;
+            const xField = document.getElementById('fldX').value;
+            const xType = xField ? getColumnType(xField) : null;
+            
+            // Show/hide advanced controls based on field selections
+            const xBinning = document.getElementById('advancedXBinning');
+            const xPeriod = document.getElementById('advancedXPeriod');
+            const xOrder = document.getElementById('advancedXOrder');
+            const rangeslider = document.getElementById('chkShowRangeslider').parentElement;
+            
+            if (xBinning) {
+                xBinning.style.display = (xType === 'numeric') ? 'block' : 'none';
+                // Set default nbins for dose preset
+                if (xField === 'dose_interval_days') {
+                    document.getElementById('fldXBins').value = '50';
+                }
+            }
+            
+            if (xPeriod) {
+                xPeriod.style.display = (xType === 'date') ? 'block' : 'none';
+            }
+            
+            if (xOrder) {
+                xOrder.style.display = (xType === 'categorical') ? 'block' : 'none';
+            }
+            
+            // Show rangeslider option for histogram
+            if (type === 'histogram' && xField === 'dose_interval_days') {
+                document.getElementById('chkShowRangeslider').checked = true;
+            }
+        }
+        
+        function updateTransformationSummary() {
+            const summaryEl = document.getElementById('transformationSummary');
+            const type = document.getElementById('fldType').value;
+            const xField = document.getElementById('fldX').value;
+            const colorField = document.getElementById('fldColor').value;
+            
+            if (!type || !xField) {
+                summaryEl.textContent = 'Select chart type and X field to see transformation details.';
+                return;
+            }
+            
+            const xType = getColumnType(xField);
+            const colorType = colorField ? getColumnType(colorField) : null;
+            
+            let summary = [];
+            
+            // X transformations
+            if (type === 'histogram') {
+                if (xField === 'dose_interval_days') {
+                    summary.push('X → dose interval preset (clip [0,200], 50 bins, rangeslider)');
+                } else if (xType === 'numeric') {
+                    const bins = document.getElementById('fldXBins').value || '30';
+                    summary.push(`X → numeric binned (${bins} bins)`);
+                } else if (xType === 'date') {
+                    const period = document.getElementById('fldXPeriod').value || 'month';
+                    summary.push(`X → date grouped by ${period}`);
+                } else {
+                    summary.push('X → categorical bins (count per category)');
+                }
+            } else if (type === 'bar') {
+                if (xType === 'categorical') {
+                    summary.push('X → categorical axis');
+                } else if (xType === 'numeric') {
+                    const bins = document.getElementById('fldXBins').value || '30';
+                    summary.push(`X → numeric auto-binned (${bins} bins)`);
+                } else if (xType === 'date') {
+                    const period = document.getElementById('fldXPeriod').value || 'month';
+                    summary.push(`X → date binned by ${period}`);
+                }
+            } else if (type === 'line') {
+                if (xType === 'date' || xType === 'numeric') {
+                    summary.push('X → sorted axis');
+                } else {
+                    const order = document.getElementById('fldXOrder').value || 'alphabetical';
+                    summary.push(`X → categorical (${order} order)`);
+                    if (document.getElementById('chkEncodeCategorical').checked) {
+                        summary.push('categorical encoded to ordinal');
+                    }
+                }
+            } else if (type === 'scatter') {
+                if (xType === 'categorical') {
+                    summary.push('X → categorical');
+                    if (document.getElementById('chkEncodeCategorical').checked) {
+                        summary.push('encoded to ordinal');
+                    }
+                    if (document.getElementById('chkAddJitter').checked) {
+                        summary.push('with jitter');
+                    }
+                } else {
+                    summary.push(`X → ${xType} axis`);
+                }
+            }
+            
+            // Color transformations
+            if (colorField) {
+                if (colorType === 'categorical') {
+                    summary.push(`Color → split series by ${colorField}`);
+                } else if (colorType === 'numeric') {
+                    summary.push(`Color → continuous scale (${colorField})`);
+                }
+            }
+            
+            summaryEl.textContent = summary.length > 0 ? summary.join(', ') : 'No transformations applied.';
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            // Compute dose interval
+            computeDoseIntervalDays();
+            
+            // Populate selects
+            populateSelect(document.getElementById('fldX'), true);
+            populateSelect(document.getElementById('fldColor'), true);
+            
+            // Wire up events
+            document.getElementById('btnToggleAdvanced').addEventListener('click', () => {
+                const section = document.getElementById('advancedSection');
+                const btn = document.getElementById('btnToggleAdvanced');
+                const isHidden = section.style.display === 'none';
+                section.style.display = isHidden ? 'block' : 'none';
+                btn.textContent = isHidden ? 'Hide Advanced' : 'Show Advanced';
+            });
+            
+            ['fldType', 'fldX', 'fldColor', 'fldXBins', 'fldXPeriod', 'fldXOrder'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener('change', () => {
+                        updateAdvancedVisibility();
+                        updateTransformationSummary();
+                    });
+                }
+            });
+            
+            ['chkEncodeCategorical', 'chkAddJitter', 'chkShowRangeslider'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener('change', updateTransformationSummary);
+                }
+            });
+            
+            document.getElementById('testBtn').addEventListener('click', () => {
+                console.log('=== Testing Chart Builder Functions ===');
+                console.log('Columns:', columns);
+                console.log('Column types:');
+                columns.forEach(col => {
+                    console.log(`  ${col}: ${getColumnType(col)}`);
+                });
+                console.log('Sample data with dose intervals:', sampleData);
+                
+                // Test transformation summary
+                updateTransformationSummary();
+            });
+            
+            // Initial update
+            updateTransformationSummary();
+        });
+    </script>
+</body>
+</html>
