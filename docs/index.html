@@ -2126,7 +2126,8 @@ let inspectorSelectedField = null;
       if (!cfg.y) { el.innerHTML = '<div class="text-muted p-2">Please select a numeric Y.</div>'; return; }
       const groups = {};
       filtered.forEach(r => {
-        const key = r[cfg.x]; const val = +r[cfg.y];
+        const key = (r[cfg.x] === null || r[cfg.x] === undefined || r[cfg.x] === '') ? '(empty)' : String(r[cfg.x]);
+        const val = +r[cfg.y];
         if (Number.isNaN(val)) return;
         (groups[key] ||= []).push(val);
       });
