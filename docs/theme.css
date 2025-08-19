@@ -50,7 +50,7 @@
 
 /* Apply theme typography globally */
 body {
-  font-family: var(--font-family-base);
+  font-family: var(--font-family-base) !important;
 }
 
 /* Card Header Styling - Make titles smaller and lighter */

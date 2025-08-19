@@ -157,6 +157,17 @@ function getBaseLayout(overrides = {}) {
     autosize: true
   };
   
+  // Handle special case for title string overrides
+  if (overrides.title && typeof overrides.title === 'string') {
+    overrides = {
+      ...overrides,
+      title: {
+        ...baseLayout.title,
+        text: overrides.title
+      }
+    };
+  }
+  
   // Deep merge with any overrides provided
   return deepMerge(baseLayout, overrides);
 }
