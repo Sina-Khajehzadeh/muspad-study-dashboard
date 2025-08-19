@@ -1,4 +1,4 @@
 {
-  "data":[{"type":"bar","x":["First Dose","Second Dose"],"y":[82.3,67.8],"text":[82.3,67.8],"texttemplate":"%{text:.1f}%","textposition":"outside","hovertemplate":" %{x}<br>%{y:.1f}%<extra></extra>"}],
+  "data":[{"type":"bar","x":["First Dose","Second Dose"],"y":[41.4,57.5],"text":[41.4,57.5],"texttemplate":"%{text:.1f}%","textposition":"outside","hovertemplate":" %{x}<br>%{y:.1f}%<extra></extra>","marker":{"color":["#636EFA","#EF553B"]}}],
   "layout":{"title":{"text":"COVID-19 Vaccination Coverage (%) (X20_21)"},"yaxis":{"range":[0,100]},"width":800,"height":500,"margin":{"t":50,"b":50,"l":50,"r":50}}
 }

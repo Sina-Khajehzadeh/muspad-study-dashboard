@@ -39,22 +39,31 @@ def _compute_seroprevalence_fig(df3: pd.DataFrame):
     px.defaults.width = 800
     px.defaults.height = 500
 
-    sero_norm = _normalize_serostatus(df3["X20_21_serostatus"])
-    sero_df = sero_norm.value_counts(normalize=True).reset_index()
-    sero_df.columns = ["serostatus", "proportion"]
-    sero_df["percent"] = sero_df["proportion"] * 100
+    # Use value_counts(normalize=True) on the raw column directly, then reorder
+    sero_counts = df3["X20_21_serostatus"].value_counts(normalize=True) * 100
+    
+    # Create dataframe with proper ordering: seronegative first, then seropositive
+    sero_df = pd.DataFrame({
+        "serostatus": ["seronegative", "seropositive"],
+        "percent": [sero_counts.get("seronegative", 0), sero_counts.get("seropositive", 0)]
+    })
 
     base_title = "COVID-19 Seroprevalence (%)"
     title = f"{base_title} ({DATASET_TAG})"
+
+    # Add color mapping for per-bar colors
+    color_map = {"seronegative": "#636EFA", "seropositive": "#EF553B"}
 
     fig_sero = px.bar(
         sero_df, x="serostatus", y="percent",
         title=title,
         labels={"serostatus": "Serostatus", "percent": "Percent of Participants"},
         text="percent",
+        color="serostatus",
+        color_discrete_map=color_map,
     )
     fig_sero.update_traces(texttemplate="%{text:.1f}%", textposition="outside",
-                           hovertemplate=" %{x}<br>%{y:.1f}%")
+                           hovertemplate=" %{x}<br>%{y:.1f}%<extra></extra>")
     fig_sero.update_layout(yaxis_range=[0, 100], margin=dict(t=50, b=50, l=50, r=50))
     return fig_sero
 
@@ -78,11 +87,16 @@ def _compute_vaccination_fig(df3: pd.DataFrame):
     base_title = "COVID-19 Vaccination Coverage (%)"
     title = f"{base_title} ({DATASET_TAG})"
 
+    # Add color mapping for per-bar colors
+    color_map = {"First Dose": "#636EFA", "Second Dose": "#EF553B"}
+
     fig_vac = px.bar(
         vac_df, x="dose", y="percent",
         title=title,
         labels={"dose": "Dose", "percent": "Percent of Participants"},
         text="percent",
+        color="dose",
+        color_discrete_map=color_map,
     )
     fig_vac.update_traces(texttemplate="%{text:.1f}%", textposition="outside",
                           hovertemplate=" %{x}<br>%{y:.1f}%<extra></extra>")
