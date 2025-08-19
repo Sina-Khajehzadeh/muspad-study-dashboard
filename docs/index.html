@@ -442,6 +442,25 @@
     .insights-panel {
       max-height: 70vh;
       overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: #ccc transparent;
+    }
+    
+    .insights-panel::-webkit-scrollbar {
+      width: 8px;
+    }
+    
+    .insights-panel::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    
+    .insights-panel::-webkit-scrollbar-thumb {
+      background: #ccc;
+      border-radius: 4px;
+    }
+    
+    .insights-panel::-webkit-scrollbar-thumb:hover {
+      background: #999;
     }
     
     .insights-header {
@@ -869,7 +888,7 @@
   let filteredRows = []; // Canonical source of truth for filtered dataset
   let columns = [];
   let charts = [];
-  let insightsCharts = []; // Separate array for insights panel charts
+  let insightsCharts = []; // Separate array for insights panel charts - keeps insights independent from main dashboard
   let dateCol = null;
   let ageCol  = null;
   let empCol  = null;
@@ -3066,6 +3085,17 @@ let inspectorSelectedField = null;
       return;
     }
     
+    // Check if Plotly is available
+    if (typeof Plotly === 'undefined') {
+      // Fallback display when Plotly is not available
+      el.innerHTML = `<div style="padding: 2rem; text-align: center; color: #6c757d; height: 100%; display: flex; flex-direction: column; justify-content: center;">
+        <i class="bi bi-graph-up" style="font-size: 3rem; display: block; margin-bottom: 1rem; opacity: 0.3;"></i>
+        <h6 style="margin-bottom: 0.5rem;">${cfg.title}</h6>
+        <small>Chart ready to display when Plotly is available</small>
+      </div>`;
+      return;
+    }
+    
     // Apply theme to the layout
     const themedLayout = window.DashboardTheme ? 
       window.DashboardTheme.getBaseLayout(cfg.chartLayout) : 
@@ -4495,6 +4525,34 @@ let inspectorSelectedField = null;
     addInsightChart(createSerologyTrendsChart());
     addInsightChart(createAntibodyDistributionChart());
   }
+
+  // ----------------------------
+  // Python Plotly JSON Import Helper
+  // ----------------------------
+  function importPythonPlotlyJSON(jsonString) {
+    try {
+      const figureData = JSON.parse(jsonString);
+      
+      // Create insight chart config from Python JSON
+      const cfg = {
+        type: 'custom',
+        title: figureData.layout?.title?.text || 'Imported Chart',
+        isInsightChart: true,
+        chartData: figureData.data || [],
+        chartLayout: figureData.layout || {}
+      };
+      
+      addInsightChart(cfg);
+      console.log('Successfully imported Python Plotly chart');
+      
+    } catch (error) {
+      console.error('Error importing Python Plotly JSON:', error);
+      alert('Error importing chart: Invalid JSON format');
+    }
+  }
+
+  // Make function globally available for potential external use
+  window.importPythonPlotlyJSON = importPythonPlotlyJSON;
 
   function downloadCSV(filename, headers, rows) {
     const esc = (v) => {
