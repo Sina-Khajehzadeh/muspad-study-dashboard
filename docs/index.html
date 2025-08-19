@@ -81,9 +81,9 @@
       min-height: 400px;
     }
     .card-chart .card-header {
+      flex: 0 0 auto;
       display: flex; align-items: center; justify-content: space-between;
       padding: .5rem .75rem; border-bottom: 1px solid #eee;
-      flex-shrink: 0;
     }
     .card-chart .card-header h6 { margin: 0; font-size: 1rem; font-weight: 600; }
     .card-chart .remove { border: 0; background: transparent; color: #6c757d; font-size: 1.1rem; }
@@ -91,7 +91,7 @@
     .card-chart .plot { 
       flex: 1 1 auto; 
       padding: .5rem; 
-      min-height: 320px;
+      min-height: 220px;
       overflow: hidden;
     }
 
@@ -1036,14 +1036,26 @@ let inspectorSelectedField = null;
     // Parse JSON if it's a string
     const figure = typeof figureJson === 'string' ? JSON.parse(figureJson) : figureJson;
     
-    // Apply theme to the layout
-    const themedLayout = window.DashboardTheme.getBaseLayout(figure.layout || {});
+    // Sanitize layout to remove fixed dimensions from Python exports
+    const sanitizedLayout = figure.layout || {};
+    delete sanitizedLayout.width;
+    delete sanitizedLayout.height;
+    sanitizedLayout.autosize = true;
+    
+    // Apply theme to the sanitized layout
+    const themedLayout = window.DashboardTheme.getBaseLayout(sanitizedLayout);
     
     // Render the plot
     Plotly.newPlot(containerId, figure.data || [], themedLayout, {
       responsive: true,
       displayModeBar: false
     });
+    
+    // Ensure the plot element is being observed by ResizeObserver
+    const plotEl = typeof containerId === 'string' ? document.getElementById(containerId) : containerId;
+    if (window.plotlyResizeObserver && plotEl && plotEl.classList.contains('plot')) {
+      window.plotlyResizeObserver.observe(plotEl);
+    }
   }
 
   /**
@@ -3185,12 +3197,25 @@ let inspectorSelectedField = null;
     const el = cfg._el;
     
     try {
-      // Use Plotly.newPlot directly with the JSON data
-      // This preserves exact styling from Python exports
-      Plotly.newPlot(el, json.data || [], json.layout || {}, {
+      // Sanitize layout to remove fixed dimensions from Python exports
+      const sanitizedLayout = json.layout || {};
+      delete sanitizedLayout.width;
+      delete sanitizedLayout.height;
+      sanitizedLayout.autosize = true;
+      
+      // Apply theme to the sanitized layout
+      const themedLayout = window.DashboardTheme.getBaseLayout(sanitizedLayout);
+      
+      // Use Plotly.newPlot with sanitized and themed layout
+      Plotly.newPlot(el, json.data || [], themedLayout, {
         responsive: true,
         displayModeBar: false  // Hide toolbar to preserve clean look
       });
+      
+      // Ensure the plot element is being observed by ResizeObserver
+      if (window.plotlyResizeObserver && el.classList.contains('plot')) {
+        window.plotlyResizeObserver.observe(el);
+      }
     } catch (error) {
       console.error('Error rendering plotlyjson chart:', error);
       el.innerHTML = `<div style="padding: 2rem; text-align: center; color: #dc3545;">
