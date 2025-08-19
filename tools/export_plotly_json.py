@@ -113,25 +113,153 @@ def _compute_vaccination_fig(df3: pd.DataFrame):
         "first_rate": float(first_rate), "second_rate": float(second_rate),
     }
 
+def _compute_vaccine_brand_mix_fig(df3: pd.DataFrame):
+    px.defaults.width = 800
+    px.defaults.height = 600
+
+    # Use value_counts(normalize=True) to compute brand proportions
+    brand_counts = df3['X20_21_kurzfragen_cov19_vaccination_first_type'].value_counts(normalize=True)
+    
+    # Build a DataFrame with columns: brand, proportion, percent
+    brand_df = pd.DataFrame({
+        'brand': brand_counts.index,
+        'proportion': brand_counts.values,
+        'percent': brand_counts.values * 100
+    })
+
+    # Plot with px.bar
+    fig_brand = px.bar(
+        brand_df, 
+        x='brand', 
+        y='percent',
+        title='COVID-19 Vaccine Brand Distribution (%)',
+        labels={'brand': 'Vaccine Brand', 'percent': 'Percent of Participants'},
+        text='percent'
+    )
+    
+    # Update traces with formatting
+    fig_brand.update_traces(
+        texttemplate='%{text:.1f}%', 
+        textposition='outside'
+    )
+    
+    # Update layout
+    fig_brand.update_layout(
+        xaxis_tickangle=45,
+        yaxis_range=[0, 100],
+        margin=dict(t=50, b=150, l=50, r=50)
+    )
+    
+    return fig_brand
+
+def _compute_seroprevalence_by_age_waves_fig(df3: pd.DataFrame):
+    px.defaults.width = 1200
+    px.defaults.height = 800
+    
+    # Define waves
+    waves = ['X20_21_serostatus', 's22_nc_qualitative', 's23_nc_qualitative']
+    
+    # Age group column mapping for all waves to 'age_group_22_1' (as provided)
+    age_column_mapping = {
+        'X20_21_serostatus': 'age_group_22_1',
+        's22_nc_qualitative': 'age_group_22_1', 
+        's23_nc_qualitative': 'age_group_22_1'
+    }
+    
+    # Melt df3 into long form with id_vars age column(s) and value_vars waves; dropna on sero flag
+    long_df = pd.melt(df3, 
+                      id_vars=['age_group_22_1'], 
+                      value_vars=waves,
+                      var_name='wave', 
+                      value_name='status')
+    
+    # Drop rows with missing status values
+    long_df = long_df.dropna(subset=['status'])
+    
+    # Attach correct age_group per row using the mapping (already using age_group_22_1)
+    long_df['age_group'] = long_df['age_group_22_1']
+    
+    # Drop rows with missing age groups
+    long_df = long_df.dropna(subset=['age_group'])
+    
+    # Crosstab normalize by (wave, age_group) to get percentages per status
+    crosstab_result = pd.crosstab([long_df['wave'], long_df['age_group']], long_df['status'], normalize='index') * 100
+    
+    # Reshape to long with columns wave, age_group, status, percent
+    percent_df = crosstab_result.reset_index()
+    percent_df = pd.melt(percent_df, 
+                        id_vars=['wave', 'age_group'], 
+                        var_name='status', 
+                        value_name='percent')
+    
+    # Relabel status: {0:'Negative',1:'Positive','seronegative':'Negative','seropositive':'Positive'}
+    status_mapping = {
+        0: 'Negative', '0': 'Negative', 0.0: 'Negative', '0.0': 'Negative',
+        1: 'Positive', '1': 'Positive', 1.0: 'Positive', '1.0': 'Positive',
+        'seronegative': 'Negative', 
+        'seropositive': 'Positive'
+    }
+    percent_df['status'] = percent_df['status'].map(status_mapping)
+    
+    # Define age group order
+    age_groups = ['18-29', '30-39', '40-49', '50-59', '60-69', '70-79', '80+']
+    
+    # Plot with px.bar
+    fig_sero_age = px.bar(
+        percent_df,
+        x='age_group',
+        y='percent',
+        color='status',
+        facet_col='wave',
+        barmode='group',
+        category_orders={
+            'wave': waves,
+            'age_group': age_groups
+        },
+        labels={
+            'age_group': 'Age Group',
+            'percent': 'Percent of Participants',
+            'status': 'Serostatus',
+            'wave': 'Wave'
+        },
+        title='Seroprevalence by Age Group Across Waves'
+    )
+    
+    # Update layout
+    fig_sero_age.update_layout(
+        xaxis_tickangle=45,
+        margin=dict(t=80, b=100)
+    )
+    
+    return fig_sero_age
+
 def export_figures(df3: pd.DataFrame, out_dir: str = "docs/assets/plots") -> dict:
     out_path = _ensure_out_dir(out_dir)
 
     fig_sero = _compute_seroprevalence_fig(df3)
     fig_vac, stats = _compute_vaccination_fig(df3)
+    fig_brand = _compute_vaccine_brand_mix_fig(df3)
+    fig_sero_age = _compute_seroprevalence_by_age_waves_fig(df3)
 
     sero_path = out_path / "serology_seroprevalence.json"
     vac_path = out_path / "vaccination_coverage.json"
+    brand_path = out_path / "vaccine_brand_distribution.json"
+    sero_age_path = out_path / "seroprevalence_age_waves.json"
     manifest_path = out_path / "plotly_manifest.json"
 
     sero_path.write_text(fig_sero.to_json(), encoding="utf-8")
     vac_path.write_text(fig_vac.to_json(), encoding="utf-8")
+    brand_path.write_text(fig_brand.to_json(), encoding="utf-8")
+    sero_age_path.write_text(fig_sero_age.to_json(), encoding="utf-8")
 
     manifest = {
         "version": 1,
         "basePath": "assets/plots/",
         "charts": [
             { "id": "sero-prevalence", "title": fig_sero.layout.title.text or f"COVID-19 Seroprevalence (%) ({DATASET_TAG})", "file": "serology_seroprevalence.json", "width": 800, "height": 500 },
-            { "id": "vaccination-coverage", "title": fig_vac.layout.title.text or f"COVID-19 Vaccination Coverage (%) ({DATASET_TAG})", "file": "vaccination_coverage.json", "width": 800, "height": 500 }
+            { "id": "vaccination-coverage", "title": fig_vac.layout.title.text or f"COVID-19 Vaccination Coverage (%) ({DATASET_TAG})", "file": "vaccination_coverage.json", "width": 800, "height": 500 },
+            { "id": "vaccine-brand-distribution", "title": fig_brand.layout.title.text or "COVID-19 Vaccine Brand Distribution (%)", "file": "vaccine_brand_distribution.json", "width": 800, "height": 600 },
+            { "id": "seroprevalence-age-waves", "title": fig_sero_age.layout.title.text or "Seroprevalence by Age Group Across Waves", "file": "seroprevalence_age_waves.json", "width": 1200, "height": 800 }
         ]
     }
     manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
@@ -139,6 +267,8 @@ def export_figures(df3: pd.DataFrame, out_dir: str = "docs/assets/plots") -> dic
     return {
         "serology_seroprevalence": str(sero_path),
         "vaccination_coverage": str(vac_path),
+        "vaccine_brand_distribution": str(brand_path),
+        "seroprevalence_age_waves": str(sero_age_path),
         "manifest": str(manifest_path),
         "dataset_tag": DATASET_TAG,
         "stats": stats,
