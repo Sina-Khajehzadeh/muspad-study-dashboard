@@ -2584,12 +2584,28 @@ let inspectorSelectedField = null;
     
     const xField = cfg.x;
     const xType = getColumnType(xField);
-    const xVals = data.map(r => r[xField]).filter(v => v != null && v !== '');
     
     if (xType === 'numeric') {
+      // Build numeric values: first filter out null/undefined/empty, then convert to numbers and filter finite values
+      // This prevents null/''/undefined from being coerced to 0 which would create a spike at zero
+      const numericVals = data
+        .map(r => r[xField])
+        .filter(v => v != null && v !== '')  // Remove null, undefined, empty string first
+        .map(v => Number(v))                 // Convert to number
+        .filter(v => Number.isFinite(v));    // Keep only finite numbers (excludes NaN, Infinity)
+      
+      // Console diagnostic for debugging (can be enabled via flag)
+      const debugHistogram = true; // Set to true for debugging
+      if (debugHistogram) {
+        const totalRows = data.length;
+        const excludedCount = totalRows - numericVals.length;
+        console.log(`Histogram ${xField}: excluded ${excludedCount} invalid values out of ${totalRows} total`);
+      }
+      
       // Special handling for dose_interval_days preset
       if (xField === 'dose_interval_days') {
-        const clippedVals = xVals.filter(v => v >= 0 && v <= 200);
+        // Filter valid range [0, 200] for plotting only; out-of-range values excluded
+        const clippedVals = numericVals.filter(v => v >= 0 && v <= 200);
         fig.data.push({
           x: clippedVals,
           type: 'histogram',
@@ -2597,20 +2613,20 @@ let inspectorSelectedField = null;
           name: 'Count'
         });
         
-        // Add rangeslider and set initial zoom
+        // Add rangeslider with thickness and set initial zoom [0,100]
         if (cfg.showRangeslider) {
           fig.layout.xaxis = { 
             title: xField,
-            rangeslider: { visible: true },
+            rangeslider: { visible: true, thickness: 0.02 },
             range: [0, 100]  // Initial zoom to [0,100]
           };
         } else {
           fig.layout.xaxis = { title: xField };
         }
       } else {
-        // Regular numeric histogram
+        // Regular numeric histogram - use filtered numeric values, never coerce invalids to 0
         fig.data.push({
-          x: xVals,
+          x: numericVals,
           type: 'histogram', 
           nbinsx: cfg.xBins || 30,
           name: 'Count'
@@ -2623,6 +2639,7 @@ let inspectorSelectedField = null;
       }
     } else if (xType === 'date') {
       // Date histogram - group by period and render as bars
+      const xVals = data.map(r => r[xField]).filter(v => v != null && v !== '');
       const period = cfg.xPeriod || 'month';
       const { labels, counts } = binDates(xVals, period);
       
@@ -2636,6 +2653,7 @@ let inspectorSelectedField = null;
       fig.layout.xaxis = { title: `${xField} (${period})` };
     } else {
       // Categorical histogram - count per category  
+      const xVals = data.map(r => r[xField]).filter(v => v != null && v !== '');
       const groups = {};
       xVals.forEach(v => {
         const key = String(v);
