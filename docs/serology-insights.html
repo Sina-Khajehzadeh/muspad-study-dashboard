@@ -57,52 +57,78 @@
       text-decoration: underline;
     }
 
-    .insight-card {
-      background: white;
-      border-radius: 10px;
-      box-shadow: 0 2px 8px rgba(0,0,0,.08);
-      margin-bottom: 1.5rem;
-      overflow: hidden;
-    }
-
-    .insight-card-header {
-      padding: 1rem;
-      border-bottom: 1px solid #e9ecef;
-      background: #f8f9fa;
-    }
-
-    .insight-card-title {
-      font-size: 16px;
-      font-weight: 500;
-      margin: 0;
-      color: #2b2f36;
-      font-family: Inter, 'Segoe UI', Roboto, -apple-system, BlinkMacSystemFont, sans-serif;
-    }
-
-    .insight-card-body {
-      padding: 1rem;
-    }
-
-    .chart-container {
-      height: 400px;
-      width: 100%;
-    }
-
     /* Responsive grid */
     .insights-grid {
       display: grid;
-      grid-template-columns: repeat(12, 1fr);
+      grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
       gap: 1.5rem;
     }
 
-    .insight-card {
-      grid-column: span 6; /* 2-up on desktop */
+    /* Use card-chart styling for consistency with main dashboard */
+    .card-chart {
+      background: white;
+      border: 1px solid #e1e1e1;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,.06);
+      display: flex;
+      flex-direction: column;
+      min-height: 400px;
+      resize: both;
+      overflow: auto;
+      position: relative;
+    }
+    
+    .card-chart .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: .5rem .75rem;
+      border-bottom: 1px solid #eee;
+      flex: 0 0 auto;
+    }
+    
+    .card-chart .card-header h6 {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--theme-gray-700, #5f6368);
+      line-height: 1.3;
+    }
+    
+    .card-chart .plot {
+      flex: 1 1 auto;
+      padding: .5rem;
+      min-height: 220px;
+      overflow: hidden;
+    }
+
+    /* Resizable corner styling */
+    .resizable-corner {
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      width: 20px;
+      height: 20px;
+      background: repeating-linear-gradient(
+        -45deg,
+        #007bff,
+        #007bff 2px,
+        transparent 2px,
+        transparent 6px
+      );
+      opacity: 0.4;
+      cursor: nw-resize;
+      z-index: 10;
+    }
+    
+    .card-chart:hover .resizable-corner {
+      opacity: 0.8;
     }
 
     /* Mobile: 1-up layout */
     @media (max-width: 768px) {
-      .insight-card {
-        grid-column: span 12;
+      .insights-grid {
+        grid-template-columns: 1fr;
       }
       
       .insights-title {
@@ -127,23 +153,21 @@
   <div class="container">
     <div class="insights-grid">
       <!-- Demo Chart 1: Serology Trends -->
-      <div class="insight-card">
-        <div class="insight-card-header">
-          <h2 class="insight-card-title">Serology Trends Over Time</h2>
+      <div class="card-chart">
+        <div class="card-header">
+          <h6>Serology Trends Over Time</h6>
         </div>
-        <div class="insight-card-body">
-          <div id="chart1" class="chart-container"></div>
-        </div>
+        <div id="chart1" class="plot"></div>
+        <div class="resizable-corner"></div>
       </div>
 
       <!-- Demo Chart 2: Antibody Distribution -->
-      <div class="insight-card">
-        <div class="insight-card-header">
-          <h2 class="insight-card-title">Antibody Response Distribution</h2>
+      <div class="card-chart">
+        <div class="card-header">
+          <h6>Antibody Response Distribution</h6>
         </div>
-        <div class="insight-card-body">
-          <div id="chart2" class="chart-container"></div>
-        </div>
+        <div id="chart2" class="plot"></div>
+        <div class="resizable-corner"></div>
       </div>
     </div>
   </div>
@@ -158,14 +182,26 @@
       // Parse JSON if it's a string
       const figure = typeof figureJson === 'string' ? JSON.parse(figureJson) : figureJson;
       
-      // Apply theme to the layout
-      const themedLayout = window.DashboardTheme.getBaseLayout(figure.layout || {});
+      // Sanitize layout to remove fixed dimensions from Python exports
+      const sanitizedLayout = figure.layout || {};
+      delete sanitizedLayout.width;
+      delete sanitizedLayout.height;
+      sanitizedLayout.autosize = true;
+      
+      // Apply theme to the sanitized layout
+      const themedLayout = window.DashboardTheme.getBaseLayout(sanitizedLayout);
       
       // Render the plot
       Plotly.newPlot(containerId, figure.data || [], themedLayout, {
         responsive: true,
         displayModeBar: false
       });
+      
+      // Ensure the plot element is being observed by ResizeObserver
+      const plotEl = document.getElementById(containerId);
+      if (window.plotlyResizeObserver && plotEl && plotEl.classList.contains('plot')) {
+        window.plotlyResizeObserver.observe(plotEl);
+      }
     }
 
     /**
@@ -233,14 +269,54 @@
       });
     }
 
+    /**
+     * Initialize ResizeObserver for responsive charts
+     */
+    function initPlotlyResizeObserver() {
+      if (!window.ResizeObserver) return; // Fallback for browsers without ResizeObserver
+
+      const resizeObserver = new ResizeObserver((entries) => {
+        entries.forEach((entry) => {
+          const plotElement = entry.target;
+          // Check if this is a plot element that contains a Plotly chart
+          if (plotElement.classList.contains('plot') && plotElement.children.length > 0) {
+            // Debounce the resize to avoid excessive redraws
+            clearTimeout(plotElement._resizeTimeout);
+            plotElement._resizeTimeout = setTimeout(() => {
+              try {
+                Plotly.Plots.resize(plotElement);
+              } catch (e) {
+                console.warn('Error resizing Plotly chart:', e);
+              }
+            }, 100);
+          }
+        });
+      });
+
+      // Store globally for access
+      window.plotlyResizeObserver = resizeObserver;
+
+      // Observe all existing plot elements
+      document.querySelectorAll('.plot').forEach(plotEl => {
+        resizeObserver.observe(plotEl);
+      });
+
+      return resizeObserver;
+    }
+
     // Initialize charts when page loads
     document.addEventListener('DOMContentLoaded', function() {
       // Check if theme is loaded
       if (window.DashboardTheme && window.DashboardTheme.getBaseLayout) {
         createDemoCharts();
+        // Initialize resize observer after charts are created
+        setTimeout(initPlotlyResizeObserver, 500);
       } else {
         // Fallback if theme isn't loaded yet
-        setTimeout(createDemoCharts, 100);
+        setTimeout(() => {
+          createDemoCharts();
+          setTimeout(initPlotlyResizeObserver, 500);
+        }, 100);
       }
     });
   </script>
