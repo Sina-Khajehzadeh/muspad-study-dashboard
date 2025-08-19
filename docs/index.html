@@ -886,13 +886,36 @@ let inspectorSelectedField = null;
     const dates = ['2023-01-01', '2023-02-01', '2023-03-01', '2023-04-01', '2023-05-01'];
     
     for (let i = 0; i < 100; i++) {
+      // Generate vaccination dates for testing dose_interval_days
+      const firstVaccDate = new Date(2023, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1);
+      const daysInterval = Math.floor(Math.random() * 60) + 14; // 14-74 days interval
+      const secondVaccDate = new Date(firstVaccDate.getTime() + daysInterval * 24 * 60 * 60 * 1000);
+      
+      // Add some invalid data to test filtering
+      let X20_21_vacc_first_date, X20_21_vacc_second_date;
+      if (Math.random() < 0.1) {
+        // 10% invalid first dates  
+        X20_21_vacc_first_date = ['', null, 'invalid-date', undefined][Math.floor(Math.random() * 4)];
+        X20_21_vacc_second_date = secondVaccDate.toISOString().split('T')[0];
+      } else if (Math.random() < 0.1) {
+        // 10% invalid second dates
+        X20_21_vacc_first_date = firstVaccDate.toISOString().split('T')[0];
+        X20_21_vacc_second_date = ['', null, 'invalid-date', undefined][Math.floor(Math.random() * 4)];
+      } else {
+        // 80% valid dates
+        X20_21_vacc_first_date = firstVaccDate.toISOString().split('T')[0];
+        X20_21_vacc_second_date = secondVaccDate.toISOString().split('T')[0];
+      }
+      
       sampleData.push({
         id: i + 1,
         category: categories[Math.floor(Math.random() * categories.length)],
         region: regions[Math.floor(Math.random() * regions.length)],
         value: Math.floor(Math.random() * 1000) + 100,
         date: dates[Math.floor(Math.random() * dates.length)],
-        score: Math.random() * 100
+        score: Math.random() * 100,
+        X20_21_vacc_first_date: X20_21_vacc_first_date,
+        X20_21_vacc_second_date: X20_21_vacc_second_date
       });
     }
     
@@ -1140,13 +1163,23 @@ let inspectorSelectedField = null;
       console.log(`Computing dose_interval_days from ${firstDateCol} and ${secondDateCol}`);
       
       rawData.forEach(row => {
-        const firstDate = new Date(row[firstDateCol]);
-        const secondDate = new Date(row[secondDateCol]);
+        const firstDateVal = row[firstDateCol];
+        const secondDateVal = row[secondDateCol];
         
-        if (!isNaN(firstDate) && !isNaN(secondDate)) {
-          const diffTime = secondDate.getTime() - firstDate.getTime();
-          const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-          row.dose_interval_days = diffDays;
+        // Check for null/undefined values before creating Date objects
+        if (firstDateVal != null && firstDateVal !== '' && 
+            secondDateVal != null && secondDateVal !== '') {
+          
+          const firstDate = new Date(firstDateVal);
+          const secondDate = new Date(secondDateVal);
+          
+          if (!isNaN(firstDate) && !isNaN(secondDate)) {
+            const diffTime = secondDate.getTime() - firstDate.getTime();
+            const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+            row.dose_interval_days = diffDays;
+          } else {
+            row.dose_interval_days = null;
+          }
         } else {
           row.dose_interval_days = null;
         }
@@ -2595,7 +2628,7 @@ let inspectorSelectedField = null;
         .filter(v => Number.isFinite(v));    // Keep only finite numbers (excludes NaN, Infinity)
       
       // Console diagnostic for debugging (can be enabled via flag)
-      const debugHistogram = true; // Set to true for debugging
+      const debugHistogram = false; // Set to true for debugging
       if (debugHistogram) {
         const totalRows = data.length;
         const excludedCount = totalRows - numericVals.length;
