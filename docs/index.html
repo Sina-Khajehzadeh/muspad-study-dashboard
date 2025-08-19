@@ -626,14 +626,19 @@ let inspectorSelectedField = null;
     
     if (btnCancel) btnCancel.addEventListener('click', closeModal);
     if (btnCreate) btnCreate.addEventListener('click', () => {
+      const getValue = (id) => {
+        const val = document.getElementById(id)?.value;
+        return (val === '' || val === '(none)') ? null : val;
+      };
+      
       const cfg = {
         type:    id('fldType')?.value || 'bar',
-        x:       id('fldX')?.value || null,
-        y:       id('fldY')?.value || null,
-        y2:      id('fldY2')?.value || null,
-        yCat:    id('fldYCat')?.value || null,
-        color:   id('fldColor')?.value || null,
-        size:    id('fldSize')?.value || null,
+        x:       getValue('fldX') || null,
+        y:       getValue('fldY') || null,
+        y2:      getValue('fldY2') || null,
+        yCat:    getValue('fldYCat') || null,
+        color:   getValue('fldColor') || null,
+        size:    getValue('fldSize') || null,
         agg:     id('fldAgg')?.value || 'count',
         dualAxis:    id('chkDualAxis')?.checked || false,
         histOverlay:id('chkHistOverlay')?.checked || false
@@ -1628,19 +1633,27 @@ let inspectorSelectedField = null;
       if (s) s.innerHTML = '';
     });
 
-    const cats = categoricalCols.length ? categoricalCols : columns;
-    const nums = numericCols.length ? numericCols : columns;
+    // Always populate all selects with ALL columns, regardless of inferred type
+    columns.forEach(c => { 
+      if (xSel) appendOption(xSel, c);
+      if (ySel) appendOption(ySel, c);
+      if (y2Sel) appendOption(y2Sel, c);
+      if (yCatSel) appendOption(yCatSel, c);
+      if (cSel) appendOption(cSel, c);
+      if (sizeSel) appendOption(sizeSel, c);
+    });
 
-    cats.forEach(c => { 
-      if (xSel) appendOption(xSel, c); 
-      if (yCatSel) appendOption(yCatSel, c); 
-      if (cSel) appendOption(cSel, c); 
-    });
-    nums.forEach(c => { 
-      if (ySel) appendOption(ySel, c); 
-      if (y2Sel) appendOption(y2Sel, c); 
-      if (sizeSel) appendOption(sizeSel, c); 
-    });
+    // Add leading blank option for optional roles (Y, Y2, Color, Size, YCat)
+    if (ySel) { ySel.insertBefore(new Option('(none)', ''), ySel.firstChild); }
+    if (y2Sel) { y2Sel.insertBefore(new Option('(none)', ''), y2Sel.firstChild); }
+    if (cSel) { cSel.insertBefore(new Option('(none)', ''), cSel.firstChild); }
+    if (sizeSel) { sizeSel.insertBefore(new Option('(none)', ''), sizeSel.firstChild); }
+    if (yCatSel) { yCatSel.insertBefore(new Option('(none)', ''), yCatSel.firstChild); }
+
+    // X should default to first column (no blank option)
+    if (xSel && columns.length > 0) {
+      xSel.value = columns[0];
+    }
 
     updateBuilderVisibility();
   }
@@ -1729,8 +1742,8 @@ let inspectorSelectedField = null;
     const rset = new Set(), cset = new Set();
     const map = new Map(); // key = r¦c -> array of rows
     rows.forEach(r => {
-      const rk = String(r[rowKey]);
-      const ck = String(r[colKey]);
+      const rk = (r[rowKey] === null || r[rowKey] === undefined || r[rowKey] === '') ? '(empty)' : String(r[rowKey]);
+      const ck = (r[colKey] === null || r[colKey] === undefined || r[colKey] === '') ? '(empty)' : String(r[colKey]);
       rset.add(rk); cset.add(ck);
       const key = rk + '¦' + ck;
       if (!map.has(key)) map.set(key, []);
@@ -1933,32 +1946,78 @@ let inspectorSelectedField = null;
   function drawChart(cfg) {
     const el = cfg._el;
     if (cfg.type === 'datatable') {
-      el.innerHTML = '';
-      const wrap = document.createElement('div');
-      wrap.className = 'table-responsive';
-      el.appendChild(wrap);
-      const table = document.createElement('table');
-      table.className = 'table table-sm table-striped';
-      const thead = document.createElement('thead');
-      const trh = document.createElement('tr');
-      columns.forEach(c => { const th = document.createElement('th'); th.textContent = c; trh.appendChild(th); });
-      thead.appendChild(trh);
-      const tbody = document.createElement('tbody');
-      (filtered.slice(0,200)).forEach(r => {
-        const tr = document.createElement('tr');
-        columns.forEach(c => {
-          const td = document.createElement('td'); td.textContent = (r[c] ?? ''); tr.appendChild(td);
-        });
-        tbody.appendChild(tr);
-      });
-      table.appendChild(thead); table.appendChild(tbody);
-      wrap.appendChild(table);
+      // Replace HTML table with Plotly Table trace, cap at 500 rows for performance
+      const rowsToShow = filtered ? filtered.slice(0, 500) : [];
+      const cellValues = columns.map(c => 
+        rowsToShow.map(r => r[c] ?? '')
+      );
+      
+      const fig = {
+        data: [{
+          type: 'table',
+          header: {
+            values: columns,
+            align: 'left',
+            line: { width: 1, color: 'rgb(50, 50, 50)' },
+            fill: { color: 'rgb(235, 100, 230)' },
+            font: { family: 'Arial', size: 12, color: 'white' }
+          },
+          cells: {
+            values: cellValues,
+            align: 'left',
+            line: { color: 'rgb(50, 50, 50)', width: 1 },
+            fill: { color: ['rgb(245, 245, 245)', 'rgb(255, 255, 255)'] },
+            font: { family: 'Arial', size: 11, color: ['rgb(45, 45, 45)'] }
+          }
+        }],
+        layout: { 
+          margin: {l:10,r:10,b:10,t:40}, 
+          title: `Data Table (${rowsToShow.length} rows)` 
+        }
+      };
+      
+      Plotly.newPlot(el, fig.data, fig.layout);
       return;
     }
 
     if (cfg.type === 'pivot') {
-      const matrix = makePivotMatrix(filtered, cfg.x, cfg.yCat, cfg.y, cfg.agg);
-      el.innerHTML = matrix.html;
+      // Replace HTML table with Plotly Table trace
+      const matrix = makePivotMatrix(filtered || [], cfg.x, cfg.yCat, cfg.y, cfg.agg);
+      
+      // Prepare data for Plotly table
+      const headerValues = [cfg.x + ' \\ ' + cfg.yCat, ...matrix.cols];
+      const cellValues = [matrix.rows]; // First column is row labels
+      
+      // Add data columns
+      matrix.cols.forEach((_, colIdx) => {
+        cellValues.push(matrix.rows.map((_, rowIdx) => matrix.z[rowIdx][colIdx]));
+      });
+      
+      const fig = {
+        data: [{
+          type: 'table',
+          header: {
+            values: headerValues,
+            align: 'left',
+            line: { width: 1, color: 'rgb(50, 50, 50)' },
+            fill: { color: 'rgb(100, 235, 100)' },
+            font: { family: 'Arial', size: 12, color: 'white' }
+          },
+          cells: {
+            values: cellValues,
+            align: 'left',
+            line: { color: 'rgb(50, 50, 50)', width: 1 },
+            fill: { color: ['rgb(245, 245, 245)', 'rgb(255, 255, 255)'] },
+            font: { family: 'Arial', size: 11, color: ['rgb(45, 45, 45)'] }
+          }
+        }],
+        layout: { 
+          margin: {l:10,r:10,b:10,t:40}, 
+          title: `Pivot: ${cfg.agg}(${cfg.y || 'count'}) by ${cfg.x} × ${cfg.yCat}` 
+        }
+      };
+      
+      Plotly.newPlot(el, fig.data, fig.layout);
       return;
     }
 
@@ -1967,7 +2026,10 @@ let inspectorSelectedField = null;
     const groupBy = (rows, keys) => {
       const map = new Map();
       for (const r of rows) {
-        const key = keys.map(k => String(r[k])).join('¦');
+        const key = keys.map(k => {
+          const val = r[k];
+          return (val === null || val === undefined || val === '') ? '(empty)' : String(val);
+        }).join('¦');
         if (!map.has(key)) map.set(key, []);
         map.get(key).push(r);
       }
@@ -1975,8 +2037,16 @@ let inspectorSelectedField = null;
     };
     const agg = (rows) => {
       if (cfg.agg === 'count') return rows.length;
+      if (!cfg.y) return 0; // Handle case where Y is not selected for count
       const vals = rows.map(r => +r[cfg.y]).filter(v => !Number.isNaN(v));
-      if (!vals.length) return 0;
+      if (!vals.length) {
+        // Only warn once per drawChart call to avoid spam
+        if (!cfg._warnedNoNumeric) {
+          console.warn(`No numeric values found in column '${cfg.y}' for aggregation '${cfg.agg}'. Returning 0.`);
+          cfg._warnedNoNumeric = true;
+        }
+        return 0;
+      }
       if (cfg.agg === 'sum')  return vals.reduce((a,b)=>a+b,0);
       return vals.reduce((a,b)=>a+b,0) / vals.length; // mean
     };
@@ -2056,7 +2126,8 @@ let inspectorSelectedField = null;
       if (!cfg.y) { el.innerHTML = '<div class="text-muted p-2">Please select a numeric Y.</div>'; return; }
       const groups = {};
       filtered.forEach(r => {
-        const key = r[cfg.x]; const val = +r[cfg.y];
+        const key = (r[cfg.x] === null || r[cfg.x] === undefined || r[cfg.x] === '') ? '(empty)' : String(r[cfg.x]);
+        const val = +r[cfg.y];
         if (Number.isNaN(val)) return;
         (groups[key] ||= []).push(val);
       });
