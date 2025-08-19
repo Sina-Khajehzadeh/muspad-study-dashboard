@@ -886,13 +886,36 @@ let inspectorSelectedField = null;
     const dates = ['2023-01-01', '2023-02-01', '2023-03-01', '2023-04-01', '2023-05-01'];
     
     for (let i = 0; i < 100; i++) {
+      // Generate vaccination dates for testing dose_interval_days
+      const firstVaccDate = new Date(2023, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1);
+      const daysInterval = Math.floor(Math.random() * 60) + 14; // 14-74 days interval
+      const secondVaccDate = new Date(firstVaccDate.getTime() + daysInterval * 24 * 60 * 60 * 1000);
+      
+      // Add some invalid data to test filtering
+      let X20_21_vacc_first_date, X20_21_vacc_second_date;
+      if (Math.random() < 0.1) {
+        // 10% invalid first dates  
+        X20_21_vacc_first_date = ['', null, 'invalid-date', undefined][Math.floor(Math.random() * 4)];
+        X20_21_vacc_second_date = secondVaccDate.toISOString().split('T')[0];
+      } else if (Math.random() < 0.1) {
+        // 10% invalid second dates
+        X20_21_vacc_first_date = firstVaccDate.toISOString().split('T')[0];
+        X20_21_vacc_second_date = ['', null, 'invalid-date', undefined][Math.floor(Math.random() * 4)];
+      } else {
+        // 80% valid dates
+        X20_21_vacc_first_date = firstVaccDate.toISOString().split('T')[0];
+        X20_21_vacc_second_date = secondVaccDate.toISOString().split('T')[0];
+      }
+      
       sampleData.push({
         id: i + 1,
         category: categories[Math.floor(Math.random() * categories.length)],
         region: regions[Math.floor(Math.random() * regions.length)],
         value: Math.floor(Math.random() * 1000) + 100,
         date: dates[Math.floor(Math.random() * dates.length)],
-        score: Math.random() * 100
+        score: Math.random() * 100,
+        X20_21_vacc_first_date: X20_21_vacc_first_date,
+        X20_21_vacc_second_date: X20_21_vacc_second_date
       });
     }
     
@@ -1140,13 +1163,23 @@ let inspectorSelectedField = null;
       console.log(`Computing dose_interval_days from ${firstDateCol} and ${secondDateCol}`);
       
       rawData.forEach(row => {
-        const firstDate = new Date(row[firstDateCol]);
-        const secondDate = new Date(row[secondDateCol]);
+        const firstDateVal = row[firstDateCol];
+        const secondDateVal = row[secondDateCol];
         
-        if (!isNaN(firstDate) && !isNaN(secondDate)) {
-          const diffTime = secondDate.getTime() - firstDate.getTime();
-          const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-          row.dose_interval_days = diffDays;
+        // Check for null/undefined values before creating Date objects
+        if (firstDateVal != null && firstDateVal !== '' && 
+            secondDateVal != null && secondDateVal !== '') {
+          
+          const firstDate = new Date(firstDateVal);
+          const secondDate = new Date(secondDateVal);
+          
+          if (!isNaN(firstDate) && !isNaN(secondDate)) {
+            const diffTime = secondDate.getTime() - firstDate.getTime();
+            const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+            row.dose_interval_days = diffDays;
+          } else {
+            row.dose_interval_days = null;
+          }
         } else {
           row.dose_interval_days = null;
         }
@@ -2584,12 +2617,28 @@ let inspectorSelectedField = null;
     
     const xField = cfg.x;
     const xType = getColumnType(xField);
-    const xVals = data.map(r => r[xField]).filter(v => v != null && v !== '');
     
     if (xType === 'numeric') {
+      // Build numeric values: first filter out null/undefined/empty, then convert to numbers and filter finite values
+      // This prevents null/''/undefined from being coerced to 0 which would create a spike at zero
+      const numericVals = data
+        .map(r => r[xField])
+        .filter(v => v != null && v !== '')  // Remove null, undefined, empty string first
+        .map(v => Number(v))                 // Convert to number
+        .filter(v => Number.isFinite(v));    // Keep only finite numbers (excludes NaN, Infinity)
+      
+      // Console diagnostic for debugging (can be enabled via flag)
+      const debugHistogram = false; // Set to true for debugging
+      if (debugHistogram) {
+        const totalRows = data.length;
+        const excludedCount = totalRows - numericVals.length;
+        console.log(`Histogram ${xField}: excluded ${excludedCount} invalid values out of ${totalRows} total`);
+      }
+      
       // Special handling for dose_interval_days preset
       if (xField === 'dose_interval_days') {
-        const clippedVals = xVals.filter(v => v >= 0 && v <= 200);
+        // Filter valid range [0, 200] for plotting only; out-of-range values excluded
+        const clippedVals = numericVals.filter(v => v >= 0 && v <= 200);
         fig.data.push({
           x: clippedVals,
           type: 'histogram',
@@ -2597,20 +2646,20 @@ let inspectorSelectedField = null;
           name: 'Count'
         });
         
-        // Add rangeslider and set initial zoom
+        // Add rangeslider with thickness and set initial zoom [0,100]
         if (cfg.showRangeslider) {
           fig.layout.xaxis = { 
             title: xField,
-            rangeslider: { visible: true },
+            rangeslider: { visible: true, thickness: 0.02 },
             range: [0, 100]  // Initial zoom to [0,100]
           };
         } else {
           fig.layout.xaxis = { title: xField };
         }
       } else {
-        // Regular numeric histogram
+        // Regular numeric histogram - use filtered numeric values, never coerce invalids to 0
         fig.data.push({
-          x: xVals,
+          x: numericVals,
           type: 'histogram', 
           nbinsx: cfg.xBins || 30,
           name: 'Count'
@@ -2623,6 +2672,7 @@ let inspectorSelectedField = null;
       }
     } else if (xType === 'date') {
       // Date histogram - group by period and render as bars
+      const xVals = data.map(r => r[xField]).filter(v => v != null && v !== '');
       const period = cfg.xPeriod || 'month';
       const { labels, counts } = binDates(xVals, period);
       
@@ -2636,6 +2686,7 @@ let inspectorSelectedField = null;
       fig.layout.xaxis = { title: `${xField} (${period})` };
     } else {
       // Categorical histogram - count per category  
+      const xVals = data.map(r => r[xField]).filter(v => v != null && v !== '');
       const groups = {};
       xVals.forEach(v => {
         const key = String(v);
@@ -3234,7 +3285,12 @@ let inspectorSelectedField = null;
       fig.layout.yaxis = { title: yField };
       
       if (cfg.histOverlay) {
-        const vals = data.map(r => +r[yField]).filter(v => !Number.isNaN(v));
+        // Fix: prevent null/empty coercion to 0 in histogram overlay
+        const vals = data
+          .map(r => r[yField])
+          .filter(v => v != null && v !== '')  // Remove null, undefined, empty string first
+          .map(v => Number(v))                 // Convert to number
+          .filter(v => Number.isFinite(v));    // Keep only finite numbers
         fig.data.push({ x: vals, type: 'histogram', opacity: 0.3, xaxis: 'x2', yaxis: 'y2', name: 'Histogram' });
         fig.layout.grid = { rows: 1, columns: 2, pattern: 'independent' };
         fig.layout.title += ' · + Histogram';
