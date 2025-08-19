@@ -1,188 +1,135 @@
-#!/usr/bin/env python3
-"""
-Export Plotly JSON for MUSPAD Dashboard
-
-This script exports Plotly figures to JSON format for use with the
-MUSPAD Dashboard's manifest-backed Python Plotly JSON feature.
-
-Usage:
-    python tools/export_plotly_json.py
-
-Prerequisites:
-    - pandas
-    - plotly
-    - Prepared df3 dataframe with serology and vaccination data
-
-The script will generate:
-    - docs/assets/plots/serology_seroprevalence.json
-    - docs/assets/plots/vaccination_coverage.json
-    - docs/assets/plots/plotly_manifest.json (updated)
-"""
-
-import json
+from __future__ import annotations
 import os
+from pathlib import Path
+import json
 import pandas as pd
-import plotly.graph_objects as go
-from datetime import datetime
+import plotly.express as px
 
+DATASET_TAG = "X20_21"  # Fixed per request
 
-def create_seroprevalence_chart(df):
-    """Create COVID-19 seroprevalence chart"""
-    # Example data - replace with your actual df3 processing
-    # Process X20_21_serostatus column or equivalent
-    
-    fig_sero = go.Figure(data=[
-        go.Bar(
-            x=["Seronegative", "Seropositive"],
-            y=[74.4, 25.6],
-            text=["74.4%", "25.6%"],
-            textposition='outside',
-            textfont=dict(size=14),
-            marker=dict(
-                color=['#2E86AB', '#A23B72'],
-                line=dict(color='rgba(0,0,0,0.3)', width=1)
-            ),
-            name="Seroprevalence"
-        )
-    ])
-    
-    fig_sero.update_layout(
-        title=dict(
-            text="COVID-19 Seroprevalence (%)",
-            font=dict(size=18),
-            x=0.5,
-            xanchor="center"
-        ),
-        xaxis=dict(
-            title=dict(text="Serology Status", font=dict(size=14)),
-            tickfont=dict(size=12)
-        ),
-        yaxis=dict(
-            title=dict(text="Percentage (%)", font=dict(size=14)),
-            range=[0, 100],
-            tickfont=dict(size=12)
-        ),
-        width=800,
-        height=500,
-        margin=dict(l=80, r=60, t=80, b=80),
-        showlegend=False,
-        plot_bgcolor="white",
-        paper_bgcolor="white"
+def _ensure_out_dir(out_dir: str | os.PathLike) -> Path:
+    out_path = Path(out_dir)
+    out_path.mkdir(parents=True, exist_ok=True)
+    return out_path
+
+def _normalize_serostatus(series: pd.Series) -> pd.Series:
+    """
+    Map raw serostatus values into exactly two labels:
+    - 'seropositive'
+    - 'seronegative'
+    Drop anything unmapped or NaN.
+    """
+    def norm(v):
+        if pd.isna(v):
+            return None
+        s = str(v).strip().lower()
+        if s in {"1", "true", "t", "yes", "y", "seropositive", "positive", "pos", "+", "reactive"}:
+            return "seropositive"
+        if s in {"0", "false", "f", "no", "n", "seronegative", "negative", "neg", "-", "non-reactive", "nonreactive"}:
+            return "seronegative"
+        if s in {"seropositive", "seronegative"}:
+            return s
+        return None
+
+    mapped = series.map(norm).dropna()
+    cat = pd.Categorical(mapped, categories=["seronegative", "seropositive"], ordered=True)
+    return pd.Series(cat, index=mapped.index)
+
+def _compute_seroprevalence_fig(df3: pd.DataFrame):
+    px.defaults.width = 800
+    px.defaults.height = 500
+
+    sero_norm = _normalize_serostatus(df3["X20_21_serostatus"])
+    sero_df = sero_norm.value_counts(normalize=True).reset_index()
+    sero_df.columns = ["serostatus", "proportion"]
+    sero_df["percent"] = sero_df["proportion"] * 100
+
+    base_title = "COVID-19 Seroprevalence (%)"
+    title = f"{base_title} ({DATASET_TAG})"
+
+    fig_sero = px.bar(
+        sero_df, x="serostatus", y="percent",
+        title=title,
+        labels={"serostatus": "Serostatus", "percent": "Percent of Participants"},
+        text="percent",
     )
-    
+    fig_sero.update_traces(texttemplate="%{text:.1f}%", textposition="outside",
+                           hovertemplate=" %{x}<br>%{y:.1f}%")
+    fig_sero.update_layout(yaxis_range=[0, 100], margin=dict(t=50, b=50, l=50, r=50))
     return fig_sero
 
+def _compute_vaccination_fig(df3: pd.DataFrame):
+    px.defaults.width = 800
+    px.defaults.height = 500
 
-def create_vaccination_coverage_chart(df):
-    """Create COVID-19 vaccination coverage chart"""
-    # Example data - replace with your actual df3 processing
-    
-    fig_vac = go.Figure(data=[
-        go.Bar(
-            x=["First Dose Only", "Second Dose Completed"],
-            y=[41.4, 57.5],
-            text=["41.4%", "57.5%"],
-            textposition='outside',
-            textfont=dict(size=14),
-            marker=dict(
-                color=['#F18F01', '#C73E1D'],
-                line=dict(color='rgba(0,0,0,0.3)', width=1)
-            ),
-            name="Vaccination Coverage"
-        )
-    ])
-    
-    fig_vac.update_layout(
-        title=dict(
-            text="COVID-19 Vaccination Coverage (%)",
-            font=dict(size=18),
-            x=0.5,
-            xanchor="center"
-        ),
-        xaxis=dict(
-            title=dict(text="Vaccination Status", font=dict(size=14)),
-            tickfont=dict(size=12)
-        ),
-        yaxis=dict(
-            title=dict(text="Percentage (%)", font=dict(size=14)),
-            range=[0, 100],
-            tickfont=dict(size=12)
-        ),
-        width=800,
-        height=500,
-        margin=dict(l=80, r=60, t=80, b=80),
-        showlegend=False,
-        plot_bgcolor="white",
-        paper_bgcolor="white"
+    first_numeric = pd.to_numeric(df3["X20_21_kurzfragen_cov19_vaccination_first_yn"], errors="coerce")
+    second_numeric = pd.to_numeric(df3["X20_21_kurzfragen_cov19_vaccination_second_yn"], errors="coerce")
+
+    n1_valid = first_numeric.notna().sum()
+    n1_yes = (first_numeric == 1).sum()
+    first_rate = (n1_yes / n1_valid * 100.0) if n1_valid > 0 else 0.0
+
+    n2_valid = second_numeric.notna().sum()
+    n2_yes = (second_numeric == 1).sum()
+    second_rate = (n2_yes / n2_valid * 100.0) if n2_valid > 0 else 0.0
+
+    vac_df = pd.DataFrame({"dose": ["First Dose", "Second Dose"], "percent": [first_rate, second_rate]})
+
+    base_title = "COVID-19 Vaccination Coverage (%)"
+    title = f"{base_title} ({DATASET_TAG})"
+
+    fig_vac = px.bar(
+        vac_df, x="dose", y="percent",
+        title=title,
+        labels={"dose": "Dose", "percent": "Percent of Participants"},
+        text="percent",
     )
-    
-    return fig_vac
+    fig_vac.update_traces(texttemplate="%{text:.1f}%", textposition="outside",
+                          hovertemplate=" %{x}<br>%{y:.1f}%<extra></extra>")
+    fig_vac.update_layout(yaxis_range=[0, 100], margin=dict(t=50, b=50, l=50, r=50))
+    return fig_vac, {
+        "n1_yes": int(n1_yes), "n1_valid": int(n1_valid),
+        "n2_yes": int(n2_yes), "n2_valid": int(n2_valid),
+        "first_rate": float(first_rate), "second_rate": float(second_rate),
+    }
 
+def export_figures(df3: pd.DataFrame, out_dir: str = "docs/assets/plots") -> dict:
+    out_path = _ensure_out_dir(out_dir)
 
-def export_charts(df3=None):
-    """Export charts and update manifest"""
-    
-    # Create output directory if it doesn't exist
-    output_dir = "docs/assets/plots"
-    os.makedirs(output_dir, exist_ok=True)
-    
-    print("Creating charts...")
-    
-    # Create charts
-    fig_sero = create_seroprevalence_chart(df3)
-    fig_vac = create_vaccination_coverage_chart(df3)
-    
-    # Export to JSON
-    sero_path = os.path.join(output_dir, "serology_seroprevalence.json")
-    vac_path = os.path.join(output_dir, "vaccination_coverage.json")
-    
-    print(f"Exporting {sero_path}...")
-    with open(sero_path, 'w') as f:
-        f.write(fig_sero.to_json())
-    
-    print(f"Exporting {vac_path}...")
-    with open(vac_path, 'w') as f:
-        f.write(fig_vac.to_json())
-    
-    # Update manifest
+    fig_sero = _compute_seroprevalence_fig(df3)
+    fig_vac, stats = _compute_vaccination_fig(df3)
+
+    sero_path = out_path / "serology_seroprevalence.json"
+    vac_path = out_path / "vaccination_coverage.json"
+    manifest_path = out_path / "plotly_manifest.json"
+
+    sero_path.write_text(fig_sero.to_json(), encoding="utf-8")
+    vac_path.write_text(fig_vac.to_json(), encoding="utf-8")
+
     manifest = {
         "version": 1,
         "basePath": "assets/plots/",
         "charts": [
-            {
-                "id": "sero-prevalence",
-                "title": "COVID-19 Seroprevalence (%)",
-                "file": "serology_seroprevalence.json",
-                "width": 800,
-                "height": 500
-            },
-            {
-                "id": "vaccination-coverage",
-                "title": "COVID-19 Vaccination Coverage (%)",
-                "file": "vaccination_coverage.json",
-                "width": 800,
-                "height": 500
-            }
+            { "id": "sero-prevalence", "title": fig_sero.layout.title.text or f"COVID-19 Seroprevalence (%) ({DATASET_TAG})", "file": "serology_seroprevalence.json", "width": 800, "height": 500 },
+            { "id": "vaccination-coverage", "title": fig_vac.layout.title.text or f"COVID-19 Vaccination Coverage (%) ({DATASET_TAG})", "file": "vaccination_coverage.json", "width": 800, "height": 500 }
         ]
     }
-    
-    manifest_path = os.path.join(output_dir, "plotly_manifest.json")
-    print(f"Updating {manifest_path}...")
-    with open(manifest_path, 'w') as f:
-        json.dump(manifest, f, indent=2)
-    
-    print("Export completed successfully!")
-    print(f"Charts exported to: {output_dir}")
-    print("You can now use these charts in the MUSPAD Dashboard.")
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
+    return {
+        "serology_seroprevalence": str(sero_path),
+        "vaccination_coverage": str(vac_path),
+        "manifest": str(manifest_path),
+        "dataset_tag": DATASET_TAG,
+        "stats": stats,
+    }
 
 if __name__ == "__main__":
-    # Example usage
-    print("MUSPAD Dashboard - Plotly JSON Export Tool")
-    print("=" * 50)
-    
-    # If you have your df3 dataframe ready, pass it here:
-    # export_charts(df3)
-    
-    # For now, export with example data
-    export_charts()
+    import sys
+    if len(sys.argv) > 1:
+        csv_path = sys.argv[1]
+        df3 = pd.read_csv(csv_path)
+        out = export_figures(df3)
+        print(json.dumps(out, indent=2))
+    else:
+        print("Provide a CSV path for df3 or import and call export_figures(df3) from a notebook.")
