@@ -359,6 +359,61 @@
       #inspector { max-height: none; }
     }
     /* ===== Inspector panel styles END ===== */
+
+    /* ===== Insights panel styles START ===== */
+    .insights-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      gap: 1.5rem;
+      margin-top: 1rem;
+    }
+
+    .insight-card {
+      background: white;
+      border: 1px solid #e1e1e1;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,.06);
+      overflow: hidden;
+    }
+
+    .insight-card-header {
+      background: #f8f9fa;
+      border-bottom: 1px solid #e1e1e1;
+      padding: 1rem 1.25rem;
+    }
+
+    .insight-card-title {
+      margin: 0;
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #2b2f36;
+      font-family: Inter, 'Segoe UI', Roboto, -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    .insight-card-body {
+      padding: 1rem;
+    }
+
+    .chart-container {
+      height: 400px;
+      width: 100%;
+    }
+
+    /* Mobile responsive for insights */
+    @media (max-width: 768px) {
+      .insights-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .insight-card-title {
+        font-size: 1rem;
+      }
+      
+      .chart-container {
+        height: 300px;
+      }
+    }
+    /* ===== Insights panel styles END ===== */
   </style>
 </head>
 <body>
@@ -446,10 +501,40 @@
             <p class="card-text text-muted small mb-2">
               Access curated analyses and advanced visualizations for serology data.
             </p>
-            <a href="./serology-insights.html" class="btn btn-outline-primary btn-sm">
+            <a href="#" class="btn btn-outline-primary btn-sm" onclick="event.preventDefault(); document.getElementById('btnInsights').click();">
               View Insights
               <i class="bi bi-arrow-right ms-1"></i>
             </a>
+          </div>
+        </div>
+        
+        <div class="resizable-corner"></div>
+      </section>
+
+      <!-- Insights Panel -->
+      <section id="panelInsights" class="panel" aria-label="Serology Insights">
+        <h5>Serology Insights</h5>
+        <p class="text-muted mb-3">Curated analyses and advanced visualizations for serology data.</p>
+        
+        <div class="insights-grid">
+          <!-- Demo Chart 1: Serology Trends -->
+          <div class="insight-card">
+            <div class="insight-card-header">
+              <h2 class="insight-card-title">Serology Trends Over Time</h2>
+            </div>
+            <div class="insight-card-body">
+              <div id="insightChart1" class="chart-container"></div>
+            </div>
+          </div>
+
+          <!-- Demo Chart 2: Antibody Distribution -->
+          <div class="insight-card">
+            <div class="insight-card-header">
+              <h2 class="insight-card-title">Antibody Response Distribution</h2>
+            </div>
+            <div class="insight-card-body">
+              <div id="insightChart2" class="chart-container"></div>
+            </div>
           </div>
         </div>
         
@@ -733,6 +818,100 @@ let inspectorSelectedField = null;
   }
 
   // ----------------------------
+  // Insights Functions
+  // ----------------------------
+  
+  /**
+   * Helper function to render Plotly figures from Python JSON exports
+   * @param {string} containerId - The ID of the container element
+   * @param {Object} figureJson - The figure JSON from Python's fig.to_json()
+   */
+  function renderPlotlyFromJson(containerId, figureJson) {
+    // Parse JSON if it's a string
+    const figure = typeof figureJson === 'string' ? JSON.parse(figureJson) : figureJson;
+    
+    // Apply theme to the layout
+    const themedLayout = window.DashboardTheme.getBaseLayout(figure.layout || {});
+    
+    // Render the plot
+    Plotly.newPlot(containerId, figure.data || [], themedLayout, {
+      responsive: true,
+      displayModeBar: false
+    });
+  }
+
+  /**
+   * Create demo charts to demonstrate the functionality
+   */
+  function createInsightsCharts() {
+    // Check if Plotly is available
+    if (typeof Plotly === 'undefined') {
+      console.warn('Plotly not available, skipping insights charts');
+      return;
+    }
+
+    // Demo Chart 1: Time series showing serology trends
+    const chart1Data = [
+      {
+        x: ['2023-01', '2023-02', '2023-03', '2023-04', '2023-05', '2023-06', '2023-07', '2023-08'],
+        y: [45, 52, 38, 67, 71, 58, 63, 69],
+        type: 'scatter',
+        mode: 'lines+markers',
+        name: 'IgG Positive Rate (%)',
+        line: { width: 3 }
+      },
+      {
+        x: ['2023-01', '2023-02', '2023-03', '2023-04', '2023-05', '2023-06', '2023-07', '2023-08'],
+        y: [12, 18, 15, 23, 28, 22, 19, 24],
+        type: 'scatter',
+        mode: 'lines+markers',
+        name: 'IgM Positive Rate (%)',
+        line: { width: 3 }
+      }
+    ];
+
+    const chart1Layout = {
+      title: 'Monthly Serology Positivity Rates',
+      xaxis: { title: 'Month' },
+      yaxis: { title: 'Positive Rate (%)' },
+      hovermode: 'x unified'
+    };
+
+    // Use the helper function to render with theme
+    renderPlotlyFromJson('insightChart1', {
+      data: chart1Data,
+      layout: chart1Layout
+    });
+
+    // Demo Chart 2: Distribution chart showing antibody levels
+    const chart2Data = [
+      {
+        x: ['< 0.5', '0.5-1.0', '1.0-2.0', '2.0-4.0', '4.0-8.0', '> 8.0'],
+        y: [120, 95, 180, 220, 150, 85],
+        type: 'bar',
+        name: 'Sample Count',
+        marker: { 
+          color: '#1f77b4',
+          opacity: 0.8 
+        }
+      }
+    ];
+
+    const chart2Layout = {
+      title: 'Antibody Titer Distribution',
+      xaxis: { title: 'Antibody Titer Range' },
+      yaxis: { title: 'Number of Samples' },
+      bargap: 0.1
+    };
+
+    // Use the helper function to render with theme
+    renderPlotlyFromJson('insightChart2', {
+      data: chart2Data,
+      layout: chart2Layout
+    });
+  }
+
+  // ----------------------------
   // Boot
   // ----------------------------
   document.addEventListener('DOMContentLoaded', () => {
@@ -749,7 +928,13 @@ let inspectorSelectedField = null;
     id('btnFilters').addEventListener('click', openFiltersModal);
     id('btnData').addEventListener('click', () => toggle('panelData'));
     id('btnInsights').addEventListener('click', () => {
-      window.location.href = './serology-insights.html';
+      toggle('panelInsights');
+      // Initialize charts when panel is shown
+      setTimeout(() => {
+        if (id('panelInsights').classList.contains('active')) {
+          createInsightsCharts();
+        }
+      }, 100);
     });
     id('btnSettings').addEventListener('click', () => toggle('panelSettings'));
     id('btnAdd').addEventListener('click', () => {
