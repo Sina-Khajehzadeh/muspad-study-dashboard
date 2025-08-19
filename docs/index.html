@@ -859,13 +859,37 @@
           </div>
         </div>
         
-        <div class="chart-template" data-chart-type="custom-json">
-          <div class="chart-template-preview">
-            <i class="bi bi-code-square"></i>
+      </div>
+      
+      <!-- Python Plotly JSON Section -->
+      <div class="mt-4">
+        <div class="accordion-header" id="plotlyJsonSection" style="cursor: pointer; padding: 0.75rem; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 0.5rem; margin-bottom: 1rem;">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="mb-1"><i class="bi bi-code-square me-2"></i>Python Plotly JSON</h6>
+              <p class="text-muted small mb-0">Select from exported Python charts</p>
+            </div>
+            <i class="bi bi-chevron-down" id="plotlyJsonIcon"></i>
           </div>
-          <div class="chart-template-info">
-            <h6>Python Plotly JSON</h6>
-            <p class="text-muted small">Import chart from Python Plotly JSON</p>
+        </div>
+        <div class="accordion-content" id="plotlyJsonContent" style="display: none;">
+          <div id="plotlyJsonLoading" style="display: none; text-align: center; padding: 2rem; color: #6c757d;">
+            <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+            Loading available charts...
+          </div>
+          <div id="plotlyJsonError" style="display: none; text-align: center; padding: 2rem; color: #dc3545;">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            <span id="plotlyJsonErrorMessage">Failed to load charts</span>
+            <button class="btn btn-outline-secondary btn-sm ms-2" id="plotlyJsonRetry">Retry</button>
+          </div>
+          <div id="plotlyJsonCharts" style="display: none;">
+            <p class="text-muted small mb-3">Select charts to add to your Insights panel:</p>
+            <div id="plotlyJsonChartsList">
+              <!-- Charts will be populated here -->
+            </div>
+            <div class="mt-3">
+              <button class="btn btn-primary" id="btnAddPlotlyJsonCharts" disabled>Add Selected Charts</button>
+            </div>
           </div>
         </div>
       </div>
@@ -1213,6 +1237,34 @@ let inspectorSelectedField = null;
           if (btnAddInsightChart) btnAddInsightChart.disabled = false;
         }
       });
+    }
+
+    // Python Plotly JSON section handlers
+    const plotlyJsonSection = id('plotlyJsonSection');
+    const plotlyJsonContent = id('plotlyJsonContent');
+    const plotlyJsonIcon = id('plotlyJsonIcon');
+    
+    if (plotlyJsonSection && plotlyJsonContent && plotlyJsonIcon) {
+      plotlyJsonSection.addEventListener('click', () => {
+        const isHidden = plotlyJsonContent.style.display === 'none';
+        plotlyJsonContent.style.display = isHidden ? 'block' : 'none';
+        plotlyJsonIcon.className = isHidden ? 'bi bi-chevron-up' : 'bi bi-chevron-down';
+        
+        // Load manifest when section is expanded for the first time
+        if (isHidden && !plotlyJsonContent.dataset.loaded) {
+          loadPlotlyManifest();
+        }
+      });
+    }
+    
+    const btnAddPlotlyJsonCharts = id('btnAddPlotlyJsonCharts');
+    if (btnAddPlotlyJsonCharts) {
+      btnAddPlotlyJsonCharts.addEventListener('click', addSelectedPlotlyJsonCharts);
+    }
+    
+    const plotlyJsonRetry = id('plotlyJsonRetry');
+    if (plotlyJsonRetry) {
+      plotlyJsonRetry.addEventListener('click', loadPlotlyManifest);
     }
 
     // Update builder visibility when chart type changes
@@ -2977,8 +3029,8 @@ let inspectorSelectedField = null;
     // Make the card draggable
     makeDraggable(card);
     
-    // Only attach edit FAB for charts without custom render functions
-    if (!cfg.render) {
+    // Only attach edit FAB for charts without custom render functions and not plotlyjson type
+    if (!cfg.render && cfg.type !== 'plotlyjson') {
       attachEditFab(card, cfg);
     }
     
@@ -3004,6 +3056,12 @@ let inspectorSelectedField = null;
 
   function drawChart(cfg) {
     const el = cfg._el;
+    
+    // Handle plotlyjson charts (direct Plotly.newPlot from JSON)
+    if (cfg.type === 'plotlyjson') {
+      drawPlotlyJsonChart(cfg);
+      return;
+    }
     
     // Handle insight charts with custom render functions
     if (cfg.isInsightChart && cfg.render) {
@@ -3125,6 +3183,73 @@ let inspectorSelectedField = null;
       el.innerHTML = `<div style="padding: 2rem; text-align: center; color: #6c757d;">
         <i class="bi bi-exclamation-triangle" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
         Error loading chart: ${cfg.title}
+      </div>`;
+    }
+  }
+
+  function drawPlotlyJsonChart(cfg) {
+    const el = cfg._el;
+    
+    if (!el) {
+      console.warn('Missing element for plotlyjson chart:', cfg);
+      return;
+    }
+    
+    // Check if Plotly is available
+    if (typeof Plotly === 'undefined') {
+      el.innerHTML = `<div style="padding: 2rem; text-align: center; color: #6c757d; height: 100%; display: flex; flex-direction: column; justify-content: center;">
+        <i class="bi bi-graph-up" style="font-size: 3rem; display: block; margin-bottom: 1rem; opacity: 0.3;"></i>
+        <h6 style="margin-bottom: 0.5rem;">${cfg.title}</h6>
+        <small>Chart ready to display when Plotly is available</small>
+      </div>`;
+      return;
+    }
+    
+    // Load JSON if not already loaded
+    if (!cfg.json && cfg.src) {
+      fetch(cfg.src)
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`Failed to load chart: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then(json => {
+          cfg.json = json;
+          renderPlotlyJsonChart(cfg, json);
+        })
+        .catch(error => {
+          console.error('Error loading plotlyjson chart:', error);
+          el.innerHTML = `<div style="padding: 2rem; text-align: center; color: #dc3545;">
+            <i class="bi bi-exclamation-triangle" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+            Error loading chart: ${cfg.title}
+          </div>`;
+        });
+    } else if (cfg.json) {
+      renderPlotlyJsonChart(cfg, cfg.json);
+    } else {
+      el.innerHTML = `<div style="padding: 2rem; text-align: center; color: #6c757d;">
+        <i class="bi bi-exclamation-triangle" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+        No chart data available
+      </div>`;
+    }
+  }
+  
+  function renderPlotlyJsonChart(cfg, json) {
+    const el = cfg._el;
+    
+    try {
+      // Use Plotly.newPlot directly with the JSON data
+      // This preserves exact styling from Python exports
+      Plotly.newPlot(el, json.data || [], json.layout || {}, {
+        responsive: true,
+        displayModeBar: false  // Hide toolbar to preserve clean look
+      });
+    } catch (error) {
+      console.error('Error rendering plotlyjson chart:', error);
+      el.innerHTML = `<div style="padding: 2rem; text-align: center; color: #dc3545;">
+        <i class="bi bi-exclamation-triangle" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+        Error rendering chart: ${cfg.title}
       </div>`;
     }
   }
@@ -3894,8 +4019,12 @@ let inspectorSelectedField = null;
         const plotElement = entry.target;
         // Check if this is a plot element that contains a Plotly chart
         if (plotElement.classList.contains('plot') && plotElement.children.length > 0) {
-          // Find the corresponding chart configuration
-          const chart = charts.find(cfg => cfg._el === plotElement);
+          // Find the corresponding chart configuration in both charts and insightsCharts
+          let chart = charts.find(cfg => cfg._el === plotElement);
+          if (!chart) {
+            chart = insightsCharts.find(cfg => cfg._el === plotElement);
+          }
+          
           if (chart) {
             // Debounce the resize to avoid excessive redraws
             clearTimeout(plotElement._resizeTimeout);
@@ -4429,9 +4558,6 @@ let inspectorSelectedField = null;
       case 'demographic-breakdown':
         cfg = createDemographicBreakdownChart();
         break;
-      case 'custom-json':
-        cfg = createCustomJsonChart();
-        break;
       default:
         console.warn('Unknown chart type:', chartType);
         return;
@@ -4507,28 +4633,6 @@ let inspectorSelectedField = null;
       },
       chartLayout: {
         title: 'Serology Results by Age Group'
-      }
-    };
-  }
-  
-  function createCustomJsonChart() {
-    // Placeholder for Python Plotly JSON import
-    return {
-      type: 'custom',
-      title: 'Custom Plotly Chart',
-      isInsightChart: true,
-      chartData: {},
-      chartLayout: {
-        title: 'Custom Chart (Placeholder)',
-        annotations: [{
-          x: 0.5,
-          y: 0.5,
-          text: 'Import Python Plotly JSON here',
-          xanchor: 'center',
-          yanchor: 'middle',
-          showarrow: false,
-          font: { size: 16 }
-        }]
       }
     };
   }
@@ -4774,6 +4878,138 @@ let inspectorSelectedField = null;
 
   // Make function globally available for potential external use
   window.importPythonPlotlyJSON = importPythonPlotlyJSON;
+
+  // ----------------------------
+  // Manifest-backed Python Plotly JSON Functions
+  // ----------------------------
+  let plotlyManifest = null;
+  
+  async function loadPlotlyManifest() {
+    const loadingEl = id('plotlyJsonLoading');
+    const errorEl = id('plotlyJsonError');
+    const chartsEl = id('plotlyJsonCharts');
+    const contentEl = id('plotlyJsonContent');
+    
+    // Show loading state
+    loadingEl.style.display = 'block';
+    errorEl.style.display = 'none';
+    chartsEl.style.display = 'none';
+    
+    try {
+      const response = await fetch('assets/plots/plotly_manifest.json');
+      if (!response.ok) {
+        throw new Error(`Failed to load manifest: ${response.status} ${response.statusText}`);
+      }
+      
+      plotlyManifest = await response.json();
+      
+      // Validate manifest structure
+      if (!plotlyManifest.charts || !Array.isArray(plotlyManifest.charts)) {
+        throw new Error('Invalid manifest format: missing charts array');
+      }
+      
+      displayPlotlyCharts(plotlyManifest);
+      contentEl.dataset.loaded = 'true';
+      
+    } catch (error) {
+      console.error('Error loading Plotly manifest:', error);
+      showPlotlyError(error.message);
+    }
+  }
+  
+  function displayPlotlyCharts(manifest) {
+    const loadingEl = id('plotlyJsonLoading');
+    const chartsEl = id('plotlyJsonCharts');
+    const chartsList = id('plotlyJsonChartsList');
+    
+    loadingEl.style.display = 'none';
+    chartsEl.style.display = 'block';
+    
+    // Clear existing content
+    chartsList.innerHTML = '';
+    
+    // Create checkboxes for each chart
+    manifest.charts.forEach(chart => {
+      const checkboxContainer = document.createElement('div');
+      checkboxContainer.className = 'form-check mb-2';
+      checkboxContainer.innerHTML = `
+        <input class="form-check-input plotly-json-chart-checkbox" type="checkbox" value="${chart.id}" id="chart-${chart.id}">
+        <label class="form-check-label" for="chart-${chart.id}">
+          <strong>${chart.title}</strong>
+          <small class="text-muted d-block">Dimensions: ${chart.width}x${chart.height}</small>
+        </label>
+      `;
+      chartsList.appendChild(checkboxContainer);
+    });
+    
+    // Add event listeners to checkboxes
+    const checkboxes = chartsList.querySelectorAll('.plotly-json-chart-checkbox');
+    checkboxes.forEach(checkbox => {
+      checkbox.addEventListener('change', updatePlotlyJsonAddButton);
+    });
+    
+    updatePlotlyJsonAddButton();
+  }
+  
+  function showPlotlyError(message) {
+    const loadingEl = id('plotlyJsonLoading');
+    const errorEl = id('plotlyJsonError');
+    const errorMessageEl = id('plotlyJsonErrorMessage');
+    
+    loadingEl.style.display = 'none';
+    errorEl.style.display = 'block';
+    errorMessageEl.textContent = message;
+  }
+  
+  function updatePlotlyJsonAddButton() {
+    const btnAdd = id('btnAddPlotlyJsonCharts');
+    const checkboxes = document.querySelectorAll('.plotly-json-chart-checkbox:checked');
+    if (btnAdd) {
+      btnAdd.disabled = checkboxes.length === 0;
+    }
+  }
+  
+  async function addSelectedPlotlyJsonCharts() {
+    const checkboxes = document.querySelectorAll('.plotly-json-chart-checkbox:checked');
+    if (checkboxes.length === 0) return;
+    
+    const selectedChartIds = Array.from(checkboxes).map(cb => cb.value);
+    const selectedCharts = plotlyManifest.charts.filter(chart => selectedChartIds.includes(chart.id));
+    
+    for (const chart of selectedCharts) {
+      try {
+        const filePath = plotlyManifest.basePath ? 
+          plotlyManifest.basePath + chart.file : 
+          chart.file;
+          
+        const response = await fetch(filePath);
+        if (!response.ok) {
+          throw new Error(`Failed to load chart ${chart.title}: ${response.status}`);
+        }
+        
+        const chartJson = await response.json();
+        
+        // Create insight chart config for plotlyjson type
+        const cfg = {
+          type: 'plotlyjson',
+          title: chart.title,
+          manifestId: chart.id,
+          src: filePath,
+          json: chartJson,
+          isInsightChart: true
+        };
+        
+        addInsightChart(cfg);
+        
+      } catch (error) {
+        console.error(`Error loading chart ${chart.title}:`, error);
+        alert(`Failed to load chart "${chart.title}": ${error.message}`);
+      }
+    }
+    
+    // Close modal after adding charts
+    closeCustomAnalyticsModal();
+  }
 
   function downloadCSV(filename, headers, rows) {
     const esc = (v) => {
