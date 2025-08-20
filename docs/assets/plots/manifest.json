@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "basePath": "plots/",
+  "charts": [
+    {
+      "id": "another-histogram-for-participation",
+      "title": "Another Histogram For Participation",
+      "file": "Another Histogram for Participation.html",
+      "type": "html"
+    },
+    {
+      "id": "box-plot-health-status",
+      "title": "Box Plot Health Status",
+      "file": "Box Plot Health Status.html",
+      "type": "html"
+    },
+    {
+      "id": "interval-days",
+      "title": "Interval Days",
+      "file": "Interval days.html",
+      "type": "html"
+    },
+    {
+      "id": "npi",
+      "title": "Npi",
+      "file": "NPI.html",
+      "type": "html"
+    },
+    {
+      "id": "partixipation",
+      "title": "Partixipation",
+      "file": "Partixipation.html",
+      "type": "html"
+    },
+    {
+      "id": "prevalence",
+      "title": "Prevalence",
+      "file": "Prevalence.html",
+      "type": "html"
+    },
+    {
+      "id": "third-seroperevalence",
+      "title": "Third Seroperevalence",
+      "file": "Third Seroperevalence.html",
+      "type": "html"
+    },
+    {
+      "id": "distribution_level",
+      "title": "Distribution Level",
+      "file": "distribution_level.html",
+      "type": "html"
+    },
+    {
+      "id": "education",
+      "title": "Education",
+      "file": "education.html",
+      "type": "html"
+    },
+    {
+      "id": "employment",
+      "title": "Employment",
+      "file": "employment.html",
+      "type": "html"
+    },
+    {
+      "id": "mask-shop-usage",
+      "title": "Mask Shop Usage",
+      "file": "mask shop usage.html",
+      "type": "html"
+    },
+    {
+      "id": "number-of-participation",
+      "title": "Number Of Participation",
+      "file": "number of participation.html",
+      "type": "html"
+    }
+  ]
+}

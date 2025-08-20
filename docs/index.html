@@ -869,6 +869,56 @@
         
       </div>
       
+      <!-- Plot Viewer Section -->
+      <div class="mt-4">
+        <div class="accordion-header" id="plotViewerSection" style="cursor: pointer; padding: 0.75rem; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 0.5rem; margin-bottom: 1rem;">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="mb-1"><i class="bi bi-graph-up me-2"></i>Plot Viewer</h6>
+              <p class="text-muted small mb-0">Browse and view existing HTML plots</p>
+            </div>
+            <i class="bi bi-chevron-down" id="plotViewerIcon"></i>
+          </div>
+        </div>
+        <div class="accordion-content" id="plotViewerContent" style="display: none;">
+          <div id="plotViewerLoading" style="display: none; text-align: center; padding: 2rem; color: #6c757d;">
+            <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+            Loading available plots...
+          </div>
+          <div id="plotViewerError" style="display: none; text-align: center; padding: 2rem; color: #dc3545;">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            <span id="plotViewerErrorMessage">Failed to load plots</span>
+            <button class="btn btn-outline-secondary btn-sm ms-2" id="plotViewerRetry">Retry</button>
+          </div>
+          <div id="plotViewerControls" style="display: none;">
+            <div class="row mb-3">
+              <div class="col-md-6">
+                <label for="plotViewerSelect" class="form-label">Select a plot to view:</label>
+                <select class="form-select" id="plotViewerSelect">
+                  <option value="">Choose a plot...</option>
+                </select>
+              </div>
+              <div class="col-md-6 d-flex align-items-end">
+                <button class="btn btn-outline-secondary btn-sm me-2" id="plotViewerFullscreen">
+                  <i class="bi bi-fullscreen"></i> Fullscreen
+                </button>
+                <button class="btn btn-outline-secondary btn-sm" id="plotViewerNewWindow">
+                  <i class="bi bi-box-arrow-up-right"></i> New Window
+                </button>
+              </div>
+            </div>
+            <div id="plotViewerFrame" style="display: none;">
+              <iframe id="plotViewerIframe" style="width: 100%; height: 600px; border: 1px solid #dee2e6; border-radius: 0.5rem;" frameborder="0"></iframe>
+            </div>
+            <div id="plotViewerPlaceholder" style="text-align: center; padding: 4rem; color: #6c757d; border: 2px dashed #dee2e6; border-radius: 0.5rem;">
+              <i class="bi bi-graph-up" style="font-size: 3rem; display: block; margin-bottom: 1rem; opacity: 0.3;"></i>
+              <h6 style="margin-bottom: 0.5rem;">Select a plot to preview</h6>
+              <small>Choose from the dropdown above to view any available plot</small>
+            </div>
+          </div>
+        </div>
+      </div>
+      
       <!-- Python Plotly JSON Section -->
       <div class="mt-4">
         <div class="accordion-header" id="plotlyJsonSection" style="cursor: pointer; padding: 0.75rem; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 0.5rem; margin-bottom: 1rem;">
@@ -1190,6 +1240,64 @@ let inspectorSelectedField = null;
           template.classList.add('selected');
           // Enable add button
           if (btnAddInsightChart) btnAddInsightChart.disabled = false;
+        }
+      });
+    }
+
+    // Plot Viewer section handlers
+    const plotViewerSection = id('plotViewerSection');
+    const plotViewerContent = id('plotViewerContent');
+    const plotViewerIcon = id('plotViewerIcon');
+    
+    if (plotViewerSection && plotViewerContent && plotViewerIcon) {
+      plotViewerSection.addEventListener('click', () => {
+        const isHidden = plotViewerContent.style.display === 'none';
+        plotViewerContent.style.display = isHidden ? 'block' : 'none';
+        plotViewerIcon.className = isHidden ? 'bi bi-chevron-up' : 'bi bi-chevron-down';
+        
+        // Load manifest when section is expanded for the first time
+        if (isHidden && !plotViewerContent.dataset.loaded) {
+          if (window.PlotViewer) {
+            window.PlotViewer.loadManifest();
+            plotViewerContent.dataset.loaded = 'true';
+          }
+        }
+      });
+    }
+    
+    // Plot Viewer controls
+    const plotViewerSelect = id('plotViewerSelect');
+    if (plotViewerSelect) {
+      plotViewerSelect.addEventListener('change', (e) => {
+        if (window.PlotViewer) {
+          window.PlotViewer.selectPlot(e.target.value);
+        }
+      });
+    }
+    
+    const plotViewerRetry = id('plotViewerRetry');
+    if (plotViewerRetry) {
+      plotViewerRetry.addEventListener('click', () => {
+        if (window.PlotViewer) {
+          window.PlotViewer.loadManifest();
+        }
+      });
+    }
+    
+    const plotViewerFullscreen = id('plotViewerFullscreen');
+    if (plotViewerFullscreen) {
+      plotViewerFullscreen.addEventListener('click', () => {
+        if (window.PlotViewer) {
+          window.PlotViewer.openFullscreen();
+        }
+      });
+    }
+    
+    const plotViewerNewWindow = id('plotViewerNewWindow');
+    if (plotViewerNewWindow) {
+      plotViewerNewWindow.addEventListener('click', () => {
+        if (window.PlotViewer) {
+          window.PlotViewer.openNewWindow();
         }
       });
     }
