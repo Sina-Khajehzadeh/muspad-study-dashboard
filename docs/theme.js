@@ -223,6 +223,222 @@ function getThemeConfig() {
 // Hook for future theme switching (light/dark mode)
 window.dashboardTheme = THEME_CONFIG.currentTheme;
 
+/**
+ * Plot Viewer functionality for HTML plot gallery
+ * Handles manifest loading, plot selection, and iframe display
+ */
+const PlotViewer = {
+  manifest: null,
+  currentPlot: null,
+  
+  /**
+   * Load the plot manifest from assets/plots/manifest.json
+   */
+  async loadManifest() {
+    const loadingEl = document.getElementById('plotViewerLoading');
+    const errorEl = document.getElementById('plotViewerError');
+    const controlsEl = document.getElementById('plotViewerControls');
+    
+    if (!loadingEl || !errorEl || !controlsEl) return;
+    
+    // Show loading state
+    loadingEl.style.display = 'block';
+    errorEl.style.display = 'none';
+    controlsEl.style.display = 'none';
+    
+    try {
+      const response = await fetch('assets/plots/manifest.json');
+      if (!response.ok) {
+        throw new Error(`Failed to load manifest: ${response.status} ${response.statusText}`);
+      }
+      
+      this.manifest = await response.json();
+      
+      // Validate manifest structure
+      if (!this.manifest.charts || !Array.isArray(this.manifest.charts)) {
+        throw new Error('Invalid manifest format: missing charts array');
+      }
+      
+      this.populateDropdown();
+      this.handleURLParameter();
+      
+      // Show controls
+      loadingEl.style.display = 'none';
+      controlsEl.style.display = 'block';
+      
+    } catch (error) {
+      console.error('Error loading plot manifest:', error);
+      this.showError(error.message);
+    }
+  },
+  
+  /**
+   * Populate the dropdown with available plots
+   */
+  populateDropdown() {
+    const selectEl = document.getElementById('plotViewerSelect');
+    if (!selectEl || !this.manifest) return;
+    
+    // Clear existing options (keep the first "Choose a plot..." option)
+    selectEl.innerHTML = '<option value="">Choose a plot...</option>';
+    
+    // Add plots to dropdown
+    this.manifest.charts.forEach(chart => {
+      const option = document.createElement('option');
+      option.value = chart.file;
+      option.textContent = chart.title;
+      selectEl.appendChild(option);
+    });
+  },
+  
+  /**
+   * Handle URL parameter for deep linking (?plot=filename.html)
+   */
+  handleURLParameter() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const plotParam = urlParams.get('plot');
+    
+    if (plotParam) {
+      const selectEl = document.getElementById('plotViewerSelect');
+      if (selectEl) {
+        // Find matching option
+        const option = Array.from(selectEl.options).find(opt => opt.value === plotParam);
+        if (option) {
+          selectEl.value = plotParam;
+          this.selectPlot(plotParam);
+        }
+      }
+    }
+  },
+  
+  /**
+   * Select and display a plot
+   */
+  selectPlot(filename) {
+    if (!filename || !this.manifest) {
+      this.hidePlot();
+      return;
+    }
+    
+    const chart = this.manifest.charts.find(c => c.file === filename);
+    if (!chart) {
+      console.warn('Plot not found in manifest:', filename);
+      return;
+    }
+    
+    this.currentPlot = chart;
+    this.displayPlot(chart);
+    this.updateURL(filename);
+  },
+  
+  /**
+   * Display the selected plot in iframe
+   */
+  displayPlot(chart) {
+    const iframeEl = document.getElementById('plotViewerIframe');
+    const frameEl = document.getElementById('plotViewerFrame');
+    const placeholderEl = document.getElementById('plotViewerPlaceholder');
+    
+    if (!iframeEl || !frameEl || !placeholderEl) return;
+    
+    // Build plot URL using manifest basePath
+    const plotUrl = this.manifest.basePath + chart.file;
+    
+    // Update iframe source
+    iframeEl.src = plotUrl;
+    
+    // Show iframe, hide placeholder
+    frameEl.style.display = 'block';
+    placeholderEl.style.display = 'none';
+    
+    // Update iframe load handlers
+    iframeEl.onload = () => {
+      console.log('Plot loaded successfully:', chart.title);
+    };
+    
+    iframeEl.onerror = () => {
+      console.error('Failed to load plot:', chart.title);
+      this.showError(`Failed to load plot: ${chart.title}`);
+    };
+  },
+  
+  /**
+   * Hide the plot display
+   */
+  hidePlot() {
+    const frameEl = document.getElementById('plotViewerFrame');
+    const placeholderEl = document.getElementById('plotViewerPlaceholder');
+    const iframeEl = document.getElementById('plotViewerIframe');
+    
+    if (frameEl) frameEl.style.display = 'none';
+    if (placeholderEl) placeholderEl.style.display = 'block';
+    if (iframeEl) iframeEl.src = '';
+    
+    this.currentPlot = null;
+    this.updateURL('');
+  },
+  
+  /**
+   * Update URL with plot parameter
+   */
+  updateURL(filename) {
+    const url = new URL(window.location);
+    
+    if (filename) {
+      url.searchParams.set('plot', filename);
+    } else {
+      url.searchParams.delete('plot');
+    }
+    
+    // Update URL without reloading page
+    window.history.replaceState({}, '', url);
+  },
+  
+  /**
+   * Open current plot in fullscreen
+   */
+  openFullscreen() {
+    const iframeEl = document.getElementById('plotViewerIframe');
+    if (!iframeEl || !this.currentPlot) return;
+    
+    if (iframeEl.requestFullscreen) {
+      iframeEl.requestFullscreen();
+    } else if (iframeEl.webkitRequestFullscreen) {
+      iframeEl.webkitRequestFullscreen();
+    } else if (iframeEl.msRequestFullscreen) {
+      iframeEl.msRequestFullscreen();
+    }
+  },
+  
+  /**
+   * Open current plot in new window
+   */
+  openNewWindow() {
+    if (!this.currentPlot || !this.manifest) return;
+    
+    const plotUrl = this.manifest.basePath + this.currentPlot.file;
+    window.open(plotUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
+  },
+  
+  /**
+   * Show error message
+   */
+  showError(message) {
+    const loadingEl = document.getElementById('plotViewerLoading');
+    const errorEl = document.getElementById('plotViewerError');
+    const controlsEl = document.getElementById('plotViewerControls');
+    const messageEl = document.getElementById('plotViewerErrorMessage');
+    
+    if (loadingEl) loadingEl.style.display = 'none';
+    if (controlsEl) controlsEl.style.display = 'none';
+    if (errorEl) errorEl.style.display = 'block';
+    if (messageEl) messageEl.textContent = message;
+  }
+};
+
+// Make PlotViewer globally available
+window.PlotViewer = PlotViewer;
+
 // Export functions for use in chart creation
 if (typeof module !== 'undefined' && module.exports) {
   // Node.js/CommonJS
