@@ -60,7 +60,17 @@
     .date-range { display: flex; gap: .5rem; }
 
     /* Panels */
-    .panel { display: none; background: #f8f9fa; border-bottom: 1px solid #e1e1e1; padding: .75rem 1rem; overflow: auto; resize: both; position: relative; }
+    .panel { 
+      display: none; 
+      background: #f8f9fa; 
+      border-bottom: 1px solid #e1e1e1; 
+      padding: .75rem 1rem; 
+      resize: both; 
+      overflow: auto; 
+      position: relative;
+      min-width: 260px;
+      min-height: 180px;
+    }
     .panel.active { display: block; }
     .panel h5 { margin-bottom: .75rem; }
 
@@ -74,11 +84,11 @@
     }
     .card-chart {
       width: calc(50% - .5rem);
-      min-width: var(--card-min);
+      min-width: 260px;
       background: #fff; border: 1px solid #e1e1e1; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,.06);
       resize: both; overflow: auto; position: relative;
       display: flex; flex-direction: column;
-      min-height: 400px;
+      min-height: 220px;
     }
     .card-chart .card-header {
       flex: 0 0 auto;
@@ -137,6 +147,7 @@
         width: 95vw !important;
         max-width: 95vw !important;
         margin: 10px;
+        min-width: 280px;
       }
       
       #filters-panel > div[style*="grid-template-columns"] {
@@ -147,6 +158,47 @@
       #gf-field-list {
         min-width: auto;
       }
+      
+      /* Make panels stack better on mobile */
+      .panel {
+        min-width: 280px;
+        resize: vertical;
+      }
+      
+      /* Chart cards full width on mobile */
+      .card-chart {
+        width: 100% !important;
+        min-width: 280px !important;
+        position: relative !important;
+      }
+      
+      /* Responsive grid adjustments */
+      #grid {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 1rem !important;
+      }
+      
+      /* Data layout stacking */
+      #dataLayout {
+        flex-direction: column !important;
+      }
+      
+      #inspector {
+        margin-top: 1rem;
+        width: 100% !important;
+      }
+    }
+
+    /* Medium screens */
+    @media (max-width: 1024px) and (min-width: 769px) {
+      .card-chart {
+        min-width: 300px;
+      }
+      
+      #filters-panel {
+        min-width: 400px;
+      }
     }
 
    
@@ -155,6 +207,40 @@
     .data-preview-scroll {
       max-height: 520px;
       overflow-y: auto;
+    }
+
+    /* Resizable utility classes */
+    .resizable {
+      resize: both;
+      overflow: auto;
+      min-width: 260px;
+      min-height: 180px;
+      position: relative;
+    }
+    
+    /* Responsive image and figure utilities */
+    .auto-image,
+    figure img {
+      max-width: 100%;
+      height: auto;
+      object-fit: contain;
+    }
+    
+    /* Table container responsiveness */
+    .table-container {
+      width: 100%;
+      overflow-x: auto;
+    }
+    
+    .table-container table {
+      width: 100%;
+      min-width: max-content;
+    }
+
+    /* Plot containers */
+    .plot {
+      width: 100%;
+      min-height: 300px;
     }
 
     /* Resizable corner handle for visual cues */
@@ -595,7 +681,7 @@
 
         <div id="dataLayout">
           <!-- LEFT: data table -->
-          <div class="table-responsive" id="tableWrap"></div>
+          <div class="table-container table-responsive" id="tableWrap"></div>
 
           <!-- RIGHT: inspector -->
           <aside id="inspector" aria-label="Variable Inspector & Dataset Summary">
@@ -3980,7 +4066,17 @@ let inspectorSelectedField = null;
   }
 
   // ----------------------------
-  // Resize Observer for Auto-Resizing Plotly Charts
+  // Plot Viewer Resize Helper
+  // ----------------------------
+  function triggerPlotViewerResize() {
+    const wrapper = document.getElementById('plotViewerResponsiveWrapper');
+    if (wrapper && wrapper._updateScale) {
+      wrapper._updateScale();
+    }
+  }
+
+  // ----------------------------
+  // Enhanced Resize Observer for Auto-Resizing Plotly Charts
   // ----------------------------
   function initPlotlyResizeObserver() {
     if (!window.ResizeObserver) return; // Fallback for browsers without ResizeObserver
@@ -4023,6 +4119,35 @@ let inspectorSelectedField = null;
 
     // Initialize observation of existing plots
     observeExistingPlots();
+
+    // Add window resize listener to trigger Plotly resize for all charts
+    let windowResizeTimeout;
+    const handleWindowResize = () => {
+      clearTimeout(windowResizeTimeout);
+      windowResizeTimeout = setTimeout(() => {
+        // Resize all Plotly charts on window resize
+        document.querySelectorAll('.plot').forEach(plotEl => {
+          if (plotEl.children.length > 0) {
+            try {
+              Plotly.Plots.resize(plotEl);
+            } catch (e) {
+              console.warn('Error resizing Plotly chart on window resize:', e);
+            }
+          }
+        });
+        
+        // Also trigger resize for Plot Viewer iframe if visible
+        triggerPlotViewerResize();
+      }, 150);
+    };
+
+    window.addEventListener('resize', handleWindowResize);
+    
+    // Store the cleanup function globally
+    window.cleanupPlotlyResizeObserver = () => {
+      window.removeEventListener('resize', handleWindowResize);
+      resizeObserver.disconnect();
+    };
 
     return resizeObserver;
   }

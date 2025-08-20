@@ -448,7 +448,7 @@ const PlotViewer = {
   },
   
   /**
-   * Display the selected plot in iframe with exact dimensions
+   * Display the selected plot in iframe with responsive scaling
    */
   async displayPlot(chart) {
     const iframeEl = document.getElementById('plotViewerIframe');
@@ -480,15 +480,24 @@ const PlotViewer = {
       // Use intrinsic title if available, fallback to manifest title
       const displayTitle = plotInfo.title || chart.title;
       
-      // Create horizontal scroll container wrapper
-      const scrollContainer = document.createElement('div');
-      scrollContainer.style.cssText = `
+      // Create responsive wrapper container
+      const responsiveWrapper = document.createElement('div');
+      responsiveWrapper.id = 'plotViewerResponsiveWrapper';
+      responsiveWrapper.style.cssText = `
         width: 100%;
-        overflow-x: auto;
-        overflow-y: hidden;
+        position: relative;
         border: 1px solid #dee2e6;
         border-radius: 0.5rem;
         background: white;
+        overflow: hidden;
+      `;
+      
+      // Create scaling container
+      const scalingContainer = document.createElement('div');
+      scalingContainer.id = 'plotViewerScalingContainer';
+      scalingContainer.style.cssText = `
+        transform-origin: top left;
+        transition: transform 0.2s ease;
       `;
       
       // Set iframe to exact plot dimensions
@@ -505,16 +514,54 @@ const PlotViewer = {
       
       // Clear the frame and set up the structure
       frameEl.innerHTML = '';
-      frameEl.appendChild(scrollContainer);
-      scrollContainer.appendChild(iframeEl);
+      frameEl.appendChild(responsiveWrapper);
+      responsiveWrapper.appendChild(scalingContainer);
+      scalingContainer.appendChild(iframeEl);
+      
+      // Function to calculate and apply scaling
+      const updateScale = () => {
+        const wrapperRect = responsiveWrapper.getBoundingClientRect();
+        const wrapperWidth = wrapperRect.width;
+        const intrinsicWidth = plotInfo.width;
+        const intrinsicHeight = plotInfo.height;
+        
+        // Calculate scale to fit width (don't upscale beyond 100%)
+        const scale = Math.min(wrapperWidth / intrinsicWidth, 1);
+        
+        // Apply scaling transform
+        scalingContainer.style.transform = `scale(${scale})`;
+        
+        // Set wrapper height to scaled height to prevent clipping
+        responsiveWrapper.style.height = `${intrinsicHeight * scale}px`;
+      };
+      
+      // Store plot info for resize handling
+      responsiveWrapper._plotInfo = plotInfo;
+      responsiveWrapper._updateScale = updateScale;
       
       // Show iframe, hide placeholder
       frameEl.style.display = 'block';
       placeholderEl.style.display = 'none';
       
+      // Apply initial scaling
+      setTimeout(updateScale, 100); // Allow DOM to settle
+      
+      // Set up ResizeObserver for the wrapper
+      if (window.ResizeObserver) {
+        const resizeObserver = new ResizeObserver(() => {
+          updateScale();
+        });
+        resizeObserver.observe(responsiveWrapper);
+        
+        // Store observer for cleanup
+        responsiveWrapper._resizeObserver = resizeObserver;
+      }
+      
       // Update iframe load handlers
       iframeEl.onload = () => {
         console.log('Plot loaded successfully:', displayTitle, `(${plotInfo.width}x${plotInfo.height}px)`);
+        // Ensure scaling is applied after load
+        setTimeout(updateScale, 50);
       };
       
       iframeEl.onerror = () => {
@@ -535,6 +582,13 @@ const PlotViewer = {
     const frameEl = document.getElementById('plotViewerFrame');
     const placeholderEl = document.getElementById('plotViewerPlaceholder');
     const iframeEl = document.getElementById('plotViewerIframe');
+    
+    // Clean up ResizeObserver if it exists
+    const wrapper = document.getElementById('plotViewerResponsiveWrapper');
+    if (wrapper && wrapper._resizeObserver) {
+      wrapper._resizeObserver.disconnect();
+      wrapper._resizeObserver = null;
+    }
     
     if (frameEl) frameEl.style.display = 'none';
     if (placeholderEl) placeholderEl.style.display = 'block';
