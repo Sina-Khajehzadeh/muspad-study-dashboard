@@ -11,12 +11,18 @@
   
   <!-- Dashboard Theme -->
   <link href="theme.css" rel="stylesheet">
+  
+  <!-- Responsive Charts CSS -->
+  <link href="assets/responsive-charts.css" rel="stylesheet">
 
   <!-- Plotly.js for charts -->
   <script src="https://cdn.plot.ly/plotly-2.25.2.min.js"></script>
   
   <!-- Dashboard Theme -->
   <script src="theme.js"></script>
+  
+  <!-- Responsive Charts JS -->
+  <script src="assets/plotly-responsive.js"></script>
 
   <!-- Tiny inline favicon to match main dashboard -->
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64'%3E%3Crect width='64' height='64' fill='%23007bff'/%3E%3Ctext x='50%25' y='54%25' font-size='42' text-anchor='middle' fill='white'%3EM%3C/text%3E%3C/svg%3E"/>
@@ -220,8 +226,12 @@
       
       // Ensure the plot element is being observed by ResizeObserver
       const plotEl = document.getElementById(containerId);
-      if (window.plotlyResizeObserver && plotEl && plotEl.classList.contains('plot')) {
-        window.plotlyResizeObserver.observe(plotEl);
+      if (plotEl && plotEl.classList.contains('plot')) {
+        if (window.PlotlyResponsive) {
+          window.PlotlyResponsive.observeNewPlot(plotEl);
+        } else if (window.plotlyResizeObserver) {
+          window.plotlyResizeObserver.observe(plotEl);
+        }
       }
     }
 
@@ -290,84 +300,36 @@
       });
     }
 
-    /**
-     * Enhanced ResizeObserver for responsive Plotly charts
-     */
-    function initPlotlyResizeObserver() {
-      if (!window.ResizeObserver) return; // Fallback for browsers without ResizeObserver
-
-      const resizeObserver = new ResizeObserver((entries) => {
-        entries.forEach((entry) => {
-          const plotElement = entry.target;
-          // Check if this is a plot element that contains a Plotly chart
-          if (plotElement.classList.contains('plot') && plotElement.children.length > 0) {
-            // Debounce the resize to avoid excessive redraws
-            clearTimeout(plotElement._resizeTimeout);
-            plotElement._resizeTimeout = setTimeout(() => {
-              try {
-                Plotly.Plots.resize(plotElement);
-              } catch (e) {
-                console.warn('Error resizing Plotly chart:', e);
-              }
-            }, 100);
-          }
-        });
-      });
-
-      // Store globally for access
-      window.plotlyResizeObserver = resizeObserver;
-
-      // Observe all existing plot elements
-      const observeExistingPlots = () => {
-        document.querySelectorAll('.plot').forEach(plotEl => {
-          resizeObserver.observe(plotEl);
-        });
-      };
-
-      // Initialize observation of existing plots
-      observeExistingPlots();
-
-      // Add window resize listener to trigger Plotly resize for all charts
-      let windowResizeTimeout;
-      const handleWindowResize = () => {
-        clearTimeout(windowResizeTimeout);
-        windowResizeTimeout = setTimeout(() => {
-          // Resize all Plotly charts on window resize
-          document.querySelectorAll('.plot').forEach(plotEl => {
-            if (plotEl.children.length > 0) {
-              try {
-                Plotly.Plots.resize(plotEl);
-              } catch (e) {
-                console.warn('Error resizing Plotly chart on window resize:', e);
-              }
-            }
-          });
-        }, 150);
-      };
-
-      window.addEventListener('resize', handleWindowResize);
-      
-      // Store the cleanup function globally
-      window.cleanupPlotlyResizeObserver = () => {
-        window.removeEventListener('resize', handleWindowResize);
-        resizeObserver.disconnect();
-      };
-
-      return resizeObserver;
-    }
+    // Note: Enhanced ResizeObserver moved to assets/plotly-responsive.js
 
     // Initialize charts when page loads
     document.addEventListener('DOMContentLoaded', function() {
       // Check if theme is loaded
       if (window.DashboardTheme && window.DashboardTheme.getBaseLayout) {
         createDemoCharts();
-        // Initialize resize observer after charts are created
-        setTimeout(initPlotlyResizeObserver, 500);
+        // Initialize responsive behavior with shared utilities
+        if (window.PlotlyResponsive) {
+          window.PlotlyResponsive.init();
+        } else {
+          setTimeout(() => {
+            if (window.PlotlyResponsive) {
+              window.PlotlyResponsive.init();
+            }
+          }, 100);
+        }
       } else {
         // Fallback if theme isn't loaded yet
         setTimeout(() => {
           createDemoCharts();
-          setTimeout(initPlotlyResizeObserver, 500);
+          if (window.PlotlyResponsive) {
+            window.PlotlyResponsive.init();
+          } else {
+            setTimeout(() => {
+              if (window.PlotlyResponsive) {
+                window.PlotlyResponsive.init();
+              }
+            }, 100);
+          }
         }, 100);
       }
     });

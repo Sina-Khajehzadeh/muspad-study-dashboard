@@ -1,0 +1,202 @@
+/**
+ * Responsive Charts CSS - Shared styles for responsive behavior
+ * Makes charts, tables, images, and other content responsive across the dashboard
+ */
+
+/* Plotly container responsiveness */
+.plot,
+.plotly-graph-div,
+div[id*="plotly"] {
+  width: 100% !important;
+  max-width: 100%;
+}
+
+/* Ensure Plotly charts fill their containers */
+.js-plotly-plot,
+.plotly {
+  width: 100% !important;
+  height: auto !important;
+}
+
+/* Responsive tables */
+.table-responsive {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table-responsive table {
+  min-width: 600px; /* Minimum width for readability */
+}
+
+/* Make images responsive */
+img,
+svg,
+canvas {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Responsive iframes for plot viewer */
+.plot-viewer-iframe,
+iframe[src*="plots/"] {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Responsive grid containers */
+.chart-grid,
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(var(--card-min, 400px), 1fr));
+  gap: 1rem;
+}
+
+/* Ensure chart cards are responsive */
+.chart-card,
+.plot-card {
+  width: 100%;
+  min-width: 0; /* Allow shrinking */
+  overflow: hidden;
+}
+
+.chart-card .plot,
+.plot-card .plot {
+  width: 100%;
+  height: auto;
+  min-height: 300px;
+}
+
+/* Responsive modal content */
+.modal-dialog {
+  max-width: 95vw;
+}
+
+.modal-body .plot {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Plot viewer specific styles */
+#plotViewerResponsiveWrapper {
+  width: 100% !important;
+  position: relative;
+  overflow: hidden;
+}
+
+#plotViewerScalingContainer {
+  transform-origin: top left;
+  transition: transform 0.2s ease;
+}
+
+/* Responsive behavior for split panes */
+.pane-content {
+  width: 100%;
+  overflow: hidden;
+}
+
+.pane-content .plot {
+  width: 100%;
+  height: auto;
+}
+
+/* Responsive filters panel */
+#filters-panel {
+  min-width: 300px;
+  max-width: 50vw;
+}
+
+/* Media queries for different screen sizes */
+@media (max-width: 768px) {
+  .chart-grid,
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  #filters-panel {
+    max-width: 90vw;
+  }
+  
+  .modal-dialog {
+    margin: 0.5rem;
+    max-width: calc(100vw - 1rem);
+  }
+}
+
+@media (max-width: 576px) {
+  .chart-card .plot,
+  .plot-card .plot {
+    min-height: 250px;
+  }
+  
+  .table-responsive table {
+    min-width: 500px;
+  }
+}
+
+/* High DPI displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .plot svg,
+  .plotly-graph-div svg {
+    shape-rendering: geometricPrecision;
+  }
+}
+
+/* Container queries support (where available) */
+@supports (container-type: inline-size) {
+  .chart-container {
+    container-type: inline-size;
+  }
+  
+  @container (max-width: 400px) {
+    .chart-card .plot {
+      min-height: 200px;
+    }
+  }
+}
+
+/* Utility classes for responsive behavior */
+.responsive-container {
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.responsive-content {
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+}
+
+.force-responsive {
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto !important;
+}
+
+/* Specific fixes for exported Plotly HTML files */
+body > div[id*="plotly"] {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* Ensure proper scaling in iframes */
+html, body {
+  overflow-x: hidden;
+}
+
+/* Animation for smooth resizing */
+.plot,
+.plotly-graph-div {
+  transition: width 0.2s ease, height 0.2s ease;
+}
+
+/* Hide scrollbars during transitions to prevent flicker */
+.resizing {
+  overflow: hidden !important;
+}
+
+.resizing * {
+  pointer-events: none;
+}
