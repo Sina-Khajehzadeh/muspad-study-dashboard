@@ -4911,13 +4911,13 @@ let inspectorSelectedField = null;
         <div class="spinner-border spinner-border-sm" role="status" style="margin-bottom: 1rem;">
           <span class="visually-hidden">Loading...</span>
         </div>
-        <small>Loading plot with exact dimensions...</small>
+        <small>Loading responsive plot...</small>
       </div>
     `;
 
     try {
-      // Use PlotViewer utility if available to get exact dimensions
-      let plotInfo = { width: 800, height: 400, title: cfg.title };
+      // Use PlotViewer utility if available to get title information
+      let plotInfo = { title: cfg.title };
       
       if (window.PlotViewer && window.PlotViewer.fetchPlotInfo) {
         plotInfo = await window.PlotViewer.fetchPlotInfo(cfg.plotUrl);
@@ -4926,35 +4926,43 @@ let inspectorSelectedField = null;
       // Use intrinsic title if available, fallback to config title
       const displayTitle = plotInfo.title || cfg.title;
       
-      // Calculate appropriate height for insights panel (max 500px to fit well)
-      const maxHeight = 500;
-      const actualHeight = Math.min(plotInfo.height, maxHeight);
-      const needsVerticalScroll = plotInfo.height > maxHeight;
-      
-      // Create horizontal and vertical scroll container
-      const scrollStyle = `
+      // Create responsive container and iframe
+      const container = document.createElement('div');
+      container.style.cssText = `
         width: 100%;
-        height: ${actualHeight}px;
-        overflow-x: auto;
-        overflow-y: ${needsVerticalScroll ? 'auto' : 'hidden'};
         border: 1px solid #dee2e6;
         border-radius: 0.5rem;
         background: white;
+        overflow: hidden;
       `;
       
-      // Create iframe to display the plot with exact dimensions
-      el.innerHTML = `
-        <div style="${scrollStyle}">
-          <iframe 
-            src="${cfg.plotUrl}" 
-            style="width: ${plotInfo.width}px; height: ${plotInfo.height}px; border: none; display: block;" 
-            frameborder="0"
-            title="${displayTitle}">
-          </iframe>
-        </div>
+      const iframe = document.createElement('iframe');
+      iframe.src = cfg.plotUrl;
+      iframe.style.cssText = `
+        width: 100%;
+        height: 400px;
+        border: none;
+        display: block;
       `;
+      iframe.setAttribute('frameborder', '0');
+      iframe.setAttribute('title', displayTitle);
       
-      console.log(`Rendered plot iframe: ${displayTitle} (${plotInfo.width}x${plotInfo.height}px)`);
+      // Set up onload handler for responsive injection
+      iframe.onload = () => {
+        if (window.PlotIframeTools) {
+          window.PlotIframeTools.injectIntoIframe(iframe);
+          window.PlotIframeTools.autoSize(iframe);
+          window.PlotIframeTools.bindAutoSize(iframe);
+        }
+      };
+      
+      container.appendChild(iframe);
+      
+      // Replace loading content
+      el.innerHTML = '';
+      el.appendChild(container);
+      
+      console.log(`Rendered responsive plot iframe: ${displayTitle}`);
       
     } catch (error) {
       console.error('Error rendering plot iframe:', error);

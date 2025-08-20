@@ -480,13 +480,13 @@ const PlotViewer = {
     placeholderEl.style.display = 'block';
     
     try {
-      // Fetch plot information to get exact dimensions
+      // Fetch plot information for title
       const plotInfo = await this.fetchPlotInfo(plotUrl);
       
       // Use intrinsic title if available, fallback to manifest title
       const displayTitle = plotInfo.title || chart.title;
       
-      // Create responsive wrapper container
+      // Create responsive wrapper container (simplified - no scaling container needed)
       const responsiveWrapper = document.createElement('div');
       responsiveWrapper.id = 'plotViewerResponsiveWrapper';
       responsiveWrapper.style.cssText = `
@@ -498,19 +498,11 @@ const PlotViewer = {
         overflow: hidden;
       `;
       
-      // Create scaling container
-      const scalingContainer = document.createElement('div');
-      scalingContainer.id = 'plotViewerScalingContainer';
-      scalingContainer.style.cssText = `
-        transform-origin: top left;
-        transition: transform 0.2s ease;
-      `;
-      
-      // Set iframe to exact plot dimensions
+      // Set iframe to be responsive
       iframeEl.src = plotUrl;
       iframeEl.style.cssText = `
-        width: ${plotInfo.width}px;
-        height: ${plotInfo.height}px;
+        width: 100%;
+        height: 600px;
         border: none;
         display: block;
         margin: 0;
@@ -518,62 +510,25 @@ const PlotViewer = {
       `;
       iframeEl.setAttribute('title', displayTitle);
       
-      // Clear the frame and set up the structure
+      // Clear the frame and set up the structure (simplified)
       frameEl.innerHTML = '';
       frameEl.appendChild(responsiveWrapper);
-      responsiveWrapper.appendChild(scalingContainer);
-      scalingContainer.appendChild(iframeEl);
-      
-      // Function to calculate and apply scaling
-      const updateScale = () => {
-        const wrapperRect = responsiveWrapper.getBoundingClientRect();
-        const wrapperWidth = wrapperRect.width;
-        const intrinsicWidth = plotInfo.width;
-        const intrinsicHeight = plotInfo.height;
-        
-        // Calculate scale to fit width (don't upscale beyond 100%)
-        const scale = Math.min(wrapperWidth / intrinsicWidth, 1);
-        
-        // Apply scaling transform
-        scalingContainer.style.transform = `scale(${scale})`;
-        
-        // Set wrapper height to scaled height to prevent clipping
-        responsiveWrapper.style.height = `${intrinsicHeight * scale}px`;
-      };
-      
-      // Store plot info for resize handling
-      responsiveWrapper._plotInfo = plotInfo;
-      responsiveWrapper._updateScale = updateScale;
+      responsiveWrapper.appendChild(iframeEl);
       
       // Show iframe, hide placeholder
       frameEl.style.display = 'block';
       placeholderEl.style.display = 'none';
       
-      // Apply initial scaling
-      setTimeout(updateScale, 100); // Allow DOM to settle
-      
-      // Set up ResizeObserver for the wrapper
-      if (window.ResizeObserver) {
-        const resizeObserver = new ResizeObserver(() => {
-          updateScale();
-        });
-        resizeObserver.observe(responsiveWrapper);
-        
-        // Store observer for cleanup
-        responsiveWrapper._resizeObserver = resizeObserver;
-      }
-      
       // Update iframe load handlers
       iframeEl.onload = () => {
-        console.log('Plot loaded successfully:', displayTitle, `(${plotInfo.width}x${plotInfo.height}px)`);
+        console.log('Plot loaded successfully:', displayTitle);
         
-        // Inject responsive assets into the iframe
-        if (window.PlotlyResponsive) {
-          window.PlotlyResponsive.injectIntoIframe(iframeEl);
+        // Inject responsive behavior into the iframe
+        if (window.PlotIframeTools) {
+          window.PlotIframeTools.injectIntoIframe(iframeEl);
+          window.PlotIframeTools.autoSize(iframeEl);
+          window.PlotIframeTools.bindAutoSize(iframeEl);
         }
-        
-        // Ensure scaling is applied after load
-        setTimeout(updateScale, 50);
       };
       
       iframeEl.onerror = () => {
@@ -595,11 +550,10 @@ const PlotViewer = {
     const placeholderEl = document.getElementById('plotViewerPlaceholder');
     const iframeEl = document.getElementById('plotViewerIframe');
     
-    // Clean up ResizeObserver if it exists
-    const wrapper = document.getElementById('plotViewerResponsiveWrapper');
-    if (wrapper && wrapper._resizeObserver) {
-      wrapper._resizeObserver.disconnect();
-      wrapper._resizeObserver = null;
+    // Clean up auto-size bindings if they exist
+    if (iframeEl && iframeEl._autoSizeCleanup) {
+      iframeEl._autoSizeCleanup();
+      iframeEl._autoSizeCleanup = null;
     }
     
     if (frameEl) frameEl.style.display = 'none';
@@ -671,6 +625,203 @@ const PlotViewer = {
     if (messageEl) messageEl.textContent = message;
   }
 };
+
+/**
+ * PlotIframeTools - Utilities for responsive iframe plot handling
+ */
+const PlotIframeTools = {
+  /**
+   * Inject minimal self-contained CSS+JS snippet into iframe for responsive behavior
+   * @param {HTMLIFrameElement} iframeElement - The iframe to inject into
+   */
+  injectIntoIframe(iframeElement) {
+    try {
+      const iframeDoc = iframeElement.contentDocument || iframeElement.contentWindow.document;
+      if (!iframeDoc) return;
+
+      // Wait for iframe document to be ready
+      const injectAssets = () => {
+        // Inject minimal responsive CSS
+        const style = iframeDoc.createElement('style');
+        style.textContent = `
+          html, body {
+            margin: 0;
+            padding: 0;
+            width: 100% !important;
+            height: auto !important;
+            overflow: hidden;
+          }
+          .plotly-graph-div {
+            width: 100% !important;
+            height: auto !important;
+          }
+        `;
+        iframeDoc.head.appendChild(style);
+
+        // Inject self-contained responsive script
+        const script = iframeDoc.createElement('script');
+        script.textContent = `
+          (function() {
+            if (!window.Plotly || !window.ResizeObserver) return;
+            
+            // Function to make plots responsive
+            function makeResponsive() {
+              document.querySelectorAll('.plotly-graph-div').forEach(plotEl => {
+                try {
+                  // Remove fixed dimensions from layout
+                  if (plotEl._fullLayout) {
+                    delete plotEl._fullLayout.width;
+                    delete plotEl._fullLayout.height;
+                    plotEl._fullLayout.autosize = true;
+                  }
+                  if (plotEl.layout) {
+                    delete plotEl.layout.width;
+                    delete plotEl.layout.height;
+                    plotEl.layout.autosize = true;
+                  }
+                  
+                  // Trigger resize
+                  window.Plotly.Plots.resize(plotEl);
+                } catch (e) {
+                  console.warn('Error making plot responsive:', e);
+                }
+              });
+            }
+            
+            // Debounced resize handler
+            let resizeTimeout;
+            function handleResize() {
+              clearTimeout(resizeTimeout);
+              resizeTimeout = setTimeout(makeResponsive, 50);
+            }
+            
+            // Set up ResizeObserver for body changes
+            const resizeObserver = new ResizeObserver(handleResize);
+            resizeObserver.observe(document.body);
+            
+            // Listen for window resize
+            window.addEventListener('resize', handleResize);
+            
+            // Listen for parent pane resize messages
+            window.addEventListener('message', function(event) {
+              if (event.data && event.data.type === 'pane:resized') {
+                handleResize();
+              }
+            });
+            
+            // Initial setup
+            makeResponsive();
+          })();
+        `;
+        iframeDoc.head.appendChild(script);
+      };
+
+      // Execute when iframe content is ready
+      if (iframeDoc.readyState === 'complete') {
+        injectAssets();
+      } else {
+        iframeDoc.addEventListener('DOMContentLoaded', injectAssets);
+        iframeElement.addEventListener('load', injectAssets);
+      }
+
+    } catch (e) {
+      console.warn('Error injecting responsive assets into iframe:', e);
+    }
+  },
+
+  /**
+   * Auto-size iframe height to match its content
+   * @param {HTMLIFrameElement} iframeElement - The iframe to resize
+   */
+  autoSize(iframeElement) {
+    try {
+      const iframeDoc = iframeElement.contentDocument || iframeElement.contentWindow.document;
+      if (!iframeDoc) return;
+
+      const body = iframeDoc.body;
+      const html = iframeDoc.documentElement;
+      
+      // Get the actual content height
+      const contentHeight = Math.max(
+        body.scrollHeight, body.offsetHeight,
+        html.clientHeight, html.scrollHeight, html.offsetHeight
+      );
+
+      // Set iframe height to content height, with a reasonable max
+      const maxHeight = 600;
+      const finalHeight = Math.min(contentHeight, maxHeight);
+      iframeElement.style.height = finalHeight + 'px';
+      
+    } catch (e) {
+      console.warn('Error auto-sizing iframe:', e);
+    }
+  },
+
+  /**
+   * Bind auto-sizing to keep iframe height in sync with content changes
+   * @param {HTMLIFrameElement} iframeElement - The iframe to bind auto-sizing to
+   */
+  bindAutoSize(iframeElement) {
+    try {
+      const iframeDoc = iframeElement.contentDocument || iframeElement.contentWindow.document;
+      if (!iframeDoc || !window.ResizeObserver) return;
+
+      // Debounced auto-size function
+      let resizeTimeout;
+      const debouncedAutoSize = () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => this.autoSize(iframeElement), 100);
+      };
+
+      // Observe content changes
+      const resizeObserver = new ResizeObserver(debouncedAutoSize);
+      resizeObserver.observe(iframeDoc.body);
+
+      // Listen for window resize
+      window.addEventListener('resize', debouncedAutoSize);
+      window.addEventListener('pane:resized', debouncedAutoSize);
+
+      // Store cleanup function
+      iframeElement._autoSizeCleanup = () => {
+        resizeObserver.disconnect();
+        window.removeEventListener('resize', debouncedAutoSize);
+        window.removeEventListener('pane:resized', debouncedAutoSize);
+      };
+
+      // Initial auto-size
+      setTimeout(() => this.autoSize(iframeElement), 100);
+
+    } catch (e) {
+      console.warn('Error binding auto-size to iframe:', e);
+    }
+  },
+
+  /**
+   * Send pane resize notification to iframe content
+   * @param {HTMLIFrameElement} iframeElement - The iframe to notify
+   */
+  notifyPaneResized(iframeElement) {
+    try {
+      const iframeWindow = iframeElement.contentWindow;
+      if (iframeWindow) {
+        iframeWindow.postMessage({ type: 'pane:resized' }, '*');
+      }
+    } catch (e) {
+      console.warn('Error notifying iframe of pane resize:', e);
+    }
+  }
+};
+
+// Make PlotIframeTools globally available
+window.PlotIframeTools = PlotIframeTools;
+
+// Set up global pane resize listener to notify all iframes
+window.addEventListener('pane:resized', () => {
+  // Find all iframes and notify them of the resize
+  document.querySelectorAll('iframe').forEach(iframe => {
+    PlotIframeTools.notifyPaneResized(iframe);
+  });
+});
 
 // Make PlotViewer globally available
 window.PlotViewer = PlotViewer;
