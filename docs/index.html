@@ -804,10 +804,7 @@
           <select id="fldYCat" class="form-select"></select>
         </div>
 
-        <div data-role="needsColor">
-          <label class="form-label">Color / Group (optional)</label>
-          <select id="fldColor" class="form-select"></select>
-        </div>
+
 
         <div data-role="needsAgg">
           <label class="form-label">Aggregation</label>
@@ -1222,7 +1219,6 @@ let inspectorSelectedField = null;
           y:       id('fldY')?.value || null,
           y2:      id('fldY2')?.value || null,
           yCat:    id('fldYCat')?.value || null,
-          color:   id('fldColor')?.value || null,
           size:    id('fldSize')?.value || null,
           agg:     id('fldAgg')?.value || 'count',
           dualAxis:    id('chkDualAxis')?.checked || false,
@@ -1353,7 +1349,7 @@ let inspectorSelectedField = null;
     }
     
     // Wire up field changes to update transformation summary
-    ['fldX', 'fldY', 'fldColor', 'fldXBins', 'fldXPeriod', 'fldXOrder'].forEach(id => {
+    ['fldX', 'fldY', 'fldXBins', 'fldXPeriod', 'fldXOrder'].forEach(id => {
       const el = document.getElementById(id);
       if (el) {
         el.addEventListener('change', () => {
@@ -1413,7 +1409,6 @@ let inspectorSelectedField = null;
     // Show/hide fields based on chart type
     show('[data-role="needsNumeric"]', !['pie','heatmap','pivot','datatable','funnel','histogram'].includes(type));
     show('[data-role="needsAgg"]', !['scatter','bubble','box','datatable','pivot','histogram'].includes(type));
-    show('[data-role="needsColor"]', ['bar','line','scatter','bubble','box','barline','histogram'].includes(type));
     show('[data-role="needsSecondCat"]', ['heatmap','pivot'].includes(type));
     show('[data-role="needsY2"]', type === 'barline');
     show('[data-role="needsSize"]', type === 'bubble');
@@ -2566,11 +2561,11 @@ let inspectorSelectedField = null;
   }
 
   function populateBuilderSelects() {
-    const xSel = id('fldX'), ySel = id('fldY'), cSel = id('fldColor');
+    const xSel = id('fldX'), ySel = id('fldY');
     const y2Sel = id('fldY2'), yCatSel = id('fldYCat'), sizeSel = id('fldSize');
 
     // Clear all selects
-    [xSel, ySel, y2Sel, yCatSel, sizeSel, cSel].forEach(s => {
+    [xSel, ySel, y2Sel, yCatSel, sizeSel].forEach(s => {
       if (s) s.innerHTML = '';
     });
 
@@ -2654,7 +2649,6 @@ let inspectorSelectedField = null;
     // Populate all selects with optgroups
     populateSelectWithOptgroups(xSel, true);
     populateSelectWithOptgroups(ySel, true);
-    populateSelectWithOptgroups(cSel, true);
     populateSelectWithOptgroups(y2Sel, true);
     populateSelectWithOptgroups(yCatSel, true);
     populateSelectWithOptgroups(sizeSel, true);
@@ -2670,7 +2664,6 @@ let inspectorSelectedField = null;
     const type = id('fldType')?.value;
     const xField = id('fldX')?.value;
     const yField = id('fldY')?.value;
-    const colorField = id('fldColor')?.value;
     
     if (!type || !xField) {
       summaryEl.textContent = 'Select chart type and X field to see transformation details.';
@@ -2679,7 +2672,6 @@ let inspectorSelectedField = null;
     
     const xType = getColumnType(xField);
     const yType = yField ? getColumnType(yField) : null;
-    const colorType = colorField ? getColumnType(colorField) : null;
     
     let summary = [];
     
@@ -2743,17 +2735,6 @@ let inspectorSelectedField = null;
         } else {
           summary.push(`Y → ${agg}(${yField})`);
         }
-      }
-    }
-    
-    // Color transformations
-    if (colorField) {
-      if (colorType === 'categorical') {
-        summary.push(`Color → split series by ${colorField}`);
-      } else if (colorType === 'numeric' && ['scatter', 'bubble'].includes(type)) {
-        summary.push(`Color → continuous scale (${colorField})`);
-      } else if (colorType === 'numeric') {
-        summary.push(`Color → quantile groups (${colorField})`);
       }
     }
     
@@ -3440,143 +3421,122 @@ let inspectorSelectedField = null;
     
     const xField = cfg.x;
     const xType = getColumnType(xField);
-    const colorField = cfg.color;
-    const colorType = colorField ? getColumnType(colorField) : null;
     
-    // Group data by X and optionally by color
-    const groupBy = (rows, keys) => {
+    // Utility function to group data by X values
+    const groupBy = (rows, keyFunc) => {
       const map = new Map();
       for (const r of rows) {
-        const key = keys.map(k => String(r[k] || '')).join('¦');
+        const key = keyFunc(r);
         if (!map.has(key)) map.set(key, []);
         map.get(key).push(r);
       }
-      return { map, keys };
+      return map;
     };
     
+    // Robust aggregation function
     const agg = (rows) => {
       if (cfg.agg === 'count') return rows.length;
       if (!cfg.y) return rows.length;
-      const vals = rows.map(r => +r[cfg.y]).filter(v => !Number.isNaN(v));
+      
+      // Robust numeric coercion for Y values
+      const vals = rows.map(r => {
+        const val = r[cfg.y];
+        if (val === null || val === undefined || val === '') return NaN;
+        const num = Number(val);
+        return isFinite(num) ? num : NaN;
+      }).filter(v => !isNaN(v));
+      
       if (!vals.length) return 0;
-      if (cfg.agg === 'sum') return vals.reduce((a,b)=>a+b,0);
-      return vals.reduce((a,b)=>a+b,0) / vals.length; // mean
+      if (cfg.agg === 'sum') return vals.reduce((a,b) => a + b, 0);
+      return vals.reduce((a,b) => a + b, 0) / vals.length; // mean
     };
     
     if (xType === 'categorical') {
-      // Standard categorical bars
-      const by = colorField ? [xField, colorField] : [xField];
-      const g = groupBy(data, by);
-      const xs = new Set(), colors = new Set();
+      // Simple categorical bars - group by X field only
+      const groups = groupBy(data, r => String(r[xField] || '(empty)'));
+      const xArr = Array.from(groups.keys());
       
-      for (const k of g.map.keys()) {
-        const parts = k.split('¦'); 
-        xs.add(parts[0]); 
-        if (colorField) colors.add(parts[1] || '(empty)');
-      }
-      
-      const xArr = Array.from(xs);
-      const colorArr = colorField ? Array.from(colors) : [null];
-      
-      // Apply categorical ordering
+      // Apply categorical ordering for deterministic results
       if (cfg.xOrder === 'frequency_desc' || cfg.xOrder === 'frequency_asc') {
         const counts = {};
         xArr.forEach(x => {
-          const rows = Array.from(g.map.entries())
-            .filter(([k]) => k.split('¦')[0] === x)
-            .flatMap(([,rows]) => rows);
-          counts[x] = rows.length;
+          counts[x] = groups.get(x).length;
         });
         xArr.sort((a, b) => cfg.xOrder === 'frequency_desc' ? 
           counts[b] - counts[a] : counts[a] - counts[b]);
       } else {
-        xArr.sort();
+        // Stable alphabetical sort for reproducibility
+        xArr.sort((a, b) => String(a).localeCompare(String(b)));
       }
       
-      for (const cval of colorArr) {
-        const y = xArr.map(xv => {
-          const actualCval = cval === '(empty)' ? '' : cval;
-          const key = colorField ? [xv, actualCval].join('¦') : String(xv);
-          return agg(g.map.get(key) || []);
-        });
-        fig.data.push({ x: xArr, y, type: 'bar', name: cval ?? 'value' });
-      }
+      const y = xArr.map(xv => agg(groups.get(xv) || []));
       
-      fig.layout.barmode = colorField ? 'group' : 'stack';
+      fig.data.push({ 
+        x: xArr, 
+        y, 
+        type: 'bar', 
+        name: cfg.y ? `${cfg.agg}(${cfg.y})` : 'Count'
+      });
+      
       fig.layout.xaxis = { title: xField };
       
     } else if (xType === 'numeric' || xType === 'date') {
       // Auto-bin numeric/date X, then aggregate Y within bins
       let binData;
       if (xType === 'numeric') {
-        const xVals = data.map(r => r[xField]).filter(v => typeof v === 'number' && !isNaN(v));
+        const xVals = data.map(r => r[xField])
+          .filter(v => typeof v === 'number' && isFinite(v));
         binData = binNumeric(xVals, cfg.xBins || 30);
       } else {
         const xVals = data.map(r => r[xField]).filter(v => v != null);
         binData = binDates(xVals, cfg.xPeriod || 'month');
       }
       
-      if (colorField && colorType === 'categorical') {
-        // Split by color categories
-        const colorVals = [...new Set(data.map(r => r[colorField] || '(empty)'))];
-        
-        for (const colorVal of colorVals) {
-          const colorRows = data.filter(r => (r[colorField] || '(empty)') === colorVal);
-          
-          let y;
-          if (xType === 'numeric') {
-            y = binData.bins.map(binCenter => {
-              const binMin = binCenter - binData.binWidth / 2;
-              const binMax = binCenter + binData.binWidth / 2;
-              const binRows = colorRows.filter(r => {
-                const xVal = r[xField];
-                return typeof xVal === 'number' && !isNaN(xVal) && xVal >= binMin && xVal < binMax;
-              });
-              return agg(binRows);
-            });
-          } else {
-            y = binData.labels.map(label => {
-              const binRows = colorRows.filter(r => {
-                const period = cfg.xPeriod || 'month';
-                const d = new Date(r[xField]);
-                if (isNaN(d)) return false;
-                
-                let key;
-                const year = d.getUTCFullYear();
-                const month = String(d.getUTCMonth() + 1).padStart(2, '0');
-                
-                switch (period) {
-                  case 'day': key = d.toISOString().slice(0, 10); break;
-                  case 'month': key = `${year}-${month}`; break;
-                  case 'quarter': 
-                    const quarter = Math.floor((d.getUTCMonth() + 3) / 3);
-                    key = `Q${quarter} ${year}`; break;
-                  case 'year': key = String(year); break;
-                  default: key = `${year}-${month}`;
-                }
-                return key === label;
-              });
-              return agg(binRows);
-            });
-          }
-          
-          fig.data.push({ 
-            x: xType === 'numeric' ? binData.bins : binData.labels, 
-            y, 
-            type: 'bar', 
-            name: colorVal === '(empty)' ? '(empty)' : colorVal 
+      // Single series for binned data
+      let y;
+      if (xType === 'numeric') {
+        y = binData.bins.map(binCenter => {
+          const binMin = binCenter - binData.binWidth / 2;
+          const binMax = binCenter + binData.binWidth / 2;
+          const binRows = data.filter(r => {
+            const xVal = r[xField];
+            return typeof xVal === 'number' && isFinite(xVal) && 
+                   xVal >= binMin && xVal < binMax;
           });
-        }
-        fig.layout.barmode = 'group';
+          return agg(binRows);
+        });
       } else {
-        // Single series
-        fig.data.push({ 
-          x: xType === 'numeric' ? binData.bins : binData.labels, 
-          y: xType === 'numeric' ? binData.counts : binData.counts, 
-          type: 'bar', 
-          name: 'value' 
+        y = binData.labels.map(label => {
+          const binRows = data.filter(r => {
+            const period = cfg.xPeriod || 'month';
+            const d = new Date(r[xField]);
+            if (!isFinite(d.getTime())) return false;
+            
+            let key;
+            const year = d.getUTCFullYear();
+            const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+            
+            switch (period) {
+              case 'day': key = d.toISOString().slice(0, 10); break;
+              case 'month': key = `${year}-${month}`; break;
+              case 'quarter': 
+                const quarter = Math.floor((d.getUTCMonth() + 3) / 3);
+                key = `Q${quarter} ${year}`; break;
+              case 'year': key = String(year); break;
+              default: key = `${year}-${month}`;
+            }
+            return key === label;
+          });
+          return agg(binRows);
         });
       }
+      
+      fig.data.push({ 
+        x: xType === 'numeric' ? binData.bins : binData.labels, 
+        y,
+        type: 'bar', 
+        name: cfg.y ? `${cfg.agg}(${cfg.y})` : 'Count'
+      });
       
       const xTitle = xType === 'numeric' ? 
         `${xField} (${cfg.xBins || 30} bins)` : 
@@ -3593,138 +3553,128 @@ let inspectorSelectedField = null;
     
     const xField = cfg.x;
     const xType = getColumnType(xField);
-    const colorField = cfg.color;
-    const colorType = colorField ? getColumnType(colorField) : null;
     
-    // Group by X and optionally color
-    const groupBy = (rows, keys) => {
+    // Utility function to group data by X values
+    const groupBy = (rows, keyFunc) => {
       const map = new Map();
       for (const r of rows) {
-        const key = keys.map(k => String(r[k] || '')).join('¦');
+        const key = keyFunc(r);
         if (!map.has(key)) map.set(key, []);
         map.get(key).push(r);
       }
-      return { map, keys };
+      return map;
     };
     
+    // Robust aggregation function
     const agg = (rows) => {
       if (cfg.agg === 'count') return rows.length;
       if (!cfg.y) return rows.length;
-      const vals = rows.map(r => +r[cfg.y]).filter(v => !Number.isNaN(v));
+      
+      // Robust numeric coercion for Y values
+      const vals = rows.map(r => {
+        const val = r[cfg.y];
+        if (val === null || val === undefined || val === '') return NaN;
+        const num = Number(val);
+        return isFinite(num) ? num : NaN;
+      }).filter(v => !isNaN(v));
+      
       if (!vals.length) return 0;
-      if (cfg.agg === 'sum') return vals.reduce((a,b)=>a+b,0);
-      return vals.reduce((a,b)=>a+b,0) / vals.length;
+      if (cfg.agg === 'sum') return vals.reduce((a,b) => a + b, 0);
+      return vals.reduce((a,b) => a + b, 0) / vals.length;
     };
     
-    if (colorField && colorType === 'categorical') {
-      // Multiple lines per color category
-      const g = groupBy(data, [xField, colorField]);
-      const xVals = new Set();
-      const colorVals = new Set();
-      
-      for (const k of g.map.keys()) {
-        const parts = k.split('¦');
-        xVals.add(parts[0]);
-        colorVals.add(parts[1] || '(empty)');
+    // Single line - group by X field only
+    const groups = groupBy(data, r => String(r[xField] || '(empty)'));
+    let xVals = Array.from(groups.keys());
+    
+    // Sort appropriately for deterministic results
+    xVals.sort((a,b) => {
+      if (xType === 'date') {
+        const da = new Date(a), db = new Date(b);
+        if (isFinite(da.getTime()) && isFinite(db.getTime())) return da - db;
       }
-      
-      const sortedXVals = Array.from(xVals).sort((a,b) => {
-        if (xType === 'date') {
-          const da = new Date(a), db = new Date(b);
-          if (!isNaN(da) && !isNaN(db)) return da - db;
-        }
-        if (xType === 'numeric') {
-          const na = +a, nb = +b;
-          if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
-        }
-        return String(a).localeCompare(String(b));
-      });
-      
-      for (const colorVal of colorVals) {
-        let xData = sortedXVals;
-        let yData = sortedXVals.map(xv => {
-          const key = [xv, colorVal === '(empty)' ? '' : colorVal].join('¦');
-          return agg(g.map.get(key) || []);
-        });
-        
-        // Handle categorical X with encoding
-        if (xType === 'categorical' && cfg.encodeCategorical) {
-          const encoded = encodeCategorical(xData);
-          xData = encoded.values;
-          if (cfg.addJitter) {
-            xData = jitter(xData);
-          }
-        }
-        
-        const traceName = colorVal === '(empty)' ? '(empty)' : colorVal;
-        fig.data.push({ 
-          x: xData, 
-          y: yData, 
-          type: 'scatter', 
-          mode: 'lines+markers', 
-          name: traceName 
-        });
+      if (xType === 'numeric') {
+        const na = Number(a), nb = Number(b);
+        if (isFinite(na) && isFinite(nb)) return na - nb;
       }
-      
-    } else {
-      // Single line
-      const g = groupBy(data, [xField]);
-      let xVals = Array.from(g.map.keys()).map(k => k.split('¦')[0]);
-      
-      // Sort appropriately
-      xVals.sort((a,b) => {
-        if (xType === 'date') {
-          const da = new Date(a), db = new Date(b);
-          if (!isNaN(da) && !isNaN(db)) return da - db;
+      // Categorical ordering
+      if (xType === 'categorical') {
+        if (cfg.xOrder === 'frequency_desc' || cfg.xOrder === 'frequency_asc') {
+          const counts = {};
+          xVals.forEach(x => counts[x] = (groups.get(x) || []).length);
+          return cfg.xOrder === 'frequency_desc' ? counts[b] - counts[a] : counts[a] - counts[b];
         }
-        if (xType === 'numeric') {
-          const na = +a, nb = +b;
-          if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
-        }
-        // Categorical ordering
-        if (xType === 'categorical') {
-          if (cfg.xOrder === 'frequency_desc' || cfg.xOrder === 'frequency_asc') {
-            const counts = {};
-            xVals.forEach(x => counts[x] = (g.map.get(x) || []).length);
-            return cfg.xOrder === 'frequency_desc' ? counts[b] - counts[a] : counts[a] - counts[b];
-          }
-        }
-        return String(a).localeCompare(String(b));
-      });
-      
-      let yVals = xVals.map(xv => agg(g.map.get(String(xv)) || g.map.get(xv) || []));
-      let xData = xVals;
-      
-      // Handle categorical X encoding
-      if (xType === 'categorical' && cfg.encodeCategorical) {
-        const encoded = encodeCategorical(xData);
-        xData = encoded.values;
-        if (cfg.addJitter) {
-          xData = jitter(xData);
-        }
-        // Store tick info for axis
-        fig.layout.xaxis = { 
-          title: xField,
-          tickvals: encoded.ticks.map(t => t.value),
-          ticktext: encoded.ticks.map(t => t.label)
-        };
-      } else {
-        fig.layout.xaxis = { title: xField };
       }
-      
-      fig.data.push({ x: xData, y: yVals, type: 'scatter', mode: 'lines+markers', name: cfg.y || 'count' });
+      return String(a).localeCompare(String(b));
+    });
+    
+    let yVals = xVals.map(xv => agg(groups.get(xv) || []));
+    let xData = xVals;
+    
+    // Determine line mode based on X type and configuration
+    let mode = 'lines+markers';
+    if (xType === 'categorical' && !cfg.encodeCategorical) {
+      // For unordered categorical X, show markers only
+      mode = 'markers';
     }
     
+    // Handle categorical X encoding for numeric-like display
+    if (xType === 'categorical' && cfg.encodeCategorical) {
+      const encoded = encodeCategorical(xData);
+      xData = encoded.values;
+      
+      // Add deterministic jitter if requested (using stable seed)
+      if (cfg.addJitter) {
+        xData = xData.map((v, i) => {
+          if (v == null) return null;
+          // Use a deterministic seed based on index for reproducibility
+          const seed = (i * 1234567) % 16777216;
+          const pseudo = seed / 16777216;
+          return v + (pseudo - 0.5) * 0.4; // jitter amplitude of 0.4
+        });
+      }
+      
+      // Store tick info for axis
+      fig.layout.xaxis = { 
+        title: xField,
+        tickvals: encoded.ticks.map(t => t.value),
+        ticktext: encoded.ticks.map(t => t.label)
+      };
+      mode = 'lines+markers'; // Allow lines for encoded categorical
+    } else {
+      fig.layout.xaxis = { title: xField };
+    }
+    
+    fig.data.push({ 
+      x: xData, 
+      y: yVals, 
+      type: 'scatter', 
+      mode: mode, 
+      name: cfg.y ? `${cfg.agg}(${cfg.y})` : 'Count'
+    });
+    
     if (cfg.histOverlay) {
-      const vals = data.map(r => +r[cfg.y]).filter(v => !Number.isNaN(v));
-      fig.data.push({ x: vals, type: 'histogram', opacity: 0.35, xaxis: 'x2', yaxis: 'y2', name: 'Histogram' });
+      const vals = data.map(r => {
+        const val = r[cfg.y];
+        if (val === null || val === undefined || val === '') return NaN;
+        const num = Number(val);
+        return isFinite(num) ? num : NaN;
+      }).filter(v => !isNaN(v));
+      
+      fig.data.push({ 
+        x: vals, 
+        type: 'histogram', 
+        opacity: 0.35, 
+        xaxis: 'x2', 
+        yaxis: 'y2', 
+        name: 'Histogram' 
+      });
       fig.layout.grid = { rows: 1, columns: 2, pattern: 'independent' };
       fig.layout.xaxis2 = {};
       fig.layout.yaxis2 = {};
       fig.layout.title += ' · + Histogram';
     }
     
-    if (!fig.layout.xaxis) fig.layout.xaxis = { title: xField };
     if (cfg.y) fig.layout.yaxis = { title: `${cfg.agg}(${cfg.y})` };
     else fig.layout.yaxis = { title: 'Count' };
   }
@@ -3736,123 +3686,100 @@ let inspectorSelectedField = null;
     const yField = cfg.y;
     const xType = getColumnType(xField);
     const yType = getColumnType(yField);
-    const colorField = cfg.color;
-    const colorType = colorField ? getColumnType(colorField) : null;
     
-    if (colorField && colorType === 'categorical') {
-      // Split into multiple traces by category
-      const colorVals = [...new Set(data.map(r => r[colorField] || '(empty)'))];
+    // Single scatter trace without color grouping
+    let x = data.map(r => r[xField]);
+    let y = data.map(r => r[yField]);
+    
+    // Handle categorical axis encoding with deterministic jitter
+    if (xType === 'categorical' && cfg.encodeCategorical) {
+      const encoded = encodeCategorical(x);
+      x = encoded.values;
       
-      for (const colorVal of colorVals) {
-        const colorRows = data.filter(r => (r[colorField] || '(empty)') === colorVal);
-        let x = colorRows.map(r => r[xField]);
-        let y = colorRows.map(r => r[yField]);
-        
-        // Handle categorical axis encoding
-        if (xType === 'categorical' && cfg.encodeCategorical) {
-          const encoded = encodeCategorical(x);
-          x = encoded.values;
-          if (cfg.addJitter) x = jitter(x);
-        }
-        if (yType === 'categorical' && cfg.encodeCategorical) {
-          const encoded = encodeCategorical(y);
-          y = encoded.values;
-          if (cfg.addJitter) y = jitter(y);
-        }
-        
-        const trace = { 
-          x, y, 
-          mode: 'markers', 
-          type: 'scatter', 
-          name: colorVal === '(empty)' ? '(empty)' : colorVal 
-        };
-        
-        if (cfg.type === 'bubble' && cfg.size) {
-          const s = colorRows.map(r => +r[cfg.size]);
-          const min = Math.min(...s.filter(v => !Number.isNaN(v)));
-          const max = Math.max(...s.filter(v => !Number.isNaN(v)));
-          const scaled = s.map(v => Number.isNaN(v) ? 5 : (10 + 30 * ((v - min) / Math.max(1e-9, max - min))));
-          trace.marker = { size: scaled, sizemode: 'diameter', opacity: 0.7 };
-        }
-        
-        fig.data.push(trace);
+      // Add deterministic jitter if requested
+      if (cfg.addJitter) {
+        x = x.map((v, i) => {
+          if (v == null) return null;
+          // Use a deterministic seed based on index for reproducibility
+          const seed = (i * 9876543) % 16777216;
+          const pseudo = seed / 16777216;
+          return v + (pseudo - 0.5) * 0.4; // jitter amplitude of 0.4
+        });
       }
       
-    } else if (colorField && colorType === 'numeric') {
-      // Single trace with color scale
-      let x = data.map(r => r[xField]);
-      let y = data.map(r => r[yField]);
-      const colorValues = data.map(r => +r[colorField]);
-      
-      // Handle categorical axis encoding
-      if (xType === 'categorical' && cfg.encodeCategorical) {
-        const encoded = encodeCategorical(x);
-        x = encoded.values;
-        if (cfg.addJitter) x = jitter(x);
-      }
-      if (yType === 'categorical' && cfg.encodeCategorical) {
-        const encoded = encodeCategorical(y);
-        y = encoded.values;
-        if (cfg.addJitter) y = jitter(y);
-      }
-      
-      const trace = { 
-        x, y, 
-        mode: 'markers', 
-        type: 'scatter', 
-        name: yField,
-        marker: {
-          color: colorValues,
-          colorscale: 'Viridis',
-          showscale: true,
-          colorbar: { title: colorField }
-        }
+      // Store tick info for axis
+      fig.layout.xaxis = { 
+        title: xField,
+        tickvals: encoded.ticks.map(t => t.value),
+        ticktext: encoded.ticks.map(t => t.label)
       };
-      
-      if (cfg.type === 'bubble' && cfg.size) {
-        const s = data.map(r => +r[cfg.size]);
-        const min = Math.min(...s.filter(v => !Number.isNaN(v)));
-        const max = Math.max(...s.filter(v => !Number.isNaN(v)));
-        const scaled = s.map(v => Number.isNaN(v) ? 5 : (10 + 30 * ((v - min) / Math.max(1e-9, max - min))));
-        trace.marker.size = scaled;
-        trace.marker.sizemode = 'diameter';
-        trace.marker.opacity = 0.7;
-      }
-      
-      fig.data.push(trace);
-      
     } else {
-      // No color or invalid color
-      let x = data.map(r => r[xField]);
-      let y = data.map(r => r[yField]);
-      
-      // Handle categorical axis encoding
-      if (xType === 'categorical' && cfg.encodeCategorical) {
-        const encoded = encodeCategorical(x);
-        x = encoded.values;
-        if (cfg.addJitter) x = jitter(x);
-      }
-      if (yType === 'categorical' && cfg.encodeCategorical) {
-        const encoded = encodeCategorical(y);
-        y = encoded.values;
-        if (cfg.addJitter) y = jitter(y);
-      }
-      
-      const trace = { x, y, mode: 'markers', type: 'scatter', name: yField };
-      
-      if (cfg.type === 'bubble' && cfg.size) {
-        const s = data.map(r => +r[cfg.size]);
-        const min = Math.min(...s.filter(v => !Number.isNaN(v)));
-        const max = Math.max(...s.filter(v => !Number.isNaN(v)));
-        const scaled = s.map(v => Number.isNaN(v) ? 5 : (10 + 30 * ((v - min) / Math.max(1e-9, max - min))));
-        trace.marker = { size: scaled, sizemode: 'diameter', opacity: 0.7 };
-      }
-      
-      fig.data.push(trace);
+      fig.layout.xaxis = { title: xField };
     }
     
-    fig.layout.xaxis = { title: xField };
-    fig.layout.yaxis = { title: yField };
+    if (yType === 'categorical' && cfg.encodeCategorical) {
+      const encoded = encodeCategorical(y);
+      y = encoded.values;
+      
+      // Add deterministic jitter if requested
+      if (cfg.addJitter) {
+        y = y.map((v, i) => {
+          if (v == null) return null;
+          // Use a different deterministic seed for Y
+          const seed = (i * 5432109) % 16777216;
+          const pseudo = seed / 16777216;
+          return v + (pseudo - 0.5) * 0.4;
+        });
+      }
+      
+      // Store tick info for axis
+      fig.layout.yaxis = { 
+        title: yField,
+        tickvals: encoded.ticks.map(t => t.value),
+        ticktext: encoded.ticks.map(t => t.label)
+      };
+    } else {
+      fig.layout.yaxis = { title: yField };
+    }
+    
+    const trace = { 
+      x, 
+      y, 
+      mode: 'markers', 
+      type: 'scatter', 
+      name: yField 
+    };
+    
+    // Handle bubble chart sizing
+    if (cfg.type === 'bubble' && cfg.size) {
+      const s = data.map(r => {
+        const val = r[cfg.size];
+        if (val === null || val === undefined || val === '') return NaN;
+        const num = Number(val);
+        return isFinite(num) ? num : NaN;
+      });
+      
+      const validSizes = s.filter(v => !isNaN(v));
+      if (validSizes.length > 0) {
+        const min = Math.min(...validSizes);
+        const max = Math.max(...validSizes);
+        const range = max - min;
+        
+        const scaled = s.map(v => {
+          if (isNaN(v)) return 5; // Default size for invalid values
+          if (range === 0) return 20; // All same size
+          return 10 + 30 * ((v - min) / range); // Scale to 10-40 range
+        });
+        
+        trace.marker = { 
+          size: scaled, 
+          sizemode: 'diameter', 
+          opacity: 0.7 
+        };
+      }
+    }
+    
+    fig.data.push(trace);
   }
 
   function drawPie(cfg, data, fig) {
@@ -5111,7 +5038,6 @@ let inspectorSelectedField = null;
     if (id('fldY')) id('fldY').value = cfg.y || '';
     if (id('fldY2')) id('fldY2').value = cfg.y2 || '';
     if (id('fldYCat')) id('fldYCat').value = cfg.yCat || '';
-    if (id('fldColor')) id('fldColor').value = cfg.color || '';
     if (id('fldSize')) id('fldSize').value = cfg.size || '';
     if (id('fldAgg')) id('fldAgg').value = cfg.agg || 'count';
     
@@ -5135,7 +5061,6 @@ let inspectorSelectedField = null;
     cfg.y = id('fldY')?.value || null;
     cfg.y2 = id('fldY2')?.value || null;
     cfg.yCat = id('fldYCat')?.value || null;
-    cfg.color = id('fldColor')?.value || null;
     cfg.size = id('fldSize')?.value || null;
     cfg.agg = id('fldAgg')?.value || 'count';
     cfg.dualAxis = id('chkDualAxis')?.checked || false;
