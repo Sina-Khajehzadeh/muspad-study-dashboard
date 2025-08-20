@@ -3193,21 +3193,33 @@ let inspectorSelectedField = null;
     }
   }
   
+  /**
+   * Render Plotly figures from Python JSON exports with exact fidelity
+   * 
+   * IMPORTANT: This function preserves the original Python figure exactly as exported.
+   * - Does NOT apply dashboard themes or layout mutations
+   * - Does NOT delete/modify width, height, texttemplate, or other properties
+   * - Only adds minimal autosize if no dimensions are specified
+   * - Maintains visual parity with Python-generated charts
+   * 
+   * @param {Object} cfg - Chart configuration
+   * @param {Object} json - Python Plotly JSON export
+   */
   function renderPlotlyJsonChart(cfg, json) {
     const el = cfg._el;
     
     try {
-      // Sanitize layout to remove fixed dimensions from Python exports
-      const sanitizedLayout = json.layout || {};
-      delete sanitizedLayout.width;
-      delete sanitizedLayout.height;
-      sanitizedLayout.autosize = true;
+      // Exact fidelity JSON rendering - preserve Python figure layout without modification
+      // Do not apply themes or sanitize layout to maintain visual parity with Python output
+      const layout = json.layout || {};
       
-      // Apply theme to the sanitized layout
-      const themedLayout = window.DashboardTheme.getBaseLayout(sanitizedLayout);
+      // Only set autosize if width/height are not present (minimal intervention)
+      if (!layout.width && !layout.height && layout.autosize === undefined) {
+        layout.autosize = true;
+      }
       
-      // Use Plotly.newPlot with sanitized and themed layout
-      Plotly.newPlot(el, json.data || [], themedLayout, {
+      // Use original JSON data and layout without theme modifications
+      Plotly.newPlot(el, json.data || [], layout, {
         responsive: true,
         displayModeBar: false  // Hide toolbar to preserve clean look
       });
