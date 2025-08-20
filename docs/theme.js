@@ -317,6 +317,9 @@ const PlotViewer = {
   selectPlot(filename) {
     if (!filename || !this.manifest) {
       this.hidePlot();
+      // Disable the "Add Selected Chart" button when no plot is selected
+      const btnAddInsightChart = document.getElementById('btnAddInsightChart');
+      if (btnAddInsightChart) btnAddInsightChart.disabled = true;
       return;
     }
     
@@ -329,6 +332,10 @@ const PlotViewer = {
     this.currentPlot = chart;
     this.displayPlot(chart);
     this.updateURL(filename);
+    
+    // Enable the "Add Selected Chart" button when a plot is selected
+    const btnAddInsightChart = document.getElementById('btnAddInsightChart');
+    if (btnAddInsightChart) btnAddInsightChart.disabled = false;
   },
   
   /**
@@ -376,6 +383,10 @@ const PlotViewer = {
     
     this.currentPlot = null;
     this.updateURL('');
+    
+    // Disable the "Add Selected Chart" button when plot is hidden
+    const btnAddInsightChart = document.getElementById('btnAddInsightChart');
+    if (btnAddInsightChart) btnAddInsightChart.disabled = true;
   },
   
   /**
