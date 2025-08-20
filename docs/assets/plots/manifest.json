@@ -4,73 +4,73 @@
   "charts": [
     {
       "id": "another-histogram-for-participation",
-      "title": "Another Histogram For Participation",
+      "title": "Another Histogram for Participation",
       "file": "Another Histogram for Participation.html",
       "type": "html"
     },
     {
       "id": "box-plot-health-status",
-      "title": "Box Plot Health Status",
+      "title": "Box Plot Health Status Analysis",
       "file": "Box Plot Health Status.html",
       "type": "html"
     },
     {
       "id": "interval-days",
-      "title": "Interval Days",
+      "title": "Interval Days Distribution",
       "file": "Interval days.html",
       "type": "html"
     },
     {
       "id": "npi",
-      "title": "Npi",
+      "title": "Non-Pharmaceutical Interventions (NPI) Analysis",
       "file": "NPI.html",
       "type": "html"
     },
     {
       "id": "partixipation",
-      "title": "Partixipation",
+      "title": "Partixipation Trends Over Time",
       "file": "Partixipation.html",
       "type": "html"
     },
     {
       "id": "prevalence",
-      "title": "Prevalence",
+      "title": "COVID-19 Prevalence Analysis",
       "file": "Prevalence.html",
       "type": "html"
     },
     {
       "id": "third-seroperevalence",
-      "title": "Third Seroperevalence",
+      "title": "Third Seroprevalence Study Results",
       "file": "Third Seroperevalence.html",
       "type": "html"
     },
     {
       "id": "distribution_level",
-      "title": "Distribution Level",
+      "title": "Income Distribution",
       "file": "distribution_level.html",
       "type": "html"
     },
     {
       "id": "education",
-      "title": "Education",
+      "title": "Interval (days)",
       "file": "education.html",
       "type": "html"
     },
     {
       "id": "employment",
-      "title": "Employment",
+      "title": "Interval (days)",
       "file": "employment.html",
       "type": "html"
     },
     {
       "id": "mask-shop-usage",
-      "title": "Mask Shop Usage",
+      "title": "Mask Shop Usage by Location",
       "file": "mask shop usage.html",
       "type": "html"
     },
     {
       "id": "number-of-participation",
-      "title": "Number Of Participation",
+      "title": "Number of Participation Distribution",
       "file": "number of participation.html",
       "type": "html"
     }
