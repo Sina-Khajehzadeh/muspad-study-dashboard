@@ -2949,7 +2949,33 @@ let inspectorSelectedField = null;
       
       // Try to parse string
       if (typeof val === 'string') {
-        const num = parseFloat(val.trim());
+        const trimmed = val.trim();
+        
+        // Special handling for German income ranges common in surveys
+        const incomeRangeMatch = trimmed.match(/^(\d+)\s*bis\s*unter\s*(\d+)\s*Euro/i);
+        if (incomeRangeMatch) {
+          const min = parseFloat(incomeRangeMatch[1]);
+          const max = parseFloat(incomeRangeMatch[2]);
+          if (!Number.isNaN(min) && !Number.isNaN(max)) {
+            // Use midpoint of range for better accuracy
+            result.push((min + max) / 2);
+            continue;
+          }
+        }
+        
+        // Handle "8000 Euro und mehr" or similar upper-bound expressions
+        const upperBoundMatch = trimmed.match(/^(\d+)\s*Euro\s*und\s*mehr/i);
+        if (upperBoundMatch) {
+          const min = parseFloat(upperBoundMatch[1]);
+          if (!Number.isNaN(min)) {
+            // Use min + reasonable margin for open-ended ranges
+            result.push(min + (min * 0.5)); // Add 50% as estimate
+            continue;
+          }
+        }
+        
+        // Standard numeric parsing
+        const num = parseFloat(trimmed);
         if (!Number.isNaN(num) && Number.isFinite(num)) {
           result.push(num);
           continue;
