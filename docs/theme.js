@@ -230,6 +230,100 @@ window.dashboardTheme = THEME_CONFIG.currentTheme;
 const PlotViewer = {
   manifest: null,
   currentPlot: null,
+  plotDimensionsCache: new Map(), // Cache for parsed HTML dimensions
+  
+  /**
+   * Parse plot dimensions and title from HTML content
+   * @param {string} htmlContent - The HTML content of the plot file
+   * @returns {Object} Object with width, height, and title properties
+   */
+  parsePlotInfo(htmlContent) {
+    const result = {
+      width: 800, // fallback defaults
+      height: 600,
+      title: null
+    };
+    
+    try {
+      // Look for the layout configuration section in the Plotly.newPlot call
+      const layoutMatch = htmlContent.match(/Plotly\.newPlot\([^,]+,\s*\[[^\]]+\],\s*(\{[^}]*"width"[^}]*\})/);
+      if (layoutMatch) {
+        const layoutConfig = layoutMatch[1];
+        
+        // Extract width from layout configuration
+        const widthMatch = layoutConfig.match(/"width":\s*(\d+)/);
+        if (widthMatch) {
+          result.width = parseInt(widthMatch[1], 10);
+        }
+        
+        // Extract height from layout configuration
+        const heightMatch = layoutConfig.match(/"height":\s*(\d+)/);
+        if (heightMatch) {
+          result.height = parseInt(heightMatch[1], 10);
+        }
+      } else {
+        // Fallback to simple regex if layout parsing fails
+        const widthMatch = htmlContent.match(/"width":\s*(\d+)/g);
+        const heightMatch = htmlContent.match(/"height":\s*(\d+)/g);
+        
+        if (widthMatch && widthMatch.length > 0) {
+          // Take the last width value (likely the layout one)
+          const lastWidth = widthMatch[widthMatch.length - 1];
+          const widthValue = lastWidth.match(/(\d+)/);
+          if (widthValue) result.width = parseInt(widthValue[1], 10);
+        }
+        
+        if (heightMatch && heightMatch.length > 0) {
+          // Take the last height value (likely the layout one)
+          const lastHeight = heightMatch[heightMatch.length - 1];
+          const heightValue = lastHeight.match(/(\d+)/);
+          if (heightValue) result.height = parseInt(heightValue[1], 10);
+        }
+      }
+      
+      // Extract title from layout configuration - prefer main title
+      const titleMatch = htmlContent.match(/"title":\s*{\s*"text":\s*"([^"]+)"/);
+      if (titleMatch) {
+        result.title = titleMatch[1];
+      }
+      
+      return result;
+    } catch (error) {
+      console.warn('Error parsing plot info from HTML:', error);
+      return result;
+    }
+  },
+  
+  /**
+   * Fetch and parse plot information from HTML file
+   * @param {string} plotUrl - URL to the plot HTML file
+   * @returns {Promise<Object>} Promise resolving to plot info object
+   */
+  async fetchPlotInfo(plotUrl) {
+    // Check cache first
+    if (this.plotDimensionsCache.has(plotUrl)) {
+      return this.plotDimensionsCache.get(plotUrl);
+    }
+    
+    try {
+      const response = await fetch(plotUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch plot: ${response.status}`);
+      }
+      
+      const htmlContent = await response.text();
+      const plotInfo = this.parsePlotInfo(htmlContent);
+      
+      // Cache the result
+      this.plotDimensionsCache.set(plotUrl, plotInfo);
+      
+      return plotInfo;
+    } catch (error) {
+      console.error('Error fetching plot info:', error);
+      // Return default dimensions on error
+      return { width: 800, height: 600, title: null };
+    }
+  },
   
   /**
    * Load the plot manifest from assets/plots/manifest.json
@@ -339,9 +433,9 @@ const PlotViewer = {
   },
   
   /**
-   * Display the selected plot in iframe
+   * Display the selected plot in iframe with exact dimensions
    */
-  displayPlot(chart) {
+  async displayPlot(chart) {
     const iframeEl = document.getElementById('plotViewerIframe');
     const frameEl = document.getElementById('plotViewerFrame');
     const placeholderEl = document.getElementById('plotViewerPlaceholder');
@@ -351,22 +445,72 @@ const PlotViewer = {
     // Build plot URL using manifest basePath
     const plotUrl = this.manifest.basePath + chart.file;
     
-    // Update iframe source
-    iframeEl.src = plotUrl;
+    // Show loading state briefly
+    frameEl.style.display = 'none';
+    placeholderEl.innerHTML = `
+      <div style="text-align: center; padding: 4rem; color: #6c757d;">
+        <div class="spinner-border spinner-border-sm" role="status" style="margin-bottom: 1rem;">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <h6 style="margin-bottom: 0.5rem;">Loading plot...</h6>
+        <small>Analyzing dimensions and preparing display</small>
+      </div>
+    `;
+    placeholderEl.style.display = 'block';
     
-    // Show iframe, hide placeholder
-    frameEl.style.display = 'block';
-    placeholderEl.style.display = 'none';
-    
-    // Update iframe load handlers
-    iframeEl.onload = () => {
-      console.log('Plot loaded successfully:', chart.title);
-    };
-    
-    iframeEl.onerror = () => {
-      console.error('Failed to load plot:', chart.title);
-      this.showError(`Failed to load plot: ${chart.title}`);
-    };
+    try {
+      // Fetch plot information to get exact dimensions
+      const plotInfo = await this.fetchPlotInfo(plotUrl);
+      
+      // Use intrinsic title if available, fallback to manifest title
+      const displayTitle = plotInfo.title || chart.title;
+      
+      // Create horizontal scroll container wrapper
+      const scrollContainer = document.createElement('div');
+      scrollContainer.style.cssText = `
+        width: 100%;
+        overflow-x: auto;
+        overflow-y: hidden;
+        border: 1px solid #dee2e6;
+        border-radius: 0.5rem;
+        background: white;
+      `;
+      
+      // Set iframe to exact plot dimensions
+      iframeEl.src = plotUrl;
+      iframeEl.style.cssText = `
+        width: ${plotInfo.width}px;
+        height: ${plotInfo.height}px;
+        border: none;
+        display: block;
+        margin: 0;
+        padding: 0;
+      `;
+      iframeEl.setAttribute('title', displayTitle);
+      
+      // Clear the frame and set up the structure
+      frameEl.innerHTML = '';
+      frameEl.appendChild(scrollContainer);
+      scrollContainer.appendChild(iframeEl);
+      
+      // Show iframe, hide placeholder
+      frameEl.style.display = 'block';
+      placeholderEl.style.display = 'none';
+      
+      // Update iframe load handlers
+      iframeEl.onload = () => {
+        console.log('Plot loaded successfully:', displayTitle, `(${plotInfo.width}x${plotInfo.height}px)`);
+      };
+      
+      iframeEl.onerror = () => {
+        console.error('Failed to load plot:', displayTitle);
+        this.showError(`Failed to load plot: ${displayTitle}`);
+      };
+      
+    } catch (error) {
+      console.error('Error displaying plot:', error);
+      this.showError(`Error loading plot: ${chart.title}`);
+    }
   },
   
   /**

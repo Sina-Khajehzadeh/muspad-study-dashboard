@@ -4837,7 +4837,7 @@ let inspectorSelectedField = null;
     }
   }
 
-  function renderPlotViewerIframe(cfg) {
+  async function renderPlotViewerIframe(cfg) {
     const el = cfg._el;
     
     if (!el || !cfg.plotUrl) {
@@ -4845,15 +4845,66 @@ let inspectorSelectedField = null;
       return;
     }
 
-    // Create iframe to display the plot
+    // Show loading state
     el.innerHTML = `
-      <iframe 
-        src="${cfg.plotUrl}" 
-        style="width: 100%; height: 400px; border: 1px solid #dee2e6; border-radius: 0.5rem;" 
-        frameborder="0"
-        title="${cfg.title}">
-      </iframe>
+      <div style="text-align: center; padding: 2rem; color: #6c757d;">
+        <div class="spinner-border spinner-border-sm" role="status" style="margin-bottom: 1rem;">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <small>Loading plot with exact dimensions...</small>
+      </div>
     `;
+
+    try {
+      // Use PlotViewer utility if available to get exact dimensions
+      let plotInfo = { width: 800, height: 400, title: cfg.title };
+      
+      if (window.PlotViewer && window.PlotViewer.fetchPlotInfo) {
+        plotInfo = await window.PlotViewer.fetchPlotInfo(cfg.plotUrl);
+      }
+      
+      // Use intrinsic title if available, fallback to config title
+      const displayTitle = plotInfo.title || cfg.title;
+      
+      // Calculate appropriate height for insights panel (max 500px to fit well)
+      const maxHeight = 500;
+      const actualHeight = Math.min(plotInfo.height, maxHeight);
+      const needsVerticalScroll = plotInfo.height > maxHeight;
+      
+      // Create horizontal and vertical scroll container
+      const scrollStyle = `
+        width: 100%;
+        height: ${actualHeight}px;
+        overflow-x: auto;
+        overflow-y: ${needsVerticalScroll ? 'auto' : 'hidden'};
+        border: 1px solid #dee2e6;
+        border-radius: 0.5rem;
+        background: white;
+      `;
+      
+      // Create iframe to display the plot with exact dimensions
+      el.innerHTML = `
+        <div style="${scrollStyle}">
+          <iframe 
+            src="${cfg.plotUrl}" 
+            style="width: ${plotInfo.width}px; height: ${plotInfo.height}px; border: none; display: block;" 
+            frameborder="0"
+            title="${displayTitle}">
+          </iframe>
+        </div>
+      `;
+      
+      console.log(`Rendered plot iframe: ${displayTitle} (${plotInfo.width}x${plotInfo.height}px)`);
+      
+    } catch (error) {
+      console.error('Error rendering plot iframe:', error);
+      el.innerHTML = `
+        <div style="padding: 2rem; text-align: center; color: #dc3545;">
+          <i class="bi bi-exclamation-triangle" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+          Error loading plot: ${cfg.title}
+        </div>
+      `;
+    }
   }
 
   function createDefaultInsightsCharts() {
