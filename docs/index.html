@@ -4498,10 +4498,14 @@ let inspectorSelectedField = null;
     const modal = id('customAnalyticsModal');
     if (modal) {
       modal.classList.add('show');
-      // Reset selections
+      // Reset chart template selections
       modal.querySelectorAll('.chart-template').forEach(t => t.classList.remove('selected'));
       const btnAdd = id('btnAddInsightChart');
-      if (btnAdd) btnAdd.disabled = true;
+      if (btnAdd) {
+        // Check if Plot Viewer has a selection and enable button accordingly
+        const hasPlotSelection = window.PlotViewer && window.PlotViewer.currentPlot;
+        btnAdd.disabled = !hasPlotSelection;
+      }
     }
   }
   
@@ -4547,6 +4551,28 @@ let inspectorSelectedField = null;
       const manifest = window.PlotViewer.manifest;
       
       if (plot && manifest) {
+        // Check for duplicate by searching existing insight charts for same file
+        const insightsGrid = id('insightsGrid');
+        if (insightsGrid) {
+          const existingCards = Array.from(insightsGrid.querySelectorAll('.card-chart'));
+          const existingPlotCard = existingCards.find(card => {
+            // Check if this card has an iframe with the same plot file
+            const iframe = card.querySelector('iframe');
+            if (iframe && iframe.src) {
+              const plotUrl = manifest.basePath + plot.file;
+              return iframe.src.includes(plot.file) || iframe.src === plotUrl;
+            }
+            return false;
+          });
+          
+          if (existingPlotCard) {
+            // Scroll existing card into view instead of adding duplicate
+            existingPlotCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            closeCustomAnalyticsModal();
+            return;
+          }
+        }
+        
         const cfg = createPlotViewerChart(plot, manifest);
         if (cfg) {
           addInsightChart(cfg);
