@@ -379,25 +379,31 @@ const PlotViewer = {
     // Clear existing options (keep the first "Choose a plot..." option)
     selectEl.innerHTML = '<option value="">Choose a plot...</option>';
     
-    // Disable the dropdown and "Add Selected Chart" button
-    selectEl.disabled = true;
-    if (btnAddInsightChart) btnAddInsightChart.disabled = true;
+    // Add plot options from manifest
+    this.manifest.charts.forEach(chart => {
+      const option = document.createElement('option');
+      option.value = chart.file;
+      option.textContent = chart.title;
+      selectEl.appendChild(option);
+    });
     
-    // Update placeholder to show "No plots available" message
+    // Enable the dropdown
+    selectEl.disabled = false;
+    if (btnAddInsightChart) btnAddInsightChart.disabled = true; // Still disabled until a plot is selected
+    
+    // Update placeholder to show selection prompt
     if (placeholderEl) {
       placeholderEl.innerHTML = `
         <i class="bi bi-graph-up" style="font-size: 3rem; display: block; margin-bottom: 1rem; opacity: 0.3;"></i>
-        <h6 style="margin-bottom: 0.5rem;">No plots available</h6>
-        <small>Plot viewing is currently disabled</small>
+        <h6 style="margin-bottom: 0.5rem;">Select a plot to preview</h6>
+        <small>Choose from the dropdown above to view any available plot</small>
       `;
       placeholderEl.style.display = 'block';
     }
     
-    // Hide the plot frame
+    // Hide the plot frame initially
     const frameEl = document.getElementById('plotViewerFrame');
     if (frameEl) frameEl.style.display = 'none';
-    
-    // Note: Plots are not added to dropdown - this is intentional to hide all plot names
   },
   
   /**
