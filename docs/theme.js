@@ -566,6 +566,12 @@ const PlotViewer = {
       // Update iframe load handlers
       iframeEl.onload = () => {
         console.log('Plot loaded successfully:', displayTitle, `(${plotInfo.width}x${plotInfo.height}px)`);
+        
+        // Inject responsive assets into the iframe
+        if (window.PlotlyResponsive) {
+          window.PlotlyResponsive.injectIntoIframe(iframeEl);
+        }
+        
         // Ensure scaling is applied after load
         setTimeout(updateScale, 50);
       };
