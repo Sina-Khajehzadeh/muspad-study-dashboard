@@ -371,18 +371,33 @@ const PlotViewer = {
    */
   populateDropdown() {
     const selectEl = document.getElementById('plotViewerSelect');
+    const btnAddInsightChart = document.getElementById('btnAddInsightChart');
+    const placeholderEl = document.getElementById('plotViewerPlaceholder');
+    
     if (!selectEl || !this.manifest) return;
     
     // Clear existing options (keep the first "Choose a plot..." option)
     selectEl.innerHTML = '<option value="">Choose a plot...</option>';
     
-    // Add plots to dropdown
-    this.manifest.charts.forEach(chart => {
-      const option = document.createElement('option');
-      option.value = chart.file;
-      option.textContent = chart.title;
-      selectEl.appendChild(option);
-    });
+    // Disable the dropdown and "Add Selected Chart" button
+    selectEl.disabled = true;
+    if (btnAddInsightChart) btnAddInsightChart.disabled = true;
+    
+    // Update placeholder to show "No plots available" message
+    if (placeholderEl) {
+      placeholderEl.innerHTML = `
+        <i class="bi bi-graph-up" style="font-size: 3rem; display: block; margin-bottom: 1rem; opacity: 0.3;"></i>
+        <h6 style="margin-bottom: 0.5rem;">No plots available</h6>
+        <small>Plot viewing is currently disabled</small>
+      `;
+      placeholderEl.style.display = 'block';
+    }
+    
+    // Hide the plot frame
+    const frameEl = document.getElementById('plotViewerFrame');
+    if (frameEl) frameEl.style.display = 'none';
+    
+    // Note: Plots are not added to dropdown - this is intentional to hide all plot names
   },
   
   /**
