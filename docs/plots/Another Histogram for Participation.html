@@ -1,30 +1,110 @@
 <html>
-<head><meta charset="utf-8" /></head>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    /* Responsive styling for standalone plots */
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      font-family: Arial, sans-serif;
+    }
+    .plotly-graph-div {
+      width: 100% !important;
+      height: 100vh !important;
+    }
+  </style>
+</head>
 <body>
     <div>                        <script type="text/javascript">window.PlotlyConfig = {MathJaxConfig: 'local'
                         
-                        // Make plot responsive after creation
-                        setTimeout(function() {
-                            if (window.Plotly && window.ResizeObserver) {
-                                const plotDiv = document.querySelector('.plotly-graph-div');
-                                if (plotDiv) {
-                                    // Remove any fixed dimensions from layout
-                                    if (plotDiv._fullLayout) {
-                                        delete plotDiv._fullLayout.width;
-                                        delete plotDiv._fullLayout.height;
-                                        plotDiv._fullLayout.autosize = true;
-                                    }
-                                    
-                                    // Set up resize observer
-                                    const resizeObserver = new ResizeObserver(() => {
-                                        clearTimeout(plotDiv._resizeTimeout);
-                                        plotDiv._resizeTimeout = setTimeout(() => {
-                                            try {
-                                                window.Plotly.Plots.resize(plotDiv);
-                                            } catch (e) {
-                                                console.warn('Error resizing plot:', e);
-                                            }
-                                        }, 50);
+                                // Make plot responsive after creation
+        setTimeout(function() {
+            if (window.Plotly && window.ResizeObserver) {
+                const plotDiv = document.querySelector('.plotly-graph-div');
+                if (plotDiv) {
+                    // Remove any fixed dimensions from layout
+                    if (plotDiv._fullLayout) {
+                        delete plotDiv._fullLayout.width;
+                        delete plotDiv._fullLayout.height;
+                        plotDiv._fullLayout.autosize = true;
+                    }
+                    
+                    // Function to post height to parent
+                    function postHeightToParent() {
+                        try {
+                            const height = Math.max(
+                                document.body.scrollHeight,
+                                document.body.offsetHeight,
+                                document.documentElement.clientHeight,
+                                document.documentElement.scrollHeight,
+                                document.documentElement.offsetHeight
+                            );
+                            window.parent.postMessage({
+                                type: 'plot:height',
+                                height: height
+                            }, '*');
+                        } catch (e) {
+                            // Silent fail for standalone use
+                        }
+                    }
+                    
+                    // Set up resize observer
+                    const resizeObserver = new ResizeObserver(() => {
+                        clearTimeout(plotDiv._resizeTimeout);
+                        plotDiv._resizeTimeout = setTimeout(() => {
+                            try {
+                                window.Plotly.Plots.resize(plotDiv);
+                                postHeightToParent();
+                            } catch (e) {
+                                console.warn('Error resizing plot:', e);
+                            }
+                        }, 50);
+                    });
+                    
+                    resizeObserver.observe(document.body);
+                    
+                    // Listen for window resize
+                    window.addEventListener('resize', () => {
+                        clearTimeout(plotDiv._resizeTimeout);
+                        plotDiv._resizeTimeout = setTimeout(() => {
+                            try {
+                                window.Plotly.Plots.resize(plotDiv);
+                                postHeightToParent();
+                            } catch (e) {
+                                console.warn('Error resizing plot:', e);
+                            }
+                        }, 100);
+                    });
+                    
+                    // Listen for pane resize messages from parent
+                    window.addEventListener('message', (event) => {
+                        if (event.data && event.data.type === 'pane:resized') {
+                            clearTimeout(plotDiv._resizeTimeout);
+                            plotDiv._resizeTimeout = setTimeout(() => {
+                                try {
+                                    window.Plotly.Plots.resize(plotDiv);
+                                    postHeightToParent();
+                                } catch (e) {
+                                    console.warn('Error resizing plot:', e);
+                                }
+                            }, 100);
+                        }
+                    });
+                    
+                    // Initial resize and height post
+                    setTimeout(() => {
+                        try {
+                            window.Plotly.Plots.resize(plotDiv);
+                            postHeightToParent();
+                        } catch (e) {
+                            console.warn('Error with initial resize:', e);
+                        }
+                    }, 100);
+                }
+            }
+        }, 500);
                                     });
                                     
                                     resizeObserver.observe(document.body);
