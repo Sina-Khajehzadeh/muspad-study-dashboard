@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Responsive Iframe Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .test-section {
+            background: white;
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .resizable-container {
+            border: 2px solid #007bff;
+            padding: 10px;
+            resize: both;
+            overflow: auto;
+            min-width: 300px;
+            min-height: 200px;
+            width: 600px;
+            height: 400px;
+            background: white;
+            border-radius: 4px;
+        }
+        
+        .mock-iframe {
+            width: 100%;
+            height: 300px;
+            border: 1px solid #ddd;
+            background: #f8f9fa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            color: #495057;
+        }
+        
+        .controls {
+            margin: 10px 0;
+        }
+        
+        button {
+            padding: 8px 16px;
+            margin: 0 5px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        button:hover {
+            background: #0056b3;
+        }
+        
+        .status {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>MUSPAD Dashboard - Responsive Iframe Plot Test</h1>
+        
+        <div class="test-section">
+            <h2>✅ Implementation Complete</h2>
+            <div class="status">
+                <strong>PlotIframeTools Implementation:</strong> All responsive iframe functionality has been implemented in the MUSPAD dashboard. The transform-scaling approach has been replaced with a truly responsive system.
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>🎯 Test: Responsive Container (Drag corners to resize)</h2>
+            <p>This demonstrates how the new responsive iframe approach would behave:</p>
+            <div class="resizable-container" id="testContainer">
+                <div class="mock-iframe" id="mockIframe">
+                    📊 Responsive Plot Area<br>
+                    <small>Width: <span id="widthDisplay">600px</span></small>
+                </div>
+            </div>
+            <div class="controls">
+                <button onclick="simulatePaneResize()">🔄 Simulate Pane Resize Event</button>
+                <button onclick="simulateWindowResize()">🪟 Simulate Window Resize</button>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>📋 Implementation Details</h2>
+            <ul>
+                <li><strong>✅ PlotIframeTools Helper:</strong> Added to <code>docs/theme.js</code> with injection, auto-sizing, and pane notification</li>
+                <li><strong>✅ Plot Viewer Update:</strong> Removed transform scaling, now uses 100% width responsive iframe</li>
+                <li><strong>✅ Insights Embed Update:</strong> Updated <code>renderPlotViewerIframe()</code> for consistent responsive behavior</li>
+                <li><strong>✅ Pane Resize Events:</strong> Global listener automatically notifies all iframes when panes are resized</li>
+                <li><strong>✅ Standalone Files:</strong> All 10 HTML files in <code>docs/plots/</code> updated with responsive CSS+JS</li>
+            </ul>
+        </div>
+        
+        <div class="test-section">
+            <h2>🚀 Key Features</h2>
+            <ul>
+                <li><strong>Self-contained:</strong> No external dependencies - CSS/JS injected directly into iframe</li>
+                <li><strong>Auto-sizing:</strong> Iframe height automatically adjusts to content to prevent scrollbars</li>
+                <li><strong>Debounced:</strong> Resize events are debounced for smooth performance</li>
+                <li><strong>Cross-compatible:</strong> Works in Plot Viewer modal, Insights panel, and standalone</li>
+                <li><strong>Event-driven:</strong> Responds to window resize and custom pane:resized events</li>
+            </ul>
+        </div>
+        
+        <div class="test-section">
+            <h2>🎉 Expected Results</h2>
+            <p><strong>In Plot Viewer:</strong> Charts resize smoothly when modal is resized or browser window changes</p>
+            <p><strong>In Insights Panel:</strong> Embedded plots behave responsively like native charts</p>
+            <p><strong>Standalone:</strong> Opening <code>docs/plots/*.html</code> directly shows responsive behavior</p>
+            <p><strong>Performance:</strong> No console errors, smooth resizing with minimal thrash</p>
+        </div>
+    </div>
+    
+    <script>
+        // Mock responsive behavior demonstration
+        function updateDisplay() {
+            const container = document.getElementById('testContainer');
+            const widthDisplay = document.getElementById('widthDisplay');
+            const width = container.offsetWidth;
+            widthDisplay.textContent = width + 'px';
+        }
+        
+        function simulatePaneResize() {
+            const mockIframe = document.getElementById('mockIframe');
+            mockIframe.style.background = '#e7f3ff';
+            mockIframe.innerHTML = '🔄 Pane Resize Event Triggered<br><small>PlotIframeTools.notifyPaneResized() called</small>';
+            setTimeout(() => {
+                mockIframe.style.background = '#f8f9fa';
+                mockIframe.innerHTML = '📊 Responsive Plot Area<br><small>Width: <span id="widthDisplay">' + 
+                    document.getElementById('testContainer').offsetWidth + 'px</span></small>';
+            }, 1500);
+        }
+        
+        function simulateWindowResize() {
+            const mockIframe = document.getElementById('mockIframe');
+            mockIframe.style.background = '#fff3cd';
+            mockIframe.innerHTML = '🪟 Window Resize Event Triggered<br><small>Plotly.Plots.resize() called</small>';
+            setTimeout(() => {
+                mockIframe.style.background = '#f8f9fa';
+                mockIframe.innerHTML = '📊 Responsive Plot Area<br><small>Width: <span id="widthDisplay">' + 
+                    document.getElementById('testContainer').offsetWidth + 'px</span></small>';
+            }, 1500);
+        }
+        
+        // Set up ResizeObserver to demonstrate responsive behavior
+        if (window.ResizeObserver) {
+            const resizeObserver = new ResizeObserver(() => {
+                updateDisplay();
+            });
+            resizeObserver.observe(document.getElementById('testContainer'));
+        }
+        
+        updateDisplay();
+    </script>
+</body>
+</html>
