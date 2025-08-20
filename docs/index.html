@@ -3193,6 +3193,18 @@ let inspectorSelectedField = null;
     }
   }
   
+  /**
+   * Render Plotly figures from Python JSON exports with exact fidelity
+   * 
+   * IMPORTANT: This function preserves the original Python figure exactly as exported.
+   * - Does NOT apply dashboard themes or layout mutations
+   * - Does NOT delete/modify width, height, texttemplate, or other properties
+   * - Only adds minimal autosize if no dimensions are specified
+   * - Maintains visual parity with Python-generated charts
+   * 
+   * @param {Object} cfg - Chart configuration
+   * @param {Object} json - Python Plotly JSON export
+   */
   function renderPlotlyJsonChart(cfg, json) {
     const el = cfg._el;
     
