@@ -60,7 +60,7 @@
     /* Responsive grid */
     .insights-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
       gap: 1.5rem;
     }
 
@@ -72,7 +72,8 @@
       box-shadow: 0 2px 4px rgba(0,0,0,.06);
       display: flex;
       flex-direction: column;
-      min-height: 400px;
+      min-height: 220px;
+      min-width: 260px;
       resize: both;
       overflow: auto;
       position: relative;
@@ -98,8 +99,9 @@
     .card-chart .plot {
       flex: 1 1 auto;
       padding: .5rem;
-      min-height: 220px;
+      min-height: 180px;
       overflow: hidden;
+      width: 100%;
     }
 
     /* Resizable corner styling */
@@ -129,10 +131,28 @@
     @media (max-width: 768px) {
       .insights-grid {
         grid-template-columns: 1fr;
+        gap: 1rem;
       }
       
       .insights-title {
         font-size: 1.5rem;
+      }
+      
+      .card-chart {
+        min-width: 280px;
+        resize: vertical;
+      }
+      
+      .container {
+        padding-left: 1rem;
+        padding-right: 1rem;
+      }
+    }
+
+    /* Medium screens optimization */
+    @media (max-width: 1024px) and (min-width: 769px) {
+      .insights-grid {
+        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
       }
     }
   </style>
@@ -271,7 +291,7 @@
     }
 
     /**
-     * Initialize ResizeObserver for responsive charts
+     * Enhanced ResizeObserver for responsive Plotly charts
      */
     function initPlotlyResizeObserver() {
       if (!window.ResizeObserver) return; // Fallback for browsers without ResizeObserver
@@ -298,9 +318,40 @@
       window.plotlyResizeObserver = resizeObserver;
 
       // Observe all existing plot elements
-      document.querySelectorAll('.plot').forEach(plotEl => {
-        resizeObserver.observe(plotEl);
-      });
+      const observeExistingPlots = () => {
+        document.querySelectorAll('.plot').forEach(plotEl => {
+          resizeObserver.observe(plotEl);
+        });
+      };
+
+      // Initialize observation of existing plots
+      observeExistingPlots();
+
+      // Add window resize listener to trigger Plotly resize for all charts
+      let windowResizeTimeout;
+      const handleWindowResize = () => {
+        clearTimeout(windowResizeTimeout);
+        windowResizeTimeout = setTimeout(() => {
+          // Resize all Plotly charts on window resize
+          document.querySelectorAll('.plot').forEach(plotEl => {
+            if (plotEl.children.length > 0) {
+              try {
+                Plotly.Plots.resize(plotEl);
+              } catch (e) {
+                console.warn('Error resizing Plotly chart on window resize:', e);
+              }
+            }
+          });
+        }, 150);
+      };
+
+      window.addEventListener('resize', handleWindowResize);
+      
+      // Store the cleanup function globally
+      window.cleanupPlotlyResizeObserver = () => {
+        window.removeEventListener('resize', handleWindowResize);
+        resizeObserver.disconnect();
+      };
 
       return resizeObserver;
     }
