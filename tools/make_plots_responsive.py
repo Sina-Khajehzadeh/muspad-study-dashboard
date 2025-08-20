@@ -217,6 +217,11 @@ def process_html_file(file_path: Path) -> bool:
             simple_newplot_pattern = r'(Plotly\.newPlot\(\s*"[^"]+",\s*\[[^\]]+\],\s*\{[^}]+\})\s*\)'
             content = re.sub(simple_newplot_pattern, r'\1, {"responsive": true})', content)
         
+        # Clean up any duplicate closing braces/semicolons from our replacements
+        # Fix cases where we might have added extra }); sequences
+        content = re.sub(r'}\s*\);\s*}\s*\);', '});', content)
+        content = re.sub(r'}\s*,\s*\d+\s*\);\s*}\s*\);', '}, 500);', content)
+        
         # Remove any existing fixed width/height from layout objects in the JavaScript
         # This is more complex as we need to be careful not to break JSON structure
         # For now, we'll rely on the JavaScript code to remove these at runtime
