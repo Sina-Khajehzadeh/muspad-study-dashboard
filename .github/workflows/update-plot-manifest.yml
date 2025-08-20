@@ -1,0 +1,112 @@
+name: Update Plot Manifest
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/plots/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-manifest:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
+        
+    - name: Generate plot manifest
+      run: |
+        python3 << 'EOF'
+        import os
+        import json
+        import re
+        from pathlib import Path
+        
+        def title_from_filename(filename):
+            """Convert filename to friendly title"""
+            # Remove .html extension
+            name = filename.replace('.html', '')
+            # Replace hyphens, underscores, and dots with spaces
+            name = re.sub(r'[-_.]+', ' ', name)
+            # Title case
+            return name.title()
+        
+        def generate_manifest(plots_dir, output_path):
+            """Generate manifest.json for HTML plots"""
+            plots_path = Path(plots_dir)
+            
+            if not plots_path.exists():
+                print(f"Plots directory not found: {plots_dir}")
+                return
+                
+            # Find all .html files
+            html_files = list(plots_path.glob('*.html'))
+            
+            if not html_files:
+                print(f"No HTML files found in {plots_dir}")
+                return
+                
+            # Create manifest entries
+            charts = []
+            for html_file in sorted(html_files):
+                filename = html_file.name
+                title = title_from_filename(filename)
+                
+                chart_entry = {
+                    "id": filename.replace('.html', '').replace(' ', '-').lower(),
+                    "title": title,
+                    "file": filename,
+                    "type": "html"
+                }
+                charts.append(chart_entry)
+            
+            # Create manifest
+            manifest = {
+                "version": 1,
+                "basePath": "plots/",
+                "charts": charts
+            }
+            
+            # Write manifest
+            output_path = Path(output_path)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            with open(output_path, 'w', encoding='utf-8') as f:
+                json.dump(manifest, f, indent=2, ensure_ascii=False)
+            
+            print(f"Generated manifest with {len(charts)} charts:")
+            for chart in charts:
+                print(f"  - {chart['title']} ({chart['file']})")
+            
+            return manifest
+        
+        # Generate the manifest
+        generate_manifest("docs/plots", "docs/assets/plots/manifest.json")
+        EOF
+        
+    - name: Check for changes
+      id: verify-changed-files
+      run: |
+        if [ -n "$(git status --porcelain)" ]; then
+          echo "changed=true" >> $GITHUB_OUTPUT
+        else
+          echo "changed=false" >> $GITHUB_OUTPUT
+        fi
+        
+    - name: Commit and push changes
+      if: steps.verify-changed-files.outputs.changed == 'true'
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add docs/assets/plots/manifest.json
+        git commit -m "chore: update plot manifest"
+        git push
