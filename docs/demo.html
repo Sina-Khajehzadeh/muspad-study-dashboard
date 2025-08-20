@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chart Aggregation Demo</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .demo-section { margin-bottom: 30px; border: 1px solid #ddd; padding: 15px; border-radius: 5px; }
+        .before-after { display: flex; gap: 20px; }
+        .before, .after { flex: 1; }
+        .before { background-color: #ffe6e6; }
+        .after { background-color: #e6ffe6; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f5f5f5; }
+        .error { color: red; font-weight: bold; }
+        .success { color: green; font-weight: bold; }
+        .warning { color: orange; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>Chart Aggregation Logic - Before vs After Fix</h1>
+    
+    <div class="demo-section">
+        <h2>Sample Data: Age Group vs Income</h2>
+        <p>This demonstrates the original issue where age_group (categorical) vs income (categorical ranges) produced flat lines.</p>
+        
+        <div class="before-after">
+            <div class="before">
+                <h3>❌ BEFORE: Original Logic (Broken)</h3>
+                <div id="before-results"></div>
+            </div>
+            <div class="after">
+                <h3>✅ AFTER: Fixed Logic</h3>
+                <div id="after-results"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Sample data mimicking the dashboard's CSV structure
+        const sampleData = [
+            { age_group_22_1: '18-29', X20_21_langfragen_income: '1000 bis unter 2000 Euro' },
+            { age_group_22_1: '18-29', X20_21_langfragen_income: '2000 bis unter 3000 Euro' },
+            { age_group_22_1: '18-29', X20_21_langfragen_income: '1000 bis unter 2000 Euro' },
+            { age_group_22_1: '30-39', X20_21_langfragen_income: '3000 bis unter 4000 Euro' },
+            { age_group_22_1: '30-39', X20_21_langfragen_income: '4000 bis unter 5000 Euro' },
+            { age_group_22_1: '30-39', X20_21_langfragen_income: '3000 bis unter 4000 Euro' },
+            { age_group_22_1: '40-49', X20_21_langfragen_income: '5000 bis unter 6000 Euro' },
+            { age_group_22_1: '40-49', X20_21_langfragen_income: '6000 bis unter 8000 Euro' },
+            { age_group_22_1: '40-49', X20_21_langfragen_income: '' }, // empty value
+            { age_group_22_1: '50+', X20_21_langfragen_income: '6000 bis unter 8000 Euro' },
+            { age_group_22_1: '50+', X20_21_langfragen_income: '8000 Euro und mehr' },
+        ];
+
+        // IMPROVED UTILITY FUNCTIONS (copied from main file)
+        function isNumericColumn(values) {
+            if (!Array.isArray(values) || values.length === 0) return false;
+            
+            let numericCount = 0;
+            let validCount = 0;
+            
+            for (const val of values) {
+                if (val == null || val === '') continue;
+                
+                validCount++;
+                
+                if (typeof val === 'number' && !Number.isNaN(val)) {
+                    numericCount++;
+                    continue;
+                }
+                
+                if (typeof val === 'string') {
+                    const trimmed = val.trim();
+                    const numericPattern = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
+                    
+                    if (numericPattern.test(trimmed)) {
+                        const num = parseFloat(trimmed);
+                        if (!Number.isNaN(num) && Number.isFinite(num)) {
+                            numericCount++;
+                            continue;
+                        }
+                    }
+                    
+                    if (/^\d/.test(trimmed) && /[a-zA-Z]/.test(trimmed)) {
+                        continue;
+                    }
+                }
+            }
+            
+            return validCount > 0 && (numericCount / validCount) >= 0.7;
+        }
+
+        function coerceNumericArray(values) {
+            const result = [];
+            const errors = [];
+            
+            for (let i = 0; i < values.length; i++) {
+                const val = values[i];
+                
+                if (val == null || val === '') {
+                    continue;
+                }
+                
+                if (typeof val === 'number' && !Number.isNaN(val) && Number.isFinite(val)) {
+                    result.push(val);
+                    continue;
+                }
+                
+                if (typeof val === 'string') {
+                    const num = parseFloat(val.trim());
+                    if (!Number.isNaN(num) && Number.isFinite(num)) {
+                        result.push(num);
+                        continue;
+                    }
+                }
+                
+                errors.push({ index: i, value: val, type: typeof val });
+            }
+            
+            return { values: result, errors };
+        }
+
+        // OLD AGGREGATION LOGIC (from original broken code)
+        function oldAggregateLogic(data, xField, yField, aggType = 'mean') {
+            const groups = new Map();
+            
+            // Group by X field
+            data.forEach(row => {
+                const key = String(row[xField] || '');
+                if (!groups.has(key)) groups.set(key, []);
+                groups.get(key).push(row);
+            });
+            
+            // Old aggregation logic - simple +coercion
+            const result = new Map();
+            for (const [groupName, rows] of groups) {
+                if (aggType === 'count') {
+                    result.set(groupName, rows.length);
+                } else {
+                    // THIS IS THE BUG: Simple +coercion of strings like "1000 bis unter 2000 Euro"
+                    const vals = rows.map(r => +r[yField]).filter(v => !Number.isNaN(v));
+                    if (vals.length === 0) {
+                        result.set(groupName, 0); // This causes flat lines!
+                    } else {
+                        const aggregated = aggType === 'sum' ? 
+                            vals.reduce((a,b) => a + b, 0) : 
+                            vals.reduce((a,b) => a + b, 0) / vals.length;
+                        result.set(groupName, aggregated);
+                    }
+                }
+            }
+            
+            return result;
+        }
+
+        // NEW AGGREGATION LOGIC (fixed version)
+        function newAggregateLogic(data, xField, yField, aggType = 'mean') {
+            const groups = new Map();
+            
+            // Group by X field
+            data.forEach(row => {
+                const key = String(row[xField] || '');
+                if (!groups.has(key)) groups.set(key, []);
+                groups.get(key).push(row);
+            });
+            
+            // Check if Y field is numeric
+            const allYValues = data.map(r => r[yField]);
+            const isYNumeric = isNumericColumn(allYValues);
+            
+            const result = new Map();
+            const warnings = [];
+            
+            if (!isYNumeric && aggType !== 'count') {
+                warnings.push(`Warning: Column '${yField}' is not numeric but attempting ${aggType} aggregation`);
+            }
+            
+            for (const [groupName, rows] of groups) {
+                if (aggType === 'count') {
+                    result.set(groupName, rows.length);
+                } else {
+                    // Use robust coercion
+                    const rawValues = rows.map(r => r[yField]);
+                    const { values: numericValues, errors } = coerceNumericArray(rawValues);
+                    
+                    if (numericValues.length === 0) {
+                        result.set(groupName, null); // Use null instead of 0 to indicate no valid data
+                        warnings.push(`Group '${groupName}': No valid numeric values for aggregation`);
+                    } else {
+                        const aggregated = aggType === 'sum' ? 
+                            numericValues.reduce((a,b) => a + b, 0) : 
+                            numericValues.reduce((a,b) => a + b, 0) / numericValues.length;
+                        result.set(groupName, aggregated);
+                        
+                        if (errors.length > 0) {
+                            warnings.push(`Group '${groupName}': ${errors.length} invalid values ignored`);
+                        }
+                    }
+                }
+            }
+            
+            return { result, warnings };
+        }
+
+        // Display results
+        function displayResults() {
+            // OLD LOGIC
+            const oldResults = oldAggregateLogic(sampleData, 'age_group_22_1', 'X20_21_langfragen_income', 'mean');
+            
+            let beforeHtml = '<h4>Original Aggregation Results:</h4>';
+            beforeHtml += '<table><tr><th>Age Group</th><th>Mean Income</th></tr>';
+            
+            for (const [group, value] of oldResults) {
+                beforeHtml += `<tr><td>${group}</td><td class="error">${value}</td></tr>`;
+            }
+            beforeHtml += '</table>';
+            
+            beforeHtml += '<p class="error">❌ Issue: All values are 0 because income strings like "1000 bis unter 2000 Euro" convert to NaN with simple +coercion, resulting in flat line charts!</p>';
+            
+            // NEW LOGIC
+            const { result: newResults, warnings } = newAggregateLogic(sampleData, 'age_group_22_1', 'X20_21_langfragen_income', 'mean');
+            
+            let afterHtml = '<h4>Fixed Aggregation Results:</h4>';
+            afterHtml += '<table><tr><th>Age Group</th><th>Mean Income</th><th>Status</th></tr>';
+            
+            for (const [group, value] of newResults) {
+                const status = value === null ? 'No valid numeric data' : 'Valid (but income is categorical)';
+                const displayValue = value === null ? 'null' : value;
+                const cellClass = value === null ? 'warning' : 'success';
+                afterHtml += `<tr><td>${group}</td><td class="${cellClass}">${displayValue}</td><td>${status}</td></tr>`;
+            }
+            afterHtml += '</table>';
+            
+            if (warnings.length > 0) {
+                afterHtml += '<h4>Warnings:</h4><ul>';
+                warnings.forEach(warning => {
+                    afterHtml += `<li class="warning">${warning}</li>`;
+                });
+                afterHtml += '</ul>';
+            }
+            
+            afterHtml += '<p class="success">✅ Fixed: Now properly detects that income column is categorical and warns the user instead of producing misleading flat lines!</p>';
+            
+            // Display both
+            document.getElementById('before-results').innerHTML = beforeHtml;
+            document.getElementById('after-results').innerHTML = afterHtml;
+            
+            // Add recommendation
+            const recommendationHtml = `
+                <div class="demo-section">
+                    <h2>🎯 Recommendation</h2>
+                    <p><strong>For proper income analysis, the dashboard should either:</strong></p>
+                    <ol>
+                        <li><strong>Use count aggregation:</strong> Show count of people in each age group (valid for categorical data)</li>
+                        <li><strong>Convert income ranges to numeric values:</strong> Map ranges to midpoint values (e.g., "1000 bis unter 2000 Euro" → 1500)</li>
+                        <li><strong>Show distribution:</strong> Use histogram or bar chart to show income range distribution per age group</li>
+                    </ol>
+                </div>
+            `;
+            document.body.insertAdjacentHTML('beforeend', recommendationHtml);
+            
+            // Test with count aggregation (which should work)
+            const countResults = newAggregateLogic(sampleData, 'age_group_22_1', 'X20_21_langfragen_income', 'count');
+            
+            let countHtml = '<div class="demo-section"><h2>✅ Count Aggregation (Works with Categorical Data)</h2>';
+            countHtml += '<table><tr><th>Age Group</th><th>Count of People</th></tr>';
+            
+            for (const [group, value] of countResults.result) {
+                countHtml += `<tr><td>${group}</td><td class="success">${value}</td></tr>`;
+            }
+            countHtml += '</table>';
+            countHtml += '<p class="success">✅ Count aggregation works perfectly with categorical data!</p></div>';
+            
+            document.body.insertAdjacentHTML('beforeend', countHtml);
+        }
+
+        document.addEventListener('DOMContentLoaded', displayResults);
+    </script>
+</body>
+</html>

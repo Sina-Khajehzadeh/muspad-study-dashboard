@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chart Utilities - Unit Tests</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin-bottom: 30px; border: 1px solid #ddd; padding: 15px; border-radius: 5px; }
+        .test-pass { color: green; font-weight: bold; }
+        .test-fail { color: red; font-weight: bold; }
+        .test-result { margin: 5px 0; }
+        h1 { color: #333; }
+        h2 { color: #666; margin-top: 0; }
+        .summary { background: #f5f5f5; padding: 10px; border-radius: 5px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>Chart Utilities - Unit Tests</h1>
+    <div id="test-results"></div>
+    <div id="summary" class="summary"></div>
+
+    <script>
+        // Include utility functions (copied from main index.html)
+        function isNumericColumn(values) {
+            if (!Array.isArray(values) || values.length === 0) return false;
+            
+            let numericCount = 0;
+            let validCount = 0;
+            
+            for (const val of values) {
+                if (val == null || val === '') continue;
+                
+                validCount++;
+                
+                if (typeof val === 'number' && !Number.isNaN(val)) {
+                    numericCount++;
+                    continue;
+                }
+                
+                if (typeof val === 'string') {
+                    const trimmed = val.trim();
+                    const numericPattern = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
+                    
+                    if (numericPattern.test(trimmed)) {
+                        const num = parseFloat(trimmed);
+                        if (!Number.isNaN(num) && Number.isFinite(num)) {
+                            numericCount++;
+                            continue;
+                        }
+                    }
+                    
+                    if (/^\d/.test(trimmed) && /[a-zA-Z]/.test(trimmed)) {
+                        continue;
+                    }
+                }
+            }
+            
+            return validCount > 0 && (numericCount / validCount) >= 0.7;
+        }
+
+        function coerceNumericArray(values) {
+            const result = [];
+            const errors = [];
+            
+            for (let i = 0; i < values.length; i++) {
+                const val = values[i];
+                
+                if (val == null || val === '') {
+                    continue;
+                }
+                
+                if (typeof val === 'number' && !Number.isNaN(val) && Number.isFinite(val)) {
+                    result.push(val);
+                    continue;
+                }
+                
+                if (typeof val === 'string') {
+                    const num = parseFloat(val.trim());
+                    if (!Number.isNaN(num) && Number.isFinite(num)) {
+                        result.push(num);
+                        continue;
+                    }
+                }
+                
+                errors.push({ index: i, value: val, type: typeof val });
+            }
+            
+            return { values: result, errors };
+        }
+
+        function computeBoxStats(values) {
+            const { values: numericValues } = coerceNumericArray(values);
+            
+            if (numericValues.length === 0) {
+                return { q1: 0, median: 0, q3: 0, lower: 0, upper: 0, outliers: [] };
+            }
+            
+            const sorted = numericValues.slice().sort((a, b) => a - b);
+            const n = sorted.length;
+            
+            const q1 = sorted[Math.floor((n - 1) * 0.25)];
+            const median = sorted[Math.floor((n - 1) * 0.5)];
+            const q3 = sorted[Math.floor((n - 1) * 0.75)];
+            
+            const iqr = q3 - q1;
+            const lower = q1 - 1.5 * iqr;
+            const upper = q3 + 1.5 * iqr;
+            
+            const outliers = sorted.filter(v => v < lower || v > upper);
+            
+            return { q1, median, q3, lower, upper, outliers };
+        }
+
+        function computeMeanSemCI(values, confidenceLevel = 0.95) {
+            const { values: numericValues } = coerceNumericArray(values);
+            
+            if (numericValues.length === 0) {
+                return { mean: 0, sem: 0, ci: [0, 0], n: 0 };
+            }
+            
+            const n = numericValues.length;
+            const mean = numericValues.reduce((a, b) => a + b, 0) / n;
+            
+            if (n === 1) {
+                return { mean, sem: 0, ci: [mean, mean], n };
+            }
+            
+            const variance = numericValues.reduce((a, b) => a + (b - mean) ** 2, 0) / (n - 1);
+            const std = Math.sqrt(variance);
+            const sem = std / Math.sqrt(n);
+            
+            const tValue = n > 30 ? 1.96 : [0, 0, 12.706, 4.303, 3.182, 2.776, 2.571, 2.447, 2.365, 2.306][Math.min(n - 1, 9)] || 2.0;
+            const margin = tValue * sem;
+            
+            return {
+                mean,
+                sem,
+                ci: [mean - margin, mean + margin],
+                n
+            };
+        }
+
+        // Test framework
+        class TestRunner {
+            constructor() {
+                this.tests = [];
+                this.results = [];
+            }
+
+            test(name, testFn) {
+                this.tests.push({ name, testFn });
+            }
+
+            assertEquals(actual, expected, message = '') {
+                const passed = JSON.stringify(actual) === JSON.stringify(expected);
+                return { passed, actual, expected, message };
+            }
+
+            assertTrue(condition, message = '') {
+                return { passed: Boolean(condition), actual: condition, expected: true, message };
+            }
+
+            assertFalse(condition, message = '') {
+                return { passed: !Boolean(condition), actual: condition, expected: false, message };
+            }
+
+            run() {
+                const resultsDiv = document.getElementById('test-results');
+                let totalTests = 0;
+                let passedTests = 0;
+
+                this.tests.forEach(({ name, testFn }) => {
+                    const sectionDiv = document.createElement('div');
+                    sectionDiv.className = 'test-section';
+                    sectionDiv.innerHTML = `<h2>${name}</h2>`;
+
+                    const assertions = testFn();
+                    assertions.forEach(assertion => {
+                        totalTests++;
+                        const resultDiv = document.createElement('div');
+                        resultDiv.className = 'test-result';
+                        
+                        if (assertion.passed) {
+                            passedTests++;
+                            resultDiv.innerHTML = `<span class="test-pass">✓ PASS</span> ${assertion.message || 'Assertion passed'}`;
+                        } else {
+                            resultDiv.innerHTML = `<span class="test-fail">✗ FAIL</span> ${assertion.message || 'Assertion failed'}<br>` +
+                                                  `&nbsp;&nbsp;Expected: ${JSON.stringify(assertion.expected)}<br>` +
+                                                  `&nbsp;&nbsp;Actual: ${JSON.stringify(assertion.actual)}`;
+                        }
+                        sectionDiv.appendChild(resultDiv);
+                    });
+
+                    resultsDiv.appendChild(sectionDiv);
+                });
+
+                // Summary
+                const summaryDiv = document.getElementById('summary');
+                const allPassed = totalTests === passedTests;
+                summaryDiv.innerHTML = `
+                    <h3>Test Summary</h3>
+                    <p><strong>Total Tests:</strong> ${totalTests}</p>
+                    <p><strong>Passed:</strong> ${passedTests}</p>
+                    <p><strong>Failed:</strong> ${totalTests - passedTests}</p>
+                    <p><strong>Overall:</strong> <span class="${allPassed ? 'test-pass' : 'test-fail'}">${allPassed ? 'ALL TESTS PASSED' : 'SOME TESTS FAILED'}</span></p>
+                `;
+            }
+        }
+
+        // Run the tests
+        document.addEventListener('DOMContentLoaded', () => {
+            const runner = new TestRunner();
+
+            // Test isNumericColumn
+            runner.test('isNumericColumn Function Tests', () => {
+                const results = [];
+                
+                results.push(runner.assertTrue(
+                    isNumericColumn([1, 2, 3, 4, 5]),
+                    'Should detect pure number arrays as numeric'
+                ));
+                
+                results.push(runner.assertTrue(
+                    isNumericColumn(['1', '2', '3', '4', '5']),
+                    'Should detect string numbers as numeric'
+                ));
+                
+                results.push(runner.assertFalse(
+                    isNumericColumn(['1000 bis unter 2000 Euro', '2000 bis unter 3000 Euro']),
+                    'Should NOT detect income range strings as numeric'
+                ));
+                
+                results.push(runner.assertFalse(
+                    isNumericColumn(['A', 'B', 'C', 'D']),
+                    'Should NOT detect categorical letters as numeric'
+                ));
+                
+                results.push(runner.assertTrue(
+                    isNumericColumn([1, '2', 3, 'invalid', 5]),
+                    'Should detect mostly numeric arrays as numeric (80% threshold)'
+                ));
+                
+                results.push(runner.assertFalse(
+                    isNumericColumn(['1st', '2nd', '3rd']),
+                    'Should NOT detect ordinal strings as numeric'
+                ));
+                
+                return results;
+            });
+
+            // Test coerceNumericArray
+            runner.test('coerceNumericArray Function Tests', () => {
+                const results = [];
+                
+                const result1 = coerceNumericArray([1, '2.5', null, 'invalid', '', 0, '100']);
+                results.push(runner.assertEquals(
+                    result1.values,
+                    [1, 2.5, 0, 100],
+                    'Should correctly extract numeric values'
+                ));
+                
+                results.push(runner.assertEquals(
+                    result1.errors.length,
+                    1,
+                    'Should report 1 error for "invalid" string'
+                ));
+                
+                const result2 = coerceNumericArray(['abc', 'def', null]);
+                results.push(runner.assertEquals(
+                    result2.values,
+                    [],
+                    'Should return empty array for all non-numeric values'
+                ));
+                
+                return results;
+            });
+
+            // Test computeBoxStats
+            runner.test('computeBoxStats Function Tests', () => {
+                const results = [];
+                
+                const stats = computeBoxStats([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+                results.push(runner.assertEquals(
+                    stats.median,
+                    5,
+                    'Should calculate correct median for 1-10'
+                ));
+                
+                results.push(runner.assertTrue(
+                    stats.q1 <= stats.median && stats.median <= stats.q3,
+                    'Quartiles should be in correct order: q1 <= median <= q3'
+                ));
+                
+                const emptyStats = computeBoxStats(['invalid', 'data']);
+                results.push(runner.assertEquals(
+                    emptyStats.median,
+                    0,
+                    'Should handle non-numeric data gracefully'
+                ));
+                
+                return results;
+            });
+
+            // Test computeMeanSemCI
+            runner.test('computeMeanSemCI Function Tests', () => {
+                const results = [];
+                
+                const stats = computeMeanSemCI([1, 2, 3, 4, 5]);
+                results.push(runner.assertEquals(
+                    stats.mean,
+                    3,
+                    'Should calculate correct mean for 1-5'
+                ));
+                
+                results.push(runner.assertEquals(
+                    stats.n,
+                    5,
+                    'Should count correct number of values'
+                ));
+                
+                results.push(runner.assertTrue(
+                    stats.ci[0] <= stats.mean && stats.mean <= stats.ci[1],
+                    'Mean should be within confidence interval'
+                ));
+                
+                const singleValueStats = computeMeanSemCI([42]);
+                results.push(runner.assertEquals(
+                    singleValueStats.sem,
+                    0,
+                    'Standard error should be 0 for single value'
+                ));
+                
+                return results;
+            });
+
+            // Test real-world scenario
+            runner.test('Real-world Dashboard Scenario Tests', () => {
+                const results = [];
+                
+                // Simulate the age_group vs income issue that was originally broken
+                const incomeRanges = [
+                    '1000 bis unter 2000 Euro',
+                    '2000 bis unter 3000 Euro',
+                    '3000 bis unter 4000 Euro',
+                    null,
+                    '',
+                    '6000 bis unter 8000 Euro'
+                ];
+                
+                results.push(runner.assertFalse(
+                    isNumericColumn(incomeRanges),
+                    'Income range column should NOT be detected as numeric'
+                ));
+                
+                // Test that age groups are detected as categorical
+                const ageGroups = ['18-29', '30-39', '40-49', '50-59', '60+'];
+                results.push(runner.assertFalse(
+                    isNumericColumn(ageGroups),
+                    'Age group column should NOT be detected as numeric'
+                ));
+                
+                // Test that actual income values would be numeric
+                const actualIncomes = [1500, 2500, 3500, null, 7000, '4500'];
+                results.push(runner.assertTrue(
+                    isNumericColumn(actualIncomes),
+                    'Actual numeric income values should be detected as numeric'
+                ));
+                
+                return results;
+            });
+
+            runner.run();
+        });
+    </script>
+</body>
+</html>

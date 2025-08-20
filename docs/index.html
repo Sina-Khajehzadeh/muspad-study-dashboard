@@ -2901,9 +2901,25 @@ let inspectorSelectedField = null;
       
       // Check if string can be coerced to number
       if (typeof val === 'string') {
-        const num = parseFloat(val.trim());
-        if (!Number.isNaN(num) && Number.isFinite(num)) {
-          numericCount++;
+        const trimmed = val.trim();
+        
+        // If string contains non-numeric characters other than decimal point, minus, plus, e/E (scientific notation)
+        // then it's likely categorical even if it starts with numbers
+        const numericPattern = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
+        
+        if (numericPattern.test(trimmed)) {
+          const num = parseFloat(trimmed);
+          if (!Number.isNaN(num) && Number.isFinite(num)) {
+            numericCount++;
+            continue;
+          }
+        }
+        
+        // Special case: if string starts with digits but contains letters or special chars
+        // (like "1000 bis unter 2000 Euro"), it's categorical
+        if (/^\d/.test(trimmed) && /[a-zA-Z]/.test(trimmed)) {
+          // This is likely a categorical value that starts with a number
+          continue; // Don't count as numeric
         }
       }
     }
