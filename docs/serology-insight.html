@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Serology Insight - Plot Gallery</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --max-width: 1400px;
+      --gap: 16px;
+      --bg: #fafbfc;
+      --text: #24292f;
+      --border: #e1e4e8;
+      --summary-bg: #f6f8fa;
+    }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: var(--text);
+      background: var(--bg);
+      line-height: 1.5;
+    }
+    header {
+      border-bottom: 1px solid var(--border);
+      background: white;
+    }
+    header .container {
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--gap);
+    }
+    main {
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 16px;
+    }
+    .note {
+      background: #fff8c5;
+      border: 1px solid #e3e2a2;
+      padding: 12px 16px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+      font-size: 14px;
+    }
+    details {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+    summary {
+      cursor: pointer;
+      list-style: none;
+      padding: 14px 16px;
+      font-weight: 600;
+      background: var(--summary-bg);
+      user-select: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--gap);
+    }
+    summary::-webkit-details-marker { display: none; }
+    .summary-title {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .summary-open {
+      font-size: 12px;
+      color: #57606a;
+      font-weight: 500;
+    }
+    .panel {
+      padding: 0;
+    }
+    .panel iframe {
+      display: block;
+      width: 100%;
+      border: 0;
+      background: #fff;
+      /* Height can be adjusted per plot; defaults here for convenience. */
+      min-height: 900px;
+    }
+    .links {
+      font-size: 14px;
+      padding: 10px 16px 16px;
+      color: #57606a;
+    }
+    .links a {
+      color: #0969da;
+      text-decoration: none;
+    }
+    .links a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <h1 style="font-size:20px; margin:0;">Serology Insight — Plot Gallery</h1>
+    </div>
+  </header>
+  <main>
+    <div class="note">
+      These plots are embedded exactly as provided, without any changes to their Plotly.js code. Click a section below to open a plot. You can also open any plot in a new tab via the link under each section.
+    </div>
+
+    <details>
+      <summary>
+        <span class="summary-title">Third Seroperevalence</span>
+        <span class="summary-open">Click to open</span>
+      </summary>
+      <div class="panel">
+        <iframe src="plots/Third%20Seroperevalence.html" title="Third Seroperevalence"></iframe>
+        <div class="links">Open in new tab: <a href="plots/Third%20Seroperevalence.html" target="_blank" rel="noopener">Third Seroperevalence.html</a></div>
+      </div>
+    </details>
+
+    <details>
+      <summary>
+        <span class="summary-title">Another Histogram for Participation</span>
+        <span class="summary-open">Click to open</span>
+      </summary>
+      <div class="panel">
+        <iframe src="plots/Another%20Histogram%20for%20Participation.html" title="Another Histogram for Participation"></iframe>
+        <div class="links">Open in new tab: <a href="plots/Another%20Histogram%20for%20Participation.html" target="_blank" rel="noopener">Another Histogram for Participation.html</a></div>
+      </div>
+    </details>
+
+    <details>
+      <summary>
+        <span class="summary-title">Interval days</span>
+        <span class="summary-open">Click to open</span>
+      </summary>
+      <div class="panel">
+        <iframe src="plots/Interval%20days.html" title="Interval days" style="min-height: 600px;"></iframe>
+        <div class="links">Open in new tab: <a href="plots/Interval%20days.html" target="_blank" rel="noopener">Interval days.html</a></div>
+      </div>
+    </details>
+
+    <details>
+      <summary>
+        <span class="summary-title">NPI</span>
+        <span class="summary-open">Click to open</span>
+      </summary>
+      <div class="panel">
+        <iframe src="plots/NPI.html" title="NPI"></iframe>
+        <div class="links">Open in new tab: <a href="plots/NPI.html" target="_blank" rel="noopener">NPI.html</a></div>
+      </div>
+    </details>
+
+    <details>
+      <summary>
+        <span class="summary-title">number of participation</span>
+        <span class="summary-open">Click to open</span>
+      </summary>
+      <div class="panel">
+        <iframe src="plots/number%20of%20participation.html" title="number of participation"></iframe>
+        <div class="links">Open in new tab: <a href="plots/number%20of%20participation.html" target="_blank" rel="noopener">number of participation.html</a></div>
+      </div>
+    </details>
+
+    <details>
+      <summary>
+        <span class="summary-title">mask shop usage</span>
+        <span class="summary-open">Click to open</span>
+      </summary>
+      <div class="panel">
+        <iframe src="plots/mask%20shop%20usage.html" title="mask shop usage" style="min-height: 1000px;"></iframe>
+        <div class="links">Open in new tab: <a href="plots/mask%20shop%20usage.html" target="_blank" rel="noopener">mask shop usage.html</a></div>
+      </div>
+    </details>
+
+    <details>
+      <summary>
+        <span class="summary-title">Partixipation</span>
+        <span class="summary-open">Click to open</span>
+      </summary>
+      <div class="panel">
+        <iframe src="plots/Partixipation.html" title="Partixipation"></iframe>
+        <div class="links">Open in new tab: <a href="plots/Partixipation.html" target="_blank" rel="noopener">Partixipation.html</a></div>
+      </div>
+    </details>
+
+    <details>
+      <summary>
+        <span class="summary-title">Prevalence</span>
+        <span class="summary-open">Click to open</span>
+      </summary>
+      <div class="panel">
+        <iframe src="plots/Prevalence.html" title="Prevalence" style="min-height: 1000px;"></iframe>
+        <div class="links">Open in new tab: <a href="plots/Prevalence.html" target="_blank" rel="noopener">Prevalence.html</a></div>
+      </div>
+    </details>
+
+    <details>
+      <summary>
+        <span class="summary-title">Box Plot Health Status</span>
+        <span class="summary-open">Click to open</span>
+      </summary>
+      <div class="panel">
+        <iframe src="plots/Box%20Plot%20Health%20Status.html" title="Box Plot Health Status" style="min-height: 1200px;"></iframe>
+        <div class="links">Open in new tab: <a href="plots/Box%20Plot%20Health%20Status.html" target="_blank" rel="noopener">Box Plot Health Status.html</a></div>
+      </div>
+    </details>
+
+    <details open>
+      <summary>
+        <span class="summary-title">Income Distribution (distribution_level)</span>
+        <span class="summary-open">Click to open</span>
+      </summary>
+      <div class="panel">
+        <iframe src="plots/distribution_level.html" title="Income Distribution (distribution_level)" style="min-height: 600px;"></iframe>
+        <div class="links">Open in new tab: <a href="plots/distribution_level.html" target="_blank" rel="noopener">distribution_level.html</a></div>
+      </div>
+    </details>
+
+  </main>
+</body>
+</html>
