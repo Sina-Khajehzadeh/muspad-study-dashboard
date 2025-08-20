@@ -1,34 +1,4 @@
 {
-  "version": 1,
   "basePath": "assets/plots/",
-  "charts": [
-    {
-      "id": "sero-prevalence",
-      "title": "COVID-19 Seroprevalence (%) (X20_21)",
-      "file": "serology_seroprevalence.json",
-      "width": 800,
-      "height": 500
-    },
-    {
-      "id": "vaccination-coverage",
-      "title": "COVID-19 Vaccination Coverage (%) (X20_21)",
-      "file": "vaccination_coverage.json",
-      "width": 800,
-      "height": 500
-    },
-    {
-      "id": "vaccine-brand-distribution",
-      "title": "COVID-19 Vaccine Brand Distribution (%)",
-      "file": "vaccine_brand_distribution.json",
-      "width": 800,
-      "height": 600
-    },
-    {
-      "id": "seroprevalence-age-waves",
-      "title": "Seroprevalence by Age Group Across Waves",
-      "file": "seroprevalence_age_waves.json",
-      "width": 1200,
-      "height": 800
-    }
-  ]
+  "charts": []
 }

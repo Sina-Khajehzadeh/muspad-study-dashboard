@@ -3018,6 +3018,12 @@ let inspectorSelectedField = null;
       return;
     }
     
+    // Handle plotlyhtml charts (iframe rendering of HTML files)
+    if (cfg.type === 'plotlyhtml') {
+      drawPlotlyHtmlChart(cfg);
+      return;
+    }
+    
     // Handle insight charts with custom render functions
     if (cfg.isInsightChart && cfg.render) {
       cfg.render(cfg);
@@ -3233,6 +3239,70 @@ let inspectorSelectedField = null;
       el.innerHTML = `<div style="padding: 2rem; text-align: center; color: #dc3545;">
         <i class="bi bi-exclamation-triangle" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
         Error rendering chart: ${cfg.title}
+      </div>`;
+    }
+  }
+
+  /**
+   * Render Plotly HTML files via iframe with proper security and styling
+   * @param {Object} cfg - Chart configuration with src, title, etc.
+   */
+  function drawPlotlyHtmlChart(cfg) {
+    const el = cfg._el;
+    
+    if (!el) {
+      console.warn('Missing element for plotlyhtml chart:', cfg);
+      return;
+    }
+    
+    if (!cfg.src) {
+      el.innerHTML = `<div style="padding: 2rem; text-align: center; color: #6c757d;">
+        <i class="bi bi-exclamation-triangle" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+        No HTML file path provided for: ${cfg.title}
+      </div>`;
+      return;
+    }
+    
+    try {
+      // Create iframe with proper security and styling
+      const iframe = document.createElement('iframe');
+      iframe.src = cfg.src;
+      iframe.style.width = '100%';
+      iframe.style.height = '100%';
+      iframe.style.border = '0';
+      iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin');
+      iframe.setAttribute('title', cfg.title || 'Plotly Chart');
+      
+      // Clear element and add iframe
+      el.innerHTML = '';
+      el.appendChild(iframe);
+      
+      // Set up ResizeObserver to ensure iframe fills container
+      if (window.ResizeObserver) {
+        const resizeObserver = new ResizeObserver((entries) => {
+          entries.forEach((entry) => {
+            if (entry.target === el) {
+              // The iframe inherits 100% width/height, so it automatically fills the container
+              // No need to call Plotly.Plots.resize since it's an HTML file
+            }
+          });
+        });
+        
+        // Observe the container element
+        resizeObserver.observe(el);
+        
+        // Store observer for cleanup if needed
+        if (!window.plotlyHtmlResizeObservers) {
+          window.plotlyHtmlResizeObservers = new WeakMap();
+        }
+        window.plotlyHtmlResizeObservers.set(el, resizeObserver);
+      }
+      
+    } catch (error) {
+      console.error('Error creating plotlyhtml iframe:', error);
+      el.innerHTML = `<div style="padding: 2rem; text-align: center; color: #dc3545;">
+        <i class="bi bi-exclamation-triangle" style="font-size: 2rem; display: block; margin-bottom: 0.5rem;"></i>
+        Error loading HTML chart: ${cfg.title}
       </div>`;
     }
   }
@@ -4915,11 +4985,20 @@ let inspectorSelectedField = null;
     manifest.charts.forEach(chart => {
       const checkboxContainer = document.createElement('div');
       checkboxContainer.className = 'form-check mb-2';
+      
+      // Add type indicator for HTML charts
+      const typeIndicator = chart.type === 'html' ? ' (HTML)' : '';
+      
+      // Show dimensions if available
+      const dimensionsText = chart.width && chart.height ? 
+        `Dimensions: ${chart.width}x${chart.height}` : 
+        (chart.type === 'html' ? 'HTML File' : 'JSON File');
+      
       checkboxContainer.innerHTML = `
         <input class="form-check-input plotly-json-chart-checkbox" type="checkbox" value="${chart.id}" id="chart-${chart.id}">
         <label class="form-check-label" for="chart-${chart.id}">
-          <strong>${chart.title}</strong>
-          <small class="text-muted d-block">Dimensions: ${chart.width}x${chart.height}</small>
+          <strong>${chart.title}${typeIndicator}</strong>
+          <small class="text-muted d-block">${dimensionsText}</small>
         </label>
       `;
       chartsList.appendChild(checkboxContainer);
@@ -4964,25 +5043,40 @@ let inspectorSelectedField = null;
         const filePath = plotlyManifest.basePath ? 
           plotlyManifest.basePath + chart.file : 
           chart.file;
+        
+        // Handle HTML charts differently from JSON charts
+        if (chart.type === 'html') {
+          // For HTML charts, create plotlyhtml config directly without fetching
+          const cfg = {
+            type: 'plotlyhtml',
+            title: chart.title,
+            manifestId: chart.id,
+            src: filePath,
+            isInsightChart: true
+          };
           
-        const response = await fetch(filePath);
-        if (!response.ok) {
-          throw new Error(`Failed to load chart ${chart.title}: ${response.status}`);
+          addInsightChart(cfg);
+        } else {
+          // Default behavior for JSON charts (backwards compatibility)
+          const response = await fetch(filePath);
+          if (!response.ok) {
+            throw new Error(`Failed to load chart ${chart.title}: ${response.status}`);
+          }
+          
+          const chartJson = await response.json();
+          
+          // Create insight chart config for plotlyjson type
+          const cfg = {
+            type: 'plotlyjson',
+            title: chart.title,
+            manifestId: chart.id,
+            src: filePath,
+            json: chartJson,
+            isInsightChart: true
+          };
+          
+          addInsightChart(cfg);
         }
-        
-        const chartJson = await response.json();
-        
-        // Create insight chart config for plotlyjson type
-        const cfg = {
-          type: 'plotlyjson',
-          title: chart.title,
-          manifestId: chart.id,
-          src: filePath,
-          json: chartJson,
-          isInsightChart: true
-        };
-        
-        addInsightChart(cfg);
         
       } catch (error) {
         console.error(`Error loading chart ${chart.title}:`, error);
