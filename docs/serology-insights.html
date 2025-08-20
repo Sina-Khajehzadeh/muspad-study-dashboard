@@ -175,6 +175,7 @@
   <script>
     /**
      * Helper function to render Plotly figures from Python JSON exports
+     * Uses exact fidelity rendering to preserve original Python figure appearance
      * @param {string} containerId - The ID of the container element
      * @param {Object} figureJson - The figure JSON from Python's fig.to_json()
      */
@@ -182,17 +183,17 @@
       // Parse JSON if it's a string
       const figure = typeof figureJson === 'string' ? JSON.parse(figureJson) : figureJson;
       
-      // Sanitize layout to remove fixed dimensions from Python exports
-      const sanitizedLayout = figure.layout || {};
-      delete sanitizedLayout.width;
-      delete sanitizedLayout.height;
-      sanitizedLayout.autosize = true;
+      // Exact fidelity JSON rendering - preserve Python figure layout without modification
+      // Do not apply themes or sanitize layout to maintain visual parity with Python output
+      const layout = figure.layout || {};
       
-      // Apply theme to the sanitized layout
-      const themedLayout = window.DashboardTheme.getBaseLayout(sanitizedLayout);
+      // Only set autosize if width/height are not present (minimal intervention)
+      if (!layout.width && !layout.height && layout.autosize === undefined) {
+        layout.autosize = true;
+      }
       
-      // Render the plot
-      Plotly.newPlot(containerId, figure.data || [], themedLayout, {
+      // Render the plot using original JSON data and layout without theme modifications
+      Plotly.newPlot(containerId, figure.data || [], layout, {
         responsive: true,
         displayModeBar: false
       });
