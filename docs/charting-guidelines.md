@@ -266,42 +266,20 @@ function exportChartData(cfg, data) {
 ```javascript
 // Example: Count participants by study wave from date column
 function computeParticipantCountsByWave(data, dateColumn, aggregationPeriod = 'month') {
-  const waveCounts = new Map();
+  // Reuse existing binDates function (already implemented in codebase)
+  const validDates = data
+    .map(row => parseValidDate(row[dateColumn])) // Use existing parseValidDate function
+    .filter(date => date !== null);
+    
+  if (validDates.length === 0) return { labels: [], counts: [], total: 0 };
   
-  data.forEach(row => {
-    const dateValue = row[dateColumn];
-    if (!dateValue) return;
-    
-    const date = parseFlexibleDate(dateValue);
-    if (!date) return;
-    
-    let waveKey;
-    const year = date.getUTCFullYear();
-    const month = date.getUTCMonth() + 1;
-    
-    switch (aggregationPeriod) {
-      case 'month':
-        waveKey = `${year}-${month.toString().padStart(2, '0')}`;
-        break;
-      case 'quarter':
-        const quarter = Math.floor((month - 1) / 3) + 1;
-        waveKey = `Q${quarter} ${year}`;
-        break;
-      case 'year':
-        waveKey = year.toString();
-        break;
-      default:
-        waveKey = date.toISOString().slice(0, 10); // daily
-    }
-    
-    waveCounts.set(waveKey, (waveCounts.get(waveKey) || 0) + 1);
-  });
+  // Use the existing binDates function for consistent aggregation
+  const binResult = binDates(validDates, aggregationPeriod);
   
-  const sortedWaves = Array.from(waveCounts.keys()).sort();
   return {
-    labels: sortedWaves,
-    counts: sortedWaves.map(wave => waveCounts.get(wave)),
-    total: Array.from(waveCounts.values()).reduce((a, b) => a + b, 0)
+    labels: binResult.labels,
+    counts: binResult.counts,
+    total: binResult.counts.reduce((a, b) => a + b, 0)
   };
 }
 
@@ -332,55 +310,64 @@ function createParticipantWaveChart(data, dateColumn = 'participation_date') {
 ### Grouping and Aggregation Utilities
 
 ```javascript
-// Generic grouping function (already exists, enhanced version)
+// Enhanced version of existing groupBy pattern (used in drawBar, drawLine, etc.)
+function createGroupAggregateFunction() {
+  const groupBy = (rows, keys) => {
+    const map = new Map();
+    for (const r of rows) {
+      const key = keys.map(k => String(r[k] || '')).join('¦');
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(r);
+    }
+    return { map, keys };
+  };
+  
+  const aggregate = (rows, valueCol, aggType = 'count') => {
+    if (aggType === 'count') return rows.length;
+    if (!valueCol) return rows.length;
+    
+    // Use existing numeric filtering pattern from codebase
+    const values = rows
+      .map(r => r[valueCol])
+      .filter(v => v != null && v !== '')
+      .map(v => Number(v))
+      .filter(v => Number.isFinite(v));
+    
+    if (values.length === 0) return 0;
+    
+    switch (aggType) {
+      case 'sum': return values.reduce((a, b) => a + b, 0);
+      case 'mean': return values.reduce((a, b) => a + b, 0) / values.length;
+      case 'median': {
+        const sorted = values.sort((a, b) => a - b);
+        const mid = Math.floor(sorted.length / 2);
+        return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+      }
+      default: return values.length;
+    }
+  };
+  
+  return { groupBy, aggregate };
+}
+
+// Generic grouping with aggregation
 function groupAggregate(data, groupByCols, valueCols, aggType = 'mean') {
-  const groups = new Map();
-  
-  data.forEach(row => {
-    const key = groupByCols.map(col => String(row[col] || '(missing)')).join('¦');
-    if (!groups.has(key)) groups.set(key, []);
-    groups.get(key).push(row);
-  });
-  
+  const { groupBy, aggregate } = createGroupAggregateFunction();
+  const grouped = groupBy(data, groupByCols);
   const results = [];
-  for (const [key, rows] of groups.entries()) {
+  
+  for (const [key, rows] of grouped.map.entries()) {
     const keyParts = key.split('¦');
     const result = {};
     
     // Add group identifiers
     groupByCols.forEach((col, i) => {
-      result[col] = keyParts[i] === '(missing)' ? null : keyParts[i];
+      result[col] = keyParts[i] === '' ? null : keyParts[i];
     });
     
     // Add aggregated values
     valueCols.forEach(col => {
-      const values = rows.map(r => r[col]).filter(v => v != null && v !== '');
-      const numericValues = coerceNumericArray(values);
-      
-      switch (aggType) {
-        case 'count':
-          result[`${col}_count`] = rows.length;
-          break;
-        case 'mean':
-          result[`${col}_mean`] = numericValues.length > 0 
-            ? numericValues.reduce((a, b) => a + b, 0) / numericValues.length 
-            : null;
-          break;
-        case 'median':
-          if (numericValues.length > 0) {
-            const sorted = numericValues.sort((a, b) => a - b);
-            const mid = Math.floor(sorted.length / 2);
-            result[`${col}_median`] = sorted.length % 2 
-              ? sorted[mid] 
-              : (sorted[mid - 1] + sorted[mid]) / 2;
-          } else {
-            result[`${col}_median`] = null;
-          }
-          break;
-        case 'sum':
-          result[`${col}_sum`] = numericValues.reduce((a, b) => a + b, 0);
-          break;
-      }
+      result[`${col}_${aggType}`] = aggregate(rows, col, aggType);
     });
     
     result._n = rows.length; // Always include sample size
@@ -391,10 +378,31 @@ function groupAggregate(data, groupByCols, valueCols, aggType = 'mean') {
 }
 ```
 
+### Numeric Value Processing
+
+```javascript
+// Consistent numeric coercion (based on existing patterns in codebase)
+function coerceNumericArray(values) {
+  return values
+    .filter(v => v != null && v !== '') // Remove nulls/empty first (matches existing pattern)
+    .map(v => Number(v))                // Convert to number
+    .filter(v => Number.isFinite(v));   // Keep only finite numbers (matches existing pattern)
+}
+
+// Enhanced version of existing looksNumericColumn logic
+function validateNumericColumn(col, threshold = 0.7) {
+  const vals = sampleValues(col, 200); // Use existing sampleValues function
+  if (!vals.length) return false;
+  
+  const numericVals = coerceNumericArray(vals);
+  return numericVals.length / vals.length >= threshold;
+}
+```
+
 ### Box Plot Statistics
 
 ```javascript
-// Box plot computation (enhanced version of existing)
+// Box plot computation (enhanced version compatible with existing drawBox function)
 function computeBoxStats(values) {
   const numericValues = coerceNumericArray(values);
   if (numericValues.length === 0) return null;
@@ -402,9 +410,13 @@ function computeBoxStats(values) {
   const sorted = numericValues.sort((a, b) => a - b);
   const n = sorted.length;
   
-  const q1 = sorted[Math.floor(n * 0.25)];
-  const median = sorted[Math.floor(n * 0.5)];
-  const q3 = sorted[Math.floor(n * 0.75)];
+  const q1Index = Math.floor(n * 0.25);
+  const medianIndex = Math.floor(n * 0.5);
+  const q3Index = Math.floor(n * 0.75);
+  
+  const q1 = sorted[q1Index];
+  const median = n % 2 === 0 ? (sorted[medianIndex - 1] + sorted[medianIndex]) / 2 : sorted[medianIndex];
+  const q3 = sorted[q3Index];
   const iqr = q3 - q1;
   
   const lowerFence = q1 - 1.5 * iqr;
@@ -414,14 +426,62 @@ function computeBoxStats(values) {
   const inliers = sorted.filter(v => v >= lowerFence && v <= upperFence);
   
   return {
-    min: Math.min(...inliers),
+    min: inliers.length > 0 ? Math.min(...inliers) : q1,
     q1: q1,
     median: median,
     q3: q3,
-    max: Math.max(...inliers),
+    max: inliers.length > 0 ? Math.max(...inliers) : q3,
     outliers: outliers,
-    n: n
+    n: n,
+    // Plotly.js format compatibility
+    y: numericValues,
+    type: 'box'
   };
+}
+```
+
+### Date Processing Utilities
+
+```javascript
+// Enhanced date parsing (compatible with existing parseValidDate)
+function parseFlexibleDate(value) {
+  if (!value) return null;
+  
+  // Try existing parseValidDate first
+  const existing = parseValidDate(value);
+  if (existing) return existing;
+  
+  // Additional parsing attempts
+  const formats = [
+    new Date(value),
+    new Date(value.replace(/[-/]/g, '/')), // Normalize separators
+    new Date(parseInt(value)) // Unix timestamps
+  ];
+  
+  for (const date of formats) {
+    if (!isNaN(date.getTime()) && 
+        date.getFullYear() >= 2010 && 
+        date.getFullYear() <= 2030) {
+      return date;
+    }
+  }
+  return null;
+}
+
+// Time span analysis for period recommendation
+function recommendDatePeriod(dateValues) {
+  const validDates = dateValues.map(parseFlexibleDate).filter(d => d !== null);
+  if (validDates.length < 2) return 'month';
+  
+  const minDate = new Date(Math.min(...validDates));
+  const maxDate = new Date(Math.max(...validDates));
+  const daysDiff = (maxDate - minDate) / (1000 * 60 * 60 * 24);
+  
+  if (daysDiff < 30) return 'day';
+  if (daysDiff < 180) return 'week';
+  if (daysDiff < 730) return 'month';
+  if (daysDiff < 3650) return 'quarter';
+  return 'year';
 }
 ```
 
