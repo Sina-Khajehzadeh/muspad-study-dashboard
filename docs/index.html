@@ -3098,6 +3098,104 @@ let inspectorSelectedField = null;
     }
   }
 
+  // ===========================
+  // UTILITY FUNCTIONS FOR ROBUST DATA HANDLING
+  // ===========================
+  
+  /**
+   * Checks if a value is numeric (can be safely converted to a finite number)
+   */
+  function isNumeric(val) {
+    if (val === null || val === undefined || val === '') return false;
+    const num = Number(val);
+    return isFinite(num);
+  }
+  
+  /**
+   * Safely converts an array of values to numbers, filtering out non-numeric values
+   */
+  function coerceNumericArray(arr) {
+    return arr.map(val => {
+      if (val === null || val === undefined || val === '') return NaN;
+      const num = Number(val);
+      return isFinite(num) ? num : NaN;
+    }).filter(v => !isNaN(v));
+  }
+  
+  /**
+   * Performs group-by aggregation on data with robust numeric handling
+   */
+  function groupAggregate(data, xField, yField, aggType = 'mean') {
+    const groups = new Map();
+    
+    // Group data by X field
+    for (const row of data) {
+      const key = String(row[xField] || '(empty)');
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(row);
+    }
+    
+    // Apply aggregation to each group
+    const result = {};
+    for (const [key, rows] of groups) {
+      if (aggType === 'count') {
+        result[key] = rows.length;
+      } else if (yField) {
+        const vals = coerceNumericArray(rows.map(r => r[yField]));
+        if (vals.length === 0) {
+          result[key] = 0;
+        } else if (aggType === 'sum') {
+          result[key] = vals.reduce((a, b) => a + b, 0);
+        } else if (aggType === 'mean') {
+          result[key] = vals.reduce((a, b) => a + b, 0) / vals.length;
+        } else {
+          result[key] = vals.length; // fallback to count
+        }
+      } else {
+        result[key] = rows.length; // fallback to count
+      }
+    }
+    
+    return result;
+  }
+  
+  /**
+   * Validates if a chart configuration makes sense and returns warnings
+   */
+  function validateChartConfig(cfg) {
+    const warnings = [];
+    
+    if (!cfg.x) {
+      warnings.push('No X field selected');
+      return warnings;
+    }
+    
+    const xType = getColumnType(cfg.x);
+    const yType = cfg.y ? getColumnType(cfg.y) : null;
+    
+    // Check if aggregation makes sense
+    if (cfg.y && ['mean', 'sum'].includes(cfg.agg)) {
+      if (yType !== 'numeric') {
+        warnings.push(`Cannot compute ${cfg.agg} on non-numeric Y field '${cfg.y}' (detected as ${yType})`);
+      }
+    }
+    
+    // Chart-specific validations
+    if (cfg.type === 'scatter' || cfg.type === 'bubble') {
+      if (!cfg.y) {
+        warnings.push('Scatter/bubble plots require both X and Y fields');
+      }
+    }
+    
+    if (cfg.type === 'box') {
+      if (cfg.y && yType !== 'numeric') {
+        warnings.push(`Box plots work best with numeric Y field, but '${cfg.y}' is ${yType}`);
+      }
+    }
+    
+    return warnings;
+  }
+
   function titleFor(cfg) {
     // For insight charts, use the predefined title
     if (cfg.isInsightChart && cfg.title) {
@@ -3108,7 +3206,6 @@ let inspectorSelectedField = null;
     const parts = [`${t}`];
     if (cfg.x) parts.push(`X: ${cfg.x}`);
     if (cfg.y && cfg.agg) parts.push(`Y: ${cfg.agg}(${cfg.y})`);
-    if (cfg.color) parts.push(`Color: ${cfg.color}`);
     return parts.join(' · ');
   }
 
@@ -3131,6 +3228,21 @@ let inspectorSelectedField = null;
     if (cfg.isInsightChart) {
       drawInsightChart(cfg);
       return;
+    }
+    
+    // Validate configuration and show warnings
+    const warnings = validateChartConfig(cfg);
+    if (warnings.length > 0) {
+      console.warn('Chart configuration warnings:', warnings);
+      // Show warnings in the chart area
+      const warningHtml = warnings.map(w => 
+        `<div class="alert alert-warning alert-sm p-2 mb-1"><small><i class="bi bi-exclamation-triangle me-1"></i>${w}</small></div>`
+      ).join('');
+      
+      // Continue rendering but show warnings at top
+      const warningContainer = document.createElement('div');
+      warningContainer.innerHTML = warningHtml;
+      el.appendChild(warningContainer);
     }
     
     // Handle datatable and pivot separately (no change)
@@ -3165,6 +3277,13 @@ let inspectorSelectedField = null;
     }
 
     if (!filteredRows.length) { el.innerHTML = '<div class="text-muted p-2">No data</div>'; return; }
+
+    // Clear existing content but keep warnings
+    const existingWarnings = el.querySelector('.alert');
+    el.innerHTML = '';
+    if (existingWarnings) {
+      el.appendChild(existingWarnings.parentNode);
+    }
 
     // Get data for the chart
     const data = filteredRows;
@@ -3788,13 +3907,22 @@ let inspectorSelectedField = null;
     const xField = cfg.x;
     const xType = getColumnType(xField);
     
+    // Robust aggregation function
     const agg = (rows) => {
       if (cfg.agg === 'count') return rows.length;
       if (!cfg.y) return rows.length;
-      const vals = rows.map(r => +r[cfg.y]).filter(v => !Number.isNaN(v));
+      
+      // Robust numeric coercion for Y values
+      const vals = rows.map(r => {
+        const val = r[cfg.y];
+        if (val === null || val === undefined || val === '') return NaN;
+        const num = Number(val);
+        return isFinite(num) ? num : NaN;
+      }).filter(v => !isNaN(v));
+      
       if (!vals.length) return 0;
-      if (cfg.agg === 'sum') return vals.reduce((a,b)=>a+b,0);
-      return vals.reduce((a,b)=>a+b,0) / vals.length;
+      if (cfg.agg === 'sum') return vals.reduce((a,b) => a + b, 0);
+      return vals.reduce((a,b) => a + b, 0) / vals.length;
     };
     
     if (xType === 'categorical') {
