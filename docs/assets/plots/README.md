@@ -5,7 +5,6 @@ This directory contains the automatically generated manifest file for the HTML p
 ## Files
 
 - **`manifest.json`** - Auto-generated manifest listing all HTML plots in `docs/plots/`
-- **`plotly_manifest.json`** - Manifest for Python-exported Plotly JSON charts (separate system)
 
 ## How to Add New Plots
 
