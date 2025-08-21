@@ -1,0 +1,6 @@
+participant_id,age,gender,result
+1,25,M,positive
+2,30,F,negative
+3,35,M,positive
+4,28,F,negative
+5,42,M,positive

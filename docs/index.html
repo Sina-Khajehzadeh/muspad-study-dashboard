@@ -1486,13 +1486,59 @@ let inspectorSelectedField = null;
     initGlobalFilters();
   }
   
-  function loadCSV() {
-    // Try to load real CSV data first
+  // Return the direct URL of the first CSV found in docs/data (prefers names like latest/current/full/pivot/final).
+  // Optional overrides:
+  //   ?data=<absolute_or_relative_csv_url>
+  //   ?ref=<branch_or_tag>  (e.g., main, gh-pages)
+  async function discoverDataUrl() {
+    // 0) URL override
+    const qp = new URLSearchParams(location.search);
+    const override = qp.get('data');
+    if (override) return override;
+
+    // 1) Figure out owner/repo for GitHub Pages or fall back to known defaults
+    let owner = 'Sina-Khajehzadeh';
+    let repo  = 'muspad-study-dashboard';
+    if (location.hostname.endsWith('.github.io')) {
+      const parts = location.pathname.split('/').filter(Boolean);
+      if (parts.length) repo = parts[0];
+      owner = location.hostname.split('.')[0]; // pages owner
+    }
+
+    const refPref = qp.get('ref');
+    const refs = [refPref || 'main', 'gh-pages', 'master'];
+
+    for (const ref of refs) {
+      try {
+        const api = `https://api.github.com/repos/${owner}/${repo}/contents/docs/data?ref=${ref}`;
+        const res = await fetch(api, { headers: { 'Accept': 'application/vnd.github.v3+json' }});
+        if (!res.ok) continue;
+        const items = await res.json();
+        if (!Array.isArray(items)) continue;
+
+        const csvs = items.filter(it => it.type === 'file' && /\.csv$/i.test(it.name));
+        if (!csvs.length) continue;
+
+        const preferred = csvs.find(it => /(latest|current|final|full|pivot)/i.test(it.name)) || csvs[0];
+        return preferred.download_url; // raw.githubusercontent.com URL
+      } catch (e) {
+        console.warn('Dataset discovery failed for ref', ref, e);
+      }
+    }
+
+    return null; // no CSV found
+  }
+  
+  async function loadCSV() {
+    const discovered = await discoverDataUrl();
+
     const urls = [
+      discovered,
+      // Existing fallbacks
       'https://raw.githubusercontent.com/Sina-Khajehzadeh/muspad-study-dashboard/main/docs/data/df3_full_for_pivot.csv',
       'https://sina-khajehzadeh.github.io/muspad-study-dashboard/data/df3_full_for_pivot.csv',
       'data/df3_full_for_pivot.csv'
-    ];
+    ].filter(Boolean);
 
     let idx = 0;
     const tryNext = () => {
@@ -1509,7 +1555,6 @@ let inspectorSelectedField = null;
         skipEmptyLines: true,
         dynamicTyping: true,
         worker: false,
-        
         transformHeader: (h) => (h || '').replace(/^\uFEFF/, '').trim(),
         complete: (res) => {
           if (!res || !Array.isArray(res.data) || res.data.length === 0) {
@@ -1517,16 +1562,18 @@ let inspectorSelectedField = null;
             tryNext();
             return;
           }
-          console.log('Successfully loaded CSV data:', res.data.length, 'rows');
+          // Success path (unchanged logic from current code)
           rawData = res.data;
           columns = (res.meta && res.meta.fields && res.meta.fields.length)
             ? res.meta.fields
             : Object.keys(rawData[0] || {});
-          
-          // Compute dose_interval_days derived column
-          computeDoseIntervalDays();
-          
-          id('loadedBadge').textContent = `Loaded ${rawData.length.toLocaleString()} rows • ${columns.length} columns`;
+
+          if (typeof computeDoseIntervalDays === 'function') {
+            computeDoseIntervalDays();
+          }
+
+          const badge = document.getElementById('loadedBadge');
+          if (badge) badge.textContent = `Loaded ${rawData.length.toLocaleString()} rows • ${columns.length} columns`;
 
           detectColumns();
           populateFilters();
@@ -1537,20 +1584,19 @@ let inspectorSelectedField = null;
 
           show('panelData', true);
           applyFilters();
-          
-          autoStarterCharts();
-          initGlobalFilters();
+
+          if (typeof autoStarterCharts === 'function') autoStarterCharts();
+          if (typeof initGlobalFilters === 'function') initGlobalFilters();
         },
         error: (err) => {
           console.error('Papa error:', err);
           tryNext();
         }
       });
-     
-    };            // ✅ closes tryNext
+    };
 
-  tryNext();    // ✅ call it OUTSIDE the function body
-}               // ✅ closes loadCSV
+    tryNext();
+  }               // ✅ closes loadCSV
 
   // ----------------------------
   // Helper utilities for type-agnostic chart building
