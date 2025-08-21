@@ -27,16 +27,28 @@ const THEME_CONFIG = {
   titleSize: 16,
   smallSize: 11,
   
-  // Colors
-  backgroundColor: '#ffffff',
-  paperColor: '#ffffff',
-  gridColor: '#ECEFF1',
-  axisColor: '#B0BEC5',
-  textColor: '#2b2f36',
-  mutedColor: '#5f6368',
+  // Colors - now dynamic based on theme
+  get backgroundColor() {
+    return this.currentTheme === 'dark' ? '#1e293b' : '#ffffff';
+  },
+  get paperColor() {
+    return this.currentTheme === 'dark' ? '#334155' : '#ffffff';
+  },
+  get gridColor() {
+    return this.currentTheme === 'dark' ? '#475569' : '#ECEFF1';
+  },
+  get axisColor() {
+    return this.currentTheme === 'dark' ? '#64748b' : '#B0BEC5';
+  },
+  get textColor() {
+    return this.currentTheme === 'dark' ? '#f8fafc' : '#2b2f36';
+  },
+  get mutedColor() {
+    return this.currentTheme === 'dark' ? '#94a3b8' : '#5f6368';
+  },
   
-  // Current theme - can be changed to 'dark' for future dark mode support
-  currentTheme: 'light'
+  // Current theme - now supports dynamic switching
+  currentTheme: 'dark'
 };
 
 /**
