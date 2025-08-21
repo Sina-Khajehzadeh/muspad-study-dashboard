@@ -735,24 +735,7 @@
               <i class="bi bi-arrow-right ms-1"></i>
             </a>
           </div>
-        </div>
-      <!-- INSERT into your Settings panel (where other cards are) -->
-      <div class="card mb-3" style="max-width: 300px;">
-        <div class="card-body p-3">
-          <h6 class="card-title mb-2">
-            <i class="bi bi-book-half text-primary me-2"></i>
-            Charting Guidelines
-          </h6>
-          <p class="text-muted small mb-2">Rules and allowed chart types for the dashboard.</p>
-          <div class="d-flex gap-2">
-            <button id="openGuidelines" class="btn btn-outline-primary btn-sm" type="button">
-              Open Guidelines
-            </button>
-            <a href="charting-guidelines.md" class="btn btn-link btn-sm" target="_blank" rel="noopener">Open raw MD</a>
-          </div>
-        </div>
-      </div>
-        
+        </div>       
         <div class="resizable-corner"></div>
       </section>
 
@@ -5542,93 +5525,5 @@ let inspectorSelectedField = null;
     </div>
   </div>
 </div>
-  <!-- INSERT before the closing </body> -->
-<script>
-(function(){
-  // load external script once
-  function loadScript(src){
-    return new Promise((resolve,reject)=>{
-      if (document.querySelector('script[src="'+src+'"]')) return resolve();
-      const s = document.createElement('script');
-      s.src = src; s.async = true;
-      s.onload = () => resolve();
-      s.onerror = () => reject(new Error('Failed to load ' + src));
-      document.head.appendChild(s);
-    });
-  }
-
-  // Create modal container (simple)
-  function ensureModal(){
-    let m = document.getElementById('guidelinesModal');
-    if (m) return m;
-    m = document.createElement('div');
-    m.id = 'guidelinesModal';
-    Object.assign(m.style, {
-      position: 'fixed', inset: 0, display: 'none', alignItems: 'center', justifyContent: 'center',
-      background: 'rgba(0,0,0,0.45)', zIndex: 1100, padding: '1rem', overflow: 'auto'
-    });
-    m.innerHTML = `
-      <div style="width:min(1100px,96vw); max-height:95vh; overflow:auto; background:#fff; border-radius:10px; padding:1rem; box-shadow:0 8px 24px rgba(0,0,0,.2);">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
-          <h5 style="margin:0;">Charting Guidelines</h5>
-          <div>
-            <a href="charting-guidelines.md" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary me-2">Open raw MD</a>
-            <button id="closeGuidelines" class="btn btn-sm btn-outline-secondary">Close</button>
-          </div>
-        </div>
-        <hr style="margin:.5rem 0">
-        <div id="guidelinesBody" style="padding-top:.5rem;"></div>
-      </div>`;
-    document.body.appendChild(m);
-    m.querySelector('#closeGuidelines').addEventListener('click', ()=> m.style.display='none');
-    m.addEventListener('click', (ev)=> { if (ev.target === m) m.style.display='none'; });
-    return m;
-  }
-
-  async function fetchGuidelinesContent(){
-    // try pre-rendered HTML first (if you add charting-guidelines.html later)
-    try {
-      const r = await fetch('charting-guidelines.html', {cache: 'no-cache'});
-      if (r.ok) return await r.text();
-    } catch(e){ /* ignore and try md */ }
-
-    // fetch markdown and render
-    const rmd = await fetch('charting-guidelines.md', {cache: 'no-cache'});
-    if (!rmd.ok) throw new Error('Guidelines not found');
-    const md = await rmd.text();
-
-    // load markdown-it on demand
-    if (!window.markdownit) {
-      await loadScript('https://cdn.jsdelivr.net/npm/markdown-it/dist/markdown-it.min.js');
-    }
-    const mdp = window.markdownit ? window.markdownit({html:true,linkify:true,typographer:true}) : null;
-    return mdp ? mdp.render(md) : ('<pre style="white-space:pre-wrap;">'+escapeHtml(md)+'</pre>');
-  }
-
-  function escapeHtml(s){ return s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[m])); }
-
-  async function openGuidelines(){
-    const modal = ensureModal();
-    const body = modal.querySelector('#guidelinesBody');
-    body.innerHTML = '<div style="padding:1rem;text-align:center;color:#6c757d;"><div class="spinner-border spinner-border-sm me-2" role="status"></div>Loading…</div>';
-    modal.style.display = 'flex';
-    try {
-      const html = await fetchGuidelinesContent();
-      body.innerHTML = html;
-      // ensure links open safely
-      body.querySelectorAll('a').forEach(a=>{ if(!a.target) a.target='_blank'; a.rel='noopener'; });
-    } catch(err){
-      body.innerHTML = '<div class="text-danger">Failed to load guidelines. Open <a href="charting-guidelines.md" target="_blank" rel="noopener">charting-guidelines.md</a></div>';
-      console.error(err);
-    }
-  }
-
-  document.addEventListener('DOMContentLoaded', ()=>{
-    const btn = document.getElementById('openGuidelines');
-    if (btn) btn.addEventListener('click', (e)=> { e.preventDefault(); openGuidelines(); });
-  });
-})();
-</script>
-
 </body>
 </html>
