@@ -107,33 +107,63 @@
         showDashboard();
         break;
       case 'filters':
-        // Use existing toggle logic if available
-        if (typeof window.toggle === 'function') {
-          window.toggle('panelFilters');
-        }
+        // Always use our custom toggle for consistency
+        togglePanel('panelFilters');
         break;
       case 'data':
-        if (typeof window.toggle === 'function') {
-          window.toggle('panelData');
-        }
+        togglePanel('panelData');
         break;
       case 'insights':
-        if (typeof window.toggle === 'function') {
-          window.toggle('panelInsights');
-        }
+        togglePanel('panelInsights');
         break;
       case 'add-chart':
         // Trigger existing add chart functionality
         const btnAdd = $('btnAdd');
         if (btnAdd && typeof btnAdd.click === 'function') {
           btnAdd.click();
+        } else if (typeof window.openModal === 'function') {
+          window.openModal();
         }
         break;
       case 'settings':
-        if (typeof window.toggle === 'function') {
-          window.toggle('panelSettings');
-        }
+        togglePanel('panelSettings');
         break;
+    }
+  }
+
+  function togglePanel(panelId) {
+    const panel = $(panelId);
+    if (!panel) return;
+    
+    // Hide other panels
+    const allPanels = ['panelFilters', 'panelData', 'panelInsights', 'panelSettings'];
+    allPanels.forEach(id => {
+      const p = $(id);
+      if (p && id !== panelId) {
+        p.style.display = 'none';
+        p.classList.remove('active');
+      }
+    });
+    
+    // Hide KPI row and grid when showing panels
+    const kpiRow = $('.kpi-row');
+    const grid = $('grid');
+    
+    // Toggle the target panel
+    const isVisible = panel.style.display === 'block' || panel.classList.contains('active');
+    
+    if (isVisible) {
+      // Hide panel, show dashboard
+      panel.style.display = 'none';
+      panel.classList.remove('active');
+      if (kpiRow) kpiRow.style.display = 'grid';
+      if (grid) grid.style.display = 'grid';
+    } else {
+      // Show panel, hide dashboard
+      panel.style.display = 'block';
+      panel.classList.add('active');
+      if (kpiRow) kpiRow.style.display = 'none';
+      if (grid) grid.style.display = 'none';
     }
   }
 
@@ -154,7 +184,13 @@
     
     // Update page title if function exists
     if (typeof window.updateTitle === 'function') {
-      window.updateTitle('MUSPAD Dashboard');
+      window.updateTitle('Analytics Dashboard');
+    }
+    
+    // Update title element directly
+    const titleEl = $('title');
+    if (titleEl) {
+      titleEl.textContent = 'Analytics Dashboard';
     }
   }
 
