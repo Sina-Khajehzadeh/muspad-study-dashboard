@@ -9,6 +9,9 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
   
+  <!-- AdminKit CSS -->
+  <link href="https://unpkg.com/@adminkit/core@1.1.1/dist/css/app.css" rel="stylesheet">
+  
   <!-- Dashboard Theme -->
   <link href="theme.css" rel="stylesheet">
   
@@ -18,6 +21,9 @@
   <!-- Plotly.js for charts + PapaParse for CSV -->
   <script src="https://cdn.plot.ly/plotly-2.25.2.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  
+  <!-- AdminKit JS -->
+  <script src="https://unpkg.com/@adminkit/core@1.1.1/dist/js/app.js"></script>
   
   <!-- Dashboard Theme -->
   <script src="theme.js"></script>
@@ -1088,140 +1094,199 @@
     /* ===== Insights panel styles END ===== */
   </style>
 </head>
-<body data-theme="dark">
-  <div id="app">
-    <!-- Modern Expandable Sidebar -->
-    <aside id="sidebar" aria-label="Navigation">
-      <div class="sidebar-header">
-        <div class="sidebar-logo">M</div>
-        <div class="sidebar-title">MUSPAD</div>
+<body data-theme="dark" class="theme-dark">
+  <div class="wrapper">
+    <!-- AdminKit Sidebar -->
+    <nav id="sidebar" class="sidebar js-sidebar" aria-label="Navigation">
+      <div class="sidebar-content js-simplebar">
+        <a class="sidebar-brand" href="#">
+          <span class="align-middle">MUSPAD</span>
+        </a>
+
+        <ul class="sidebar-nav">
+          <li class="sidebar-header">Dashboard</li>
+          <li class="sidebar-item active">
+            <a class="sidebar-link" href="#" data-action="dashboard">
+              <i class="bi bi-speedometer2"></i>
+              <span class="align-middle">Dashboard</span>
+            </a>
+          </li>
+
+          <li class="sidebar-header">Data</li>
+          <li class="sidebar-item">
+            <a class="sidebar-link" href="#" id="btnFilters" data-action="filters">
+              <i class="bi bi-funnel-fill"></i>
+              <span class="align-middle">Filters</span>
+            </a>
+          </li>
+          <li class="sidebar-item">
+            <a class="sidebar-link" href="#" id="btnData" data-action="data">
+              <i class="bi bi-table"></i>
+              <span class="align-middle">Data Preview</span>
+            </a>
+          </li>
+
+          <li class="sidebar-header">Analytics</li>
+          <li class="sidebar-item">
+            <a class="sidebar-link" href="#" id="btnInsights" data-action="insights">
+              <i class="bi bi-graph-up"></i>
+              <span class="align-middle">Insights</span>
+            </a>
+          </li>
+          <li class="sidebar-item">
+            <a class="sidebar-link" href="#" id="btnAdd" data-action="add-chart">
+              <i class="bi bi-plus-lg"></i>
+              <span class="align-middle">Add Chart</span>
+            </a>
+          </li>
+
+          <li class="sidebar-header">System</li>
+          <li class="sidebar-item">
+            <a class="sidebar-link" href="#" id="btnSettings" data-action="settings">
+              <i class="bi bi-gear-fill"></i>
+              <span class="align-middle">Settings</span>
+            </a>
+          </li>
+        </ul>
       </div>
-      
-      <nav class="sidebar-nav">
-        <div class="nav-section">
-          <div class="nav-section-title">Dashboard</div>
-          <button class="nav-item active" data-action="dashboard" title="Dashboard">
-            <i class="bi bi-speedometer2"></i>
-            <span class="nav-item-text">Dashboard</span>
-          </button>
-        </div>
-        
-        <div class="nav-section">
-          <div class="nav-section-title">Data</div>
-          <button class="nav-item" id="btnFilters" data-action="filters" title="Filters">
-            <i class="bi bi-funnel-fill"></i>
-            <span class="nav-item-text">Filters</span>
-          </button>
-          <button class="nav-item" id="btnData" data-action="data" title="Data Preview">
-            <i class="bi bi-table"></i>
-            <span class="nav-item-text">Data Preview</span>
-          </button>
-        </div>
-        
-        <div class="nav-section">
-          <div class="nav-section-title">Analytics</div>
-          <button class="nav-item" id="btnInsights" data-action="insights" title="Insights">
-            <i class="bi bi-graph-up"></i>
-            <span class="nav-item-text">Insights</span>
-          </button>
-          <button class="nav-item" id="btnAdd" data-action="add-chart" title="Add Chart">
-            <i class="bi bi-plus-lg"></i>
-            <span class="nav-item-text">Add Chart</span>
-          </button>
-        </div>
-        
-        <div class="nav-section">
-          <div class="nav-section-title">System</div>
-          <button class="nav-item" id="btnSettings" data-action="settings" title="Settings">
-            <i class="bi bi-gear-fill"></i>
-            <span class="nav-item-text">Settings</span>
-          </button>
+    </nav>
+
+    <!-- AdminKit Main Content -->
+    <div class="main">
+      <!-- AdminKit Top Navbar -->
+      <nav class="navbar navbar-expand navbar-light navbar-bg">
+        <a class="sidebar-toggle js-sidebar-toggle" id="sidebarToggle">
+          <i class="hamburger align-self-center"></i>
+        </a>
+
+        <div class="navbar-collapse collapse">
+          <ul class="navbar-nav navbar-align">
+            <li class="nav-item dropdown">
+              <a class="nav-icon dropdown-toggle d-inline-block d-sm-none" href="#" data-bs-toggle="dropdown">
+                <i class="bi bi-gear"></i>
+              </a>
+              <a class="nav-link dropdown-toggle d-none d-sm-inline-block" href="#" data-bs-toggle="dropdown">
+                <span class="text-dark">MUSPAD Dashboard</span>
+              </a>
+            </li>
+          </ul>
         </div>
       </nav>
-    </aside>
 
-    <!-- Main Content -->
-    <main id="main">
-      <!-- Modern Top Header -->
-      <header id="header">
-        <button class="header-burger" id="sidebarToggle" aria-label="Toggle sidebar">
-          <i class="bi bi-list"></i>
-        </button>
-        
-        <div class="header-search">
-          <i class="bi bi-search"></i>
-          <input type="text" placeholder="Search charts, data..." aria-label="Search">
-        </div>
-        
-        <h1 id="title">MUSPAD Dashboard</h1>
-        <span id="loadedBadge" aria-live="polite"></span>
-        <div class="header-spacer"></div>
-        
-        <div class="header-actions">
-          <button class="header-action" title="Notifications" aria-label="Notifications">
-            <i class="bi bi-bell"></i>
-          </button>
-          <button class="header-action" title="Settings" aria-label="User settings">
-            <i class="bi bi-person-circle"></i>
-          </button>
-        </div>
-
-        <!-- Date range (kept hidden) -->
-        <div class="date-range" style="display:none">
-          <input type="date" id="startDate" aria-label="Start date">
-          <input type="date" id="endDate" aria-label="End date">
-        </div>
-
-        <button id="btnDownloadFiltered" type="button" class="btn btn-sm btn-outline-primary" style="display:none">
-          Download filtered CSV
-        </button>
-      </header>
-
-      <!-- Main Content Area -->
-      <div class="main-content">
-        <!-- KPI Cards Row -->
-        <div class="kpi-row">
-          <div class="kpi-card primary">
-            <div class="kpi-label">Total Rows</div>
-            <div class="kpi-value" id="sumTotalRows">—</div>
+      <!-- AdminKit Main Content Area -->
+      <main class="content" id="main">
+        <div class="container-fluid p-0">
+          <!-- Page Header -->
+          <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+            <h1 class="h2" id="title">MUSPAD Dashboard</h1>
+            <span id="loadedBadge" aria-live="polite"></span>
+            <!-- Hidden controls -->
+            <div class="date-range" style="display:none">
+              <input type="date" id="startDate" aria-label="Start date">
+              <input type="date" id="endDate" aria-label="End date">
+            </div>
+            <button id="btnDownloadFiltered" type="button" class="btn btn-sm btn-outline-primary" style="display:none">
+              Download filtered CSV
+            </button>
           </div>
-          <div class="kpi-card success">
-            <div class="kpi-label">Filtered Rows</div>
-            <div class="kpi-value" id="sumFilteredRows">—</div>
+
+          <!-- KPI Cards Row -->
+          <div class="row mb-4">
+            <div class="col-xl-3 col-lg-6">
+              <div class="card" id="kpi-total-rows">
+                <div class="card-body">
+                  <div class="row">
+                    <div class="col mt-0">
+                      <h5 class="card-title">Total Rows</h5>
+                    </div>
+                    <div class="col-auto">
+                      <div class="stat text-primary">
+                        <i class="bi bi-table"></i>
+                      </div>
+                    </div>
+                  </div>
+                  <h1 class="mt-1 mb-3" id="sumTotalRows">—</h1>
+                </div>
+              </div>
+            </div>
+            <div class="col-xl-3 col-lg-6">
+              <div class="card" id="kpi-filtered-rows">
+                <div class="card-body">
+                  <div class="row">
+                    <div class="col mt-0">
+                      <h5 class="card-title">Filtered Rows</h5>
+                    </div>
+                    <div class="col-auto">
+                      <div class="stat text-success">
+                        <i class="bi bi-funnel"></i>
+                      </div>
+                    </div>
+                  </div>
+                  <h1 class="mt-1 mb-3" id="sumFilteredRows">—</h1>
+                </div>
+              </div>
+            </div>
+            <div class="col-xl-3 col-lg-6">
+              <div class="card" id="kpi-total-cols">
+                <div class="card-body">
+                  <div class="row">
+                    <div class="col mt-0">
+                      <h5 class="card-title">Total Columns</h5>
+                    </div>
+                    <div class="col-auto">
+                      <div class="stat text-info">
+                        <i class="bi bi-columns"></i>
+                      </div>
+                    </div>
+                  </div>
+                  <h1 class="mt-1 mb-3" id="sumTotalCols">—</h1>
+                </div>
+              </div>
+            </div>
+            <div class="col-xl-3 col-lg-6">
+              <div class="card" id="kpi-date-range">
+                <div class="card-body">
+                  <div class="row">
+                    <div class="col mt-0">
+                      <h5 class="card-title">Date Range</h5>
+                    </div>
+                    <div class="col-auto">
+                      <div class="stat text-warning">
+                        <i class="bi bi-calendar-range"></i>
+                      </div>
+                    </div>
+                  </div>
+                  <h1 class="mt-1 mb-3" id="sumDateRange" style="font-size: 1.2rem;">—</h1>
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="kpi-card info">
-            <div class="kpi-label">Total Columns</div>
-            <div class="kpi-value" id="sumTotalCols">—</div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-label">Date Range</div>
-            <div class="kpi-value" id="sumDateRange" style="font-size: 1.2rem;">—</div>
-          </div>
-        </div>
 
-        <!-- Panels (initially hidden) -->
-        <div class="panels-container">
-          <!-- Filters -->
-          <section id="panelFilters" class="panel" aria-label="Filters">
-            <h5 class="mb-3">Filters</h5>
-            <div id="filter-container"></div>
-            <div class="resizable-corner"></div>
-          </section>
+          <!-- Panels Container -->
+          <div class="panels-container">
+            <!-- Filters Panel -->
+            <section id="panelFilters" class="card panel" aria-label="Filters" style="display:none">
+              <div class="card-header">
+                <h5 class="card-title mb-0">Filters</h5>
+              </div>
+              <div class="card-body">
+                <div id="filter-container"></div>
+              </div>
+              <div class="resizable-corner"></div>
+            </section>
 
-          <!-- Data table -->
-          <section id="panelData" class="panel" aria-label="Data preview">
-            <h5 class="mb-2">Data Preview</h5>
-
-            <div id="dataLayout">
-              <!-- LEFT: data table -->
-              <div class="table-container table-responsive" id="tableWrap"></div>
-
-              <!-- RIGHT: inspector (moved to KPI cards above) -->
-              <aside id="inspector" aria-label="Variable Inspector & Dataset Summary" style="display: none;">
-                <div id="inspectorSummary" class="inspector-block">
-                  <h6 class="inspector-title">Dataset summary</h6>
-                  <div class="inspector-kpis">
-                    <!-- KPI data moved to main KPI cards above -->
+            <!-- Data Preview Panel -->
+            <section id="panelData" class="card panel" aria-label="Data preview" style="display:none">
+              <div class="card-header">
+                <h5 class="card-title mb-0">Data Preview</h5>
+              </div>
+              <div class="card-body">
+                <div id="dataLayout">
+                  <div class="table-container table-responsive" id="tableWrap"></div>
+                  <aside id="inspector" aria-label="Variable Inspector & Dataset Summary" style="display: none;">
+                    <div id="inspectorSummary" class="inspector-block">
+                      <h6 class="inspector-title">Dataset summary</h6>
+                      <div class="inspector-kpis">
                   </div>
                 </div>
 
@@ -1272,20 +1337,28 @@
               </button>
             </div>
             <p class="text-muted mb-3">Curated analyses and advanced visualizations for serology data.</p>
-            
-            <!-- Insights Grid Container -->
-            <div id="insightsGrid" class="insights-grid-container">
-              <!-- Charts will be dynamically added here -->
-            </div>
-            
-            <div class="resizable-corner"></div>
-          </section>
-        </div>
+            <!-- Insights Panel -->
+            <section id="panelInsights" class="card panel" aria-label="Insights" style="display:none">
+              <div class="card-header">
+                <h5 class="card-title mb-0">Insights</h5>
+              </div>
+              <div class="card-body">
+                <!-- Insights Grid Container -->
+                <div id="insightsGrid" class="insights-grid-container">
+                  <!-- Charts will be dynamically added here -->
+                </div>
+              </div>
+              <div class="resizable-corner"></div>
+            </section>
+          </div>
 
-        <!-- Chart Grid -->
-        <section id="grid" aria-label="Charts"></section>
-      </div>
-    </main>
+          <!-- Chart Grid -->
+          <div class="row" id="grid" aria-label="Charts">
+            <!-- Chart cards will be dynamically added here -->
+          </div>
+        </div>
+      </main>
+    </div>
   </div>
 
   <!-- Chart Builder Modal -->
@@ -1566,32 +1639,43 @@
   
   // Sidebar toggle functionality
   function toggleSidebar() {
+    // AdminKit will handle this with its own classes
     const sidebar = document.getElementById('sidebar');
-    sidebar.classList.toggle('collapsed');
-    sidebarCollapsed = !sidebarCollapsed;
-    localStorage.setItem('sidebar-collapsed', sidebarCollapsed.toString());
+    sidebar.classList.toggle('sidebar-toggled');
   }
   
   // Navigation management
   function initNavigation() {
     const sidebarToggle = document.getElementById('sidebarToggle');
-    const navItems = document.querySelectorAll('.nav-item');
+    const navLinks = document.querySelectorAll('.sidebar-link');
+    const sidebarItems = document.querySelectorAll('.sidebar-item');
     
-    // Sidebar toggle handler
+    // Sidebar toggle handler - let AdminKit handle this if available
     if (sidebarToggle) {
-      sidebarToggle.addEventListener('click', toggleSidebar);
+      sidebarToggle.addEventListener('click', function(e) {
+        e.preventDefault();
+        // AdminKit should handle this automatically, but add fallback
+        if (typeof window.sidebarToggle === 'function') {
+          window.sidebarToggle();
+        } else {
+          toggleSidebar();
+        }
+      });
     }
     
-    // Navigation item handlers
-    navItems.forEach(item => {
-      item.addEventListener('click', function(e) {
+    // Navigation link handlers
+    navLinks.forEach((link, index) => {
+      link.addEventListener('click', function(e) {
         e.preventDefault();
         
-        // Remove active from all items
-        navItems.forEach(nav => nav.classList.remove('active'));
+        // Remove active from all sidebar items
+        sidebarItems.forEach(item => item.classList.remove('active'));
         
-        // Add active to clicked item
-        this.classList.add('active');
+        // Add active to clicked item's parent
+        const parentItem = this.closest('.sidebar-item');
+        if (parentItem) {
+          parentItem.classList.add('active');
+        }
         
         // Handle different actions
         const action = this.dataset.action;
@@ -3716,22 +3800,31 @@ let inspectorSelectedField = null;
   // ----------------------------
   function addChart(cfg) {
     charts.push(cfg);
+    const col = document.createElement('div');
+    col.className = 'col-xl-6 col-lg-12 mb-4';
+    
     const card = document.createElement('div');
-    card.className = 'card-chart';
+    card.className = 'card card-chart h-100';
     card.innerHTML = `
-      <div class="card-header">
-        <h6>${titleFor(cfg)}</h6>
-        <button class="remove" title="Remove"><i class="bi bi-x-lg"></i></button>
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h6 class="card-title mb-0">${titleFor(cfg)}</h6>
+        <button class="btn btn-sm btn-outline-secondary remove" title="Remove"><i class="bi bi-x-lg"></i></button>
       </div>
-      <div class="plot"></div>
+      <div class="card-body">
+        <div class="plot"></div>
+      </div>
       <div class="resizable-corner"></div>
     `;
-    id('grid').appendChild(card);
+    col.appendChild(card);
+    id('grid').appendChild(col);
+    
     cfg._el = card.querySelector('.plot');
     cfg._card = card;
+    cfg._col = col;
+    
     card.querySelector('.remove').addEventListener('click', () => {
       charts = charts.filter(c => c !== cfg);
-      card.remove();
+      col.remove();
     });
     drawChart(cfg);
     
@@ -3752,13 +3845,15 @@ let inspectorSelectedField = null;
   function addInsightChart(cfg) {
     insightsCharts.push(cfg);
     const card = document.createElement('div');
-    card.className = 'card-chart';
+    card.className = 'card card-chart mb-4';
     card.innerHTML = `
-      <div class="card-header">
-        <h6>${titleFor(cfg)}</h6>
-        <button class="remove" title="Remove"><i class="bi bi-x-lg"></i></button>
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h6 class="card-title mb-0">${titleFor(cfg)}</h6>
+        <button class="btn btn-sm btn-outline-secondary remove" title="Remove"><i class="bi bi-x-lg"></i></button>
       </div>
-      <div class="plot"></div>
+      <div class="card-body">
+        <div class="plot"></div>
+      </div>
       <div class="resizable-corner"></div>
     `;
     id('insightsGrid').appendChild(card);
