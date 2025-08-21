@@ -102,9 +102,30 @@ Adjust variables in `theme.css`:
 - **Mobile**: Card headers 13px, single column layout
 - **All sizes**: Edit FABs remain accessible and properly positioned
 
+## Chart Reproducibility and Export
+
+### Deterministic Behavior
+All charts produce consistent, reproducible results:
+- **Stable sorting**: Categorical variables maintain consistent order
+- **Deterministic jitter**: Scatter plots use seed-based randomization
+- **Consistent aggregations**: Statistical calculations follow defined rules
+
+### Export Capabilities
+Charts support data export for reproducibility:
+- **CSV Export**: Aggregated data used to create the chart
+- **Full Dataset**: Complete filtered dataset slice
+- **Chart Settings**: Configuration JSON for exact reproduction
+
+For detailed guidelines, see [docs/charting-guidelines.md](charting-guidelines.md).
+
+### Recent Changes
+- **Removed Color/Group Control**: The optional color/group selector has been removed to simplify the interface and ensure statistical validity
+- **Enhanced Variable Type Validation**: Chart types are now dynamically filtered based on X/Y variable combinations
+
 ## Compatibility
 
 - ✅ All existing chart types (histogram, bar, scatter, line, pie, box, etc.)
 - ✅ Existing features (filters, rangesliders, Edit FAB)
 - ✅ User customizations via chart builder
 - ✅ Special chart configurations (dose_interval_days rangeslider)
+- ⚠️ Color/Group control removed (see charting guidelines for alternatives)
