@@ -1560,8 +1560,8 @@
       sidebar.classList.add('collapsed');
     }
     
-    // Initialize navigation after all functions are loaded
-    setTimeout(initNavigation, 100);
+    // Initialize navigation after all functions are loaded - increased delay
+    setTimeout(initNavigation, 1000);
   });
   
   // Sidebar toggle functionality
@@ -1587,6 +1587,8 @@
       item.addEventListener('click', function(e) {
         e.preventDefault();
         
+        console.log('Navigation clicked:', this.dataset.action);
+        
         // Remove active from all items
         navItems.forEach(nav => nav.classList.remove('active'));
         
@@ -1595,31 +1597,62 @@
         
         // Handle different actions
         const action = this.dataset.action;
+        console.log('Handling action:', action);
+        
         switch(action) {
           case 'dashboard':
             showDashboard();
             break;
           case 'filters':
-            // Use existing toggle logic
-            toggle('panelFilters');
+            // Call the original button's click event
+            console.log('Triggering original btnFilters click');
+            const originalFiltersBtn = document.querySelector('#btnFilters[onclick], [data-action="filters"]:not(.nav-item)');
+            if (originalFiltersBtn && originalFiltersBtn !== this) {
+              originalFiltersBtn.click();
+            } else {
+              // Fallback to direct modal opening
+              if (typeof openFiltersModal === 'function') {
+                openFiltersModal();
+              }
+            }
             break;
           case 'data':
-            // Use existing toggle logic
-            toggle('panelData');
+            // Call the original button's event handler
+            console.log('Triggering original btnData logic');
+            if (typeof toggle === 'function') {
+              toggle('panelData');
+              console.log('Called toggle for panelData');
+            }
             break;
           case 'insights':
-            // Use existing toggle logic
-            toggle('panelInsights');
+            // Call the original button's event handler
+            console.log('Triggering original btnInsights logic');
+            if (typeof toggle === 'function') {
+              toggle('panelInsights');
+              // Initialize default charts when panel is shown for the first time
+              setTimeout(() => {
+                const panel = document.getElementById('panelInsights');
+                if (panel && panel.classList.contains('active') && typeof insightsCharts !== 'undefined' && insightsCharts.length === 0) {
+                  if (typeof createDefaultInsightsCharts === 'function') {
+                    createDefaultInsightsCharts();
+                  }
+                }
+              }, 100);
+            }
             break;
           case 'add-chart':
             // Trigger existing add chart functionality
+            console.log('Attempting to open modal');
             if (typeof openModal === 'function') {
               openModal();
             }
             break;
           case 'settings':
-            // Use existing toggle logic
-            toggle('panelSettings');
+            // Call the original button's event handler
+            console.log('Triggering original btnSettings logic');
+            if (typeof toggle === 'function') {
+              toggle('panelSettings');
+            }
             break;
         }
       });
@@ -1629,12 +1662,14 @@
   // Show dashboard (hide all panels, show KPI cards and grid)
   function showDashboard() {
     // Hide all panels using the existing show() function
-    if (typeof show === 'function') {
-      show('panelFilters', false);
-      show('panelData', false);
-      show('panelInsights', false);
-      show('panelSettings', false);
-    }
+    setTimeout(() => {
+      if (typeof show === 'function') {
+        show('panelFilters', false);
+        show('panelData', false);
+        show('panelInsights', false);
+        show('panelSettings', false);
+      }
+    }, 10);
     
     // Show KPI cards and grid
     const kpiRow = document.querySelector('.kpi-row');
@@ -1788,29 +1823,32 @@ let inspectorSelectedField = null;
   });
 
   function wireUI() {
-    // Sidebar toggles
-    id('btnFilters').addEventListener('click', openFiltersModal);
-    id('btnData').addEventListener('click', () => toggle('panelData'));
-    id('btnInsights').addEventListener('click', () => {
-      toggle('panelInsights');
-      // Initialize default charts when panel is shown for the first time
-      setTimeout(() => {
-        if (id('panelInsights').classList.contains('active') && insightsCharts.length === 0) {
-          createDefaultInsightsCharts();
-        }
-      }, 100);
-    });
+    // Sidebar toggles - DISABLED to prevent conflicts with new navigation system
+    // The new navigation system in the expanded sidebar now handles these
     
-    // Custom Analytics button
+    // id('btnFilters').addEventListener('click', openFiltersModal);
+    // id('btnData').addEventListener('click', () => toggle('panelData'));
+    // id('btnInsights').addEventListener('click', () => {
+    //   toggle('panelInsights');
+    //   // Initialize default charts when panel is shown for the first time
+    //   setTimeout(() => {
+    //     if (id('panelInsights').classList.contains('active') && insightsCharts.length === 0) {
+    //       createDefaultInsightsCharts();
+    //     }
+    //   }, 100);
+    // });
+    
+    // Custom Analytics button (still needed for modal functionality)
     id('btnCustomAnalytics')?.addEventListener('click', () => {
       openCustomAnalyticsModal();
     });
-    id('btnSettings').addEventListener('click', () => toggle('panelSettings'));
-    id('btnAdd').addEventListener('click', () => {
-      resetModalToCreateMode();
-      updateBuilderVisibility();
-      openModal();
-    });
+    
+    // id('btnSettings').addEventListener('click', () => toggle('panelSettings'));
+    // id('btnAdd').addEventListener('click', () => {
+    //   resetModalToCreateMode();
+    //   updateBuilderVisibility();
+    //   openModal();
+    // });
 
     // Date change
     const startDateEl = id('startDate');
