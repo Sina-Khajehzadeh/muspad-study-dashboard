@@ -91,12 +91,49 @@ body {
   }
 }
 
-/* Theme hook for future dark mode support */
-[data-theme="dark"] {
-  --chart-bg: #1a1a1a;
-  --chart-paper: #2d2d2d;
-  --chart-grid: #404040;
-  --chart-axis: #666666;
-  --chart-text: #ffffff;
-  --chart-text-muted: #cccccc;
+/* Dark theme implementation for Metoxi-style admin dashboard */
+:root[data-theme="dark"],
+body[data-theme="dark"] {
+  /* Dark theme color overrides */
+  --theme-primary: #3b82f6;
+  --theme-secondary: #f59e0b;
+  --theme-success: #10b981;
+  --theme-danger: #ef4444;
+  --theme-warning: #f59e0b;
+  --theme-info: #06b6d4;
+  --theme-light: #1e293b;
+  --theme-dark: #0f172a;
+  
+  /* Dark neutral grays */
+  --theme-gray-50: #0f172a;
+  --theme-gray-100: #1e293b;
+  --theme-gray-200: #334155;
+  --theme-gray-300: #475569;
+  --theme-gray-400: #64748b;
+  --theme-gray-500: #94a3b8;
+  --theme-gray-600: #cbd5e1;
+  --theme-gray-700: #e2e8f0;
+  --theme-gray-800: #f1f5f9;
+  --theme-gray-900: #f8fafc;
+  
+  /* Dark theme chart colors */
+  --chart-bg: #1e293b;
+  --chart-paper: #334155;
+  --chart-grid: #475569;
+  --chart-axis: #64748b;
+  --chart-text: #f8fafc;
+  --chart-text-muted: #cbd5e1;
+  
+  /* Dark theme surface colors */
+  --surface-bg: #0f172a;
+  --surface-card: #1e293b;
+  --surface-border: #334155;
+  --surface-hover: #334155;
+  --surface-active: #475569;
+  
+  /* Text colors for dark theme */
+  --text-primary: #f8fafc;
+  --text-secondary: #e2e8f0;
+  --text-muted: #94a3b8;
+  --text-inverse: #1e293b;
 }

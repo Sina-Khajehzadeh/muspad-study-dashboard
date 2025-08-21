@@ -34,84 +34,525 @@
   
   <style>
     :root {
-      --sidebar-w: 50px;
+      --sidebar-w: 280px;
+      --sidebar-collapsed-w: 60px;
+      --header-h: 64px;
       --card-min: 400px;
     }
+    
+    /* Dark theme application */
+    [data-theme="dark"] {
+      color-scheme: dark;
+    }
+    
+    [data-theme="dark"] * {
+      scrollbar-width: thin;
+      scrollbar-color: #475569 #1e293b;
+    }
+    
+    [data-theme="dark"] *::-webkit-scrollbar {
+      width: 8px;
+    }
+    
+    [data-theme="dark"] *::-webkit-scrollbar-track {
+      background: #1e293b;
+    }
+    
+    [data-theme="dark"] *::-webkit-scrollbar-thumb {
+      background-color: #475569;
+      border-radius: 4px;
+    }
+    
     * { box-sizing: border-box; }
-    body { margin: 0; font-family: Arial, Helvetica, sans-serif; overflow: hidden; }
-    #app { display: flex; height: 100vh; overflow: hidden; }
+    body { 
+      margin: 0; 
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      overflow: hidden;
+      background: var(--surface-bg, #f8f9fa);
+      color: var(--text-primary, #2b2f36);
+    }
+    
+    #app { 
+      display: flex; 
+      height: 100vh; 
+      overflow: hidden;
+      background: var(--surface-bg, #f8f9fa);
+    }
 
-    /* Sidebar */
+    /* Modern expandable sidebar */
     #sidebar {
       width: var(--sidebar-w);
-      background: #f5f5f5;
-      border-right: 1px solid #e1e1e1;
-      display: flex; flex-direction: column; align-items: center; gap: .75rem;
-      padding: .75rem .25rem;
+      background: var(--surface-card, #fff);
+      border-right: 1px solid var(--surface-border, #e1e1e1);
+      display: flex; 
+      flex-direction: column; 
+      transition: width 0.3s ease;
+      position: relative;
+      z-index: 1000;
     }
-    #sidebar button {
-      width: 36px; height: 36px; border: 0; background: transparent; border-radius: 8px;
-      display: grid; place-items: center; font-size: 1.25rem; color: #333; cursor: pointer;
+    
+    #sidebar.collapsed {
+      width: var(--sidebar-collapsed-w);
     }
-    #sidebar button:hover { background: #e9ecef; color: #0d6efd; }
+    
+    /* Sidebar header with logo/title */
+    .sidebar-header {
+      padding: 1rem;
+      border-bottom: 1px solid var(--surface-border, #e1e1e1);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    
+    .sidebar-logo {
+      width: 32px;
+      height: 32px;
+      background: var(--theme-primary, #007bff);
+      border-radius: 6px;
+      display: grid;
+      place-items: center;
+      color: white;
+      font-weight: 600;
+      font-size: 1.1rem;
+      flex-shrink: 0;
+    }
+    
+    .sidebar-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text-primary, #2b2f36);
+      white-space: nowrap;
+      overflow: hidden;
+      opacity: 1;
+      transition: opacity 0.2s ease;
+    }
+    
+    #sidebar.collapsed .sidebar-title {
+      opacity: 0;
+      width: 0;
+    }
+    
+    /* Sidebar navigation */
+    .sidebar-nav {
+      flex: 1;
+      padding: 1rem 0;
+      overflow: hidden;
+    }
+    
+    .nav-section {
+      margin-bottom: 1.5rem;
+    }
+    
+    .nav-section-title {
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--text-muted, #6c757d);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 0 1rem;
+      margin-bottom: 0.5rem;
+      white-space: nowrap;
+      overflow: hidden;
+      opacity: 1;
+      transition: opacity 0.2s ease;
+    }
+    
+    #sidebar.collapsed .nav-section-title {
+      opacity: 0;
+      height: 0;
+      margin: 0;
+      padding: 0;
+    }
+    
+    .nav-item {
+      display: flex;
+      align-items: center;
+      padding: 0.75rem 1rem;
+      color: var(--text-secondary, #5f6368);
+      text-decoration: none;
+      border-radius: 0;
+      margin: 0 0.5rem;
+      transition: all 0.2s ease;
+      cursor: pointer;
+      border: none;
+      background: none;
+      width: calc(100% - 1rem);
+      text-align: left;
+      position: relative;
+    }
+    
+    .nav-item:hover {
+      background: var(--surface-hover, #f8f9fa);
+      color: var(--text-primary, #2b2f36);
+    }
+    
+    .nav-item.active {
+      background: var(--theme-primary, #007bff);
+      color: white;
+    }
+    
+    .nav-item i {
+      width: 20px;
+      height: 20px;
+      display: grid;
+      place-items: center;
+      font-size: 1.1rem;
+      margin-right: 0.75rem;
+      flex-shrink: 0;
+    }
+    
+    .nav-item-text {
+      white-space: nowrap;
+      overflow: hidden;
+      opacity: 1;
+      transition: opacity 0.2s ease;
+    }
+    
+    #sidebar.collapsed .nav-item {
+      justify-content: center;
+      margin: 0 0.25rem;
+      width: calc(100% - 0.5rem);
+    }
+    
+    #sidebar.collapsed .nav-item i {
+      margin-right: 0;
+    }
+    
+    #sidebar.collapsed .nav-item-text {
+      opacity: 0;
+      width: 0;
+    }
+    
+    /* Tooltip for collapsed sidebar */
+    .nav-item[title]:hover::after {
+      content: attr(title);
+      position: absolute;
+      left: calc(100% + 10px);
+      top: 50%;
+      transform: translateY(-50%);
+      background: var(--surface-card, #000);
+      color: var(--text-primary, #fff);
+      padding: 0.5rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      white-space: nowrap;
+      z-index: 1000;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      opacity: 0;
+      pointer-events: none;
+      animation: tooltipFadeIn 0.2s ease forwards;
+    }
+    
+    #sidebar:not(.collapsed) .nav-item::after {
+      display: none;
+    }
+    
+    @keyframes tooltipFadeIn {
+      to { opacity: 1; }
+    }
 
-    /* Main column */
-    #main { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+    /* Main content area */
+    #main { 
+      flex: 1; 
+      display: flex; 
+      flex-direction: column; 
+      min-width: 0; 
+      overflow: hidden;
+      background: var(--surface-bg, #f8f9fa);
+    }
 
-    /* Header */
+    /* Modern top header */
     #header {
-      display: flex; align-items: center; gap: 1rem;
-      padding: .5rem 1rem; border-bottom: 1px solid #e1e1e1; background: #fff;
+      height: var(--header-h);
+      background: var(--surface-card, #fff);
+      border-bottom: 1px solid var(--surface-border, #e1e1e1);
+      display: flex; 
+      align-items: center; 
+      gap: 1rem;
+      padding: 0 1.5rem;
+      position: relative;
+      z-index: 999;
     }
-    #title { margin: 0; font-size: 1.5rem; font-weight: 600; }
-    #loadedBadge { font-size: .9rem; color: #6c757d; }
-    .header-spacer { flex: 1; }
-    .date-range { display: flex; gap: .5rem; }
+    
+    .header-burger {
+      width: 40px;
+      height: 40px;
+      border: none;
+      background: none;
+      color: var(--text-primary, #2b2f36);
+      display: grid;
+      place-items: center;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    
+    .header-burger:hover {
+      background: var(--surface-hover, #f8f9fa);
+    }
+    
+    .header-search {
+      flex: 1;
+      max-width: 400px;
+      position: relative;
+    }
+    
+    .header-search input {
+      width: 100%;
+      padding: 0.5rem 1rem 0.5rem 2.5rem;
+      border: 1px solid var(--surface-border, #e1e1e1);
+      border-radius: 8px;
+      background: var(--surface-bg, #f8f9fa);
+      color: var(--text-primary, #2b2f36);
+      font-size: 0.875rem;
+    }
+    
+    .header-search input:focus {
+      outline: none;
+      border-color: var(--theme-primary, #007bff);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    
+    .header-search i {
+      position: absolute;
+      left: 0.75rem;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted, #6c757d);
+    }
+    
+    #title { 
+      margin: 0; 
+      font-size: 1.25rem; 
+      font-weight: 600; 
+      color: var(--text-primary, #2b2f36);
+    }
+    
+    #loadedBadge { 
+      font-size: .875rem; 
+      color: var(--text-muted, #6c757d);
+    }
+    
+    .header-spacer { 
+      flex: 1; 
+    }
+    
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .header-action {
+      width: 40px;
+      height: 40px;
+      border: none;
+      background: none;
+      color: var(--text-secondary, #5f6368);
+      display: grid;
+      place-items: center;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+    }
+    
+    .header-action:hover {
+      background: var(--surface-hover, #f8f9fa);
+      color: var(--text-primary, #2b2f36);
+    }
+    
+    .date-range { 
+      display: flex; 
+      gap: .5rem; 
+    }
 
-    /* Panels */
+    /* Content area with KPI cards */
+    .main-content {
+      flex: 1;
+      overflow: auto;
+      padding: 1.5rem;
+      background: var(--surface-bg, #f8f9fa);
+    }
+    
+    /* KPI Cards Row */
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    
+    .kpi-card {
+      background: var(--surface-card, #fff);
+      border: 1px solid var(--surface-border, #e1e1e1);
+      border-radius: 12px;
+      padding: 1.25rem;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .kpi-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+    
+    .kpi-label {
+      font-size: 0.875rem;
+      color: var(--text-muted, #6c757d);
+      font-weight: 500;
+      margin-bottom: 0.5rem;
+    }
+    
+    .kpi-value {
+      font-size: 1.75rem;
+      font-weight: 700;
+      color: var(--text-primary, #2b2f36);
+    }
+    
+    .kpi-card.primary .kpi-value {
+      color: var(--theme-primary, #007bff);
+    }
+    
+    .kpi-card.success .kpi-value {
+      color: var(--theme-success, #28a745);
+    }
+    
+    .kpi-card.info .kpi-value {
+      color: var(--theme-info, #17a2b8);
+    }
+
+    /* Modern Panels */
     .panel { 
       display: none; 
-      background: #f8f9fa; 
-      border-bottom: 1px solid #e1e1e1; 
-      padding: .75rem 1rem; 
+      background: var(--surface-card, #fff);
+      border: 1px solid var(--surface-border, #e1e1e1);
+      border-radius: 12px;
+      padding: 1.5rem; 
+      margin-bottom: 1.5rem;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
       resize: both; 
       overflow: auto; 
       position: relative;
-      min-width: 260px;
-      min-height: 180px;
+      min-width: 280px;
+      min-height: 200px;
     }
-    .panel.active { display: block; }
-    .panel h5 { margin-bottom: .75rem; }
+    
+    .panel.active { 
+      display: block; 
+    }
+    
+    .panel h5 { 
+      margin-bottom: 1rem;
+      color: var(--text-primary, #2b2f36);
+      font-weight: 600;
+    }
 
-    .filter-row { display: grid; grid-template-columns: 1fr auto auto; gap: .5rem; align-items: start; }
-    .filter-actions .btn { white-space: nowrap; }
+    .filter-row { 
+      display: grid; 
+      grid-template-columns: 1fr auto auto; 
+      gap: .5rem; 
+      align-items: start; 
+    }
+    
+    .filter-actions .btn { 
+      white-space: nowrap; 
+    }
 
-    /* Grid */
+    /* Modern CSS Grid for charts */
     #grid {
-      flex: 1; overflow: auto; padding: 1rem;
-      display: flex; flex-wrap: wrap; gap: 1rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(var(--card-min), 1fr));
+      gap: 1.5rem;
+      padding: 0;
     }
+    
+    /* Responsive breakpoints for grid */
+    @media (min-width: 1280px) {
+      #grid {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+    
+    @media (min-width: 1024px) and (max-width: 1279px) {
+      #grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+    
+    @media (min-width: 768px) and (max-width: 1023px) {
+      #grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    
+    @media (max-width: 767px) {
+      #grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    /* Modern chart cards */
     .card-chart {
-      width: calc(50% - .5rem);
-      min-width: 260px;
-      background: #fff; border: 1px solid #e1e1e1; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,.06);
-      resize: both; overflow: auto; position: relative;
-      display: flex; flex-direction: column;
-      min-height: 220px;
+      background: var(--surface-card, #fff);
+      border: 1px solid var(--surface-border, #e1e1e1);
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      resize: both;
+      overflow: auto;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      min-height: 280px;
+      transition: transform 0.2s, box-shadow 0.2s;
     }
+    
+    .card-chart:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+    
     .card-chart .card-header {
       flex: 0 0 auto;
-      display: flex; align-items: center; justify-content: space-between;
-      padding: .5rem .75rem; border-bottom: 1px solid #eee;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--surface-border, #e1e1e1);
+      background: var(--surface-bg, #f8f9fa);
+      border-radius: 12px 12px 0 0;
     }
-    .card-chart .card-header h6 { margin: 0; font-size: 1rem; font-weight: 600; }
-    .card-chart .remove { border: 0; background: transparent; color: #6c757d; font-size: 1.1rem; }
-    .card-chart .remove:hover { color: #dc3545; }
+    
+    .card-chart .card-header h6 { 
+      margin: 0; 
+      font-size: 1rem; 
+      font-weight: 600;
+      color: var(--text-primary, #2b2f36);
+    }
+    
+    .card-chart .remove { 
+      border: 0; 
+      background: transparent; 
+      color: var(--text-muted, #6c757d); 
+      font-size: 1.1rem;
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      display: grid;
+      place-items: center;
+      transition: all 0.2s;
+    }
+    
+    .card-chart .remove:hover { 
+      color: var(--theme-danger, #dc3545);
+      background: var(--surface-hover, #f8f9fa);
+    }
+    
     .card-chart .plot { 
       flex: 1 1 auto; 
-      padding: .5rem; 
+      padding: 1rem; 
       min-height: 220px;
       overflow: hidden;
+      background: var(--chart-bg, #fff);
     }
 
     @media (max-width: 800px) {
@@ -647,23 +1088,83 @@
     /* ===== Insights panel styles END ===== */
   </style>
 </head>
-<body>
+<body data-theme="dark">
   <div id="app">
-    <!-- Sidebar -->
-    <aside id="sidebar" aria-label="Toolbar">
-      <button id="btnFilters" title="Filters" aria-label="Filters"><i class="bi bi-funnel-fill"></i></button>
-      <button id="btnData" title="Data table" aria-label="Data"><i class="bi bi-table"></i></button>
-      <button id="btnInsights" title="Custom analytics" aria-label="Custom analytics"><i class="bi bi-graph-up"></i></button>
-      <button id="btnSettings" title="Settings" aria-label="Settings"><i class="bi bi-gear-fill"></i></button>
-      <button id="btnAdd" title="Add chart" aria-label="Add chart"><i class="bi bi-plus-lg"></i></button>
+    <!-- Modern Expandable Sidebar -->
+    <aside id="sidebar" aria-label="Navigation">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">M</div>
+        <div class="sidebar-title">MUSPAD</div>
+      </div>
+      
+      <nav class="sidebar-nav">
+        <div class="nav-section">
+          <div class="nav-section-title">Dashboard</div>
+          <button class="nav-item active" data-action="dashboard" title="Dashboard">
+            <i class="bi bi-speedometer2"></i>
+            <span class="nav-item-text">Dashboard</span>
+          </button>
+        </div>
+        
+        <div class="nav-section">
+          <div class="nav-section-title">Data</div>
+          <button class="nav-item" id="btnFilters" data-action="filters" title="Filters">
+            <i class="bi bi-funnel-fill"></i>
+            <span class="nav-item-text">Filters</span>
+          </button>
+          <button class="nav-item" id="btnData" data-action="data" title="Data Preview">
+            <i class="bi bi-table"></i>
+            <span class="nav-item-text">Data Preview</span>
+          </button>
+        </div>
+        
+        <div class="nav-section">
+          <div class="nav-section-title">Analytics</div>
+          <button class="nav-item" id="btnInsights" data-action="insights" title="Insights">
+            <i class="bi bi-graph-up"></i>
+            <span class="nav-item-text">Insights</span>
+          </button>
+          <button class="nav-item" id="btnAdd" data-action="add-chart" title="Add Chart">
+            <i class="bi bi-plus-lg"></i>
+            <span class="nav-item-text">Add Chart</span>
+          </button>
+        </div>
+        
+        <div class="nav-section">
+          <div class="nav-section-title">System</div>
+          <button class="nav-item" id="btnSettings" data-action="settings" title="Settings">
+            <i class="bi bi-gear-fill"></i>
+            <span class="nav-item-text">Settings</span>
+          </button>
+        </div>
+      </nav>
     </aside>
 
-    <!-- Main -->
+    <!-- Main Content -->
     <main id="main">
+      <!-- Modern Top Header -->
       <header id="header">
-        <h1 id="title">MUSPAD Dynamic Dashboard</h1>
+        <button class="header-burger" id="sidebarToggle" aria-label="Toggle sidebar">
+          <i class="bi bi-list"></i>
+        </button>
+        
+        <div class="header-search">
+          <i class="bi bi-search"></i>
+          <input type="text" placeholder="Search charts, data..." aria-label="Search">
+        </div>
+        
+        <h1 id="title">MUSPAD Dashboard</h1>
         <span id="loadedBadge" aria-live="polite"></span>
         <div class="header-spacer"></div>
+        
+        <div class="header-actions">
+          <button class="header-action" title="Notifications" aria-label="Notifications">
+            <i class="bi bi-bell"></i>
+          </button>
+          <button class="header-action" title="Settings" aria-label="User settings">
+            <i class="bi bi-person-circle"></i>
+          </button>
+        </div>
 
         <!-- Date range (kept hidden) -->
         <div class="date-range" style="display:none">
@@ -671,96 +1172,119 @@
           <input type="date" id="endDate" aria-label="End date">
         </div>
 
-        <button id="btnDownloadFiltered" type="button" class="btn btn-sm btn-outline-primary">
+        <button id="btnDownloadFiltered" type="button" class="btn btn-sm btn-outline-primary" style="display:none">
           Download filtered CSV
         </button>
       </header>
 
-      <!-- Filters -->
-      <section id="panelFilters" class="panel" aria-label="Filters">
-        <h5 class="mb-3">Filters</h5>
-        <div id="filter-container"></div>
-        <div class="resizable-corner"></div>
-      </section>
-
-      <!-- Data table -->
-      <section id="panelData" class="panel" aria-label="Data preview">
-        <h5 class="mb-2">Data Preview</h5>
-
-        <div id="dataLayout">
-          <!-- LEFT: data table -->
-          <div class="table-container table-responsive" id="tableWrap"></div>
-
-          <!-- RIGHT: inspector -->
-          <aside id="inspector" aria-label="Variable Inspector & Dataset Summary">
-            <div id="inspectorSummary" class="inspector-block">
-              <h6 class="inspector-title">Dataset summary</h6>
-              <div class="inspector-kpis">
-                <div class="kpi"><div class="kpi-label">Total rows</div><div class="kpi-value" id="sumTotalRows">—</div></div>
-                <div class="kpi"><div class="kpi-label">Total cols</div><div class="kpi-value" id="sumTotalCols">—</div></div>
-                <div class="kpi"><div class="kpi-label">Filtered rows</div><div class="kpi-value" id="sumFilteredRows">—</div></div>
-                <div class="kpi kpi-wide"><div class="kpi-label">Date range</div><div class="kpi-value" id="sumDateRange">—</div></div>
-              </div>
-            </div>
-
-            <div id="inspectorCols" class="inspector-block">
-              <h6 class="inspector-title">Columns</h6>
-              <div id="inspectorList" class="inspector-list"></div>
-            </div>
-
-            <div id="inspectorDetails" class="inspector-block">
-              <h6 class="inspector-title"><span id="fieldName">Select a column</span></h6>
-              <div id="fieldStats">Choose a column from the list to see statistics.</div>
-            </div>
-          </aside>
-        </div>
-        <div class="resizable-corner"></div>
-      </section>
-
-      <!-- Settings -->
-      <section id="panelSettings" class="panel" aria-label="Settings">
-        <h5>Settings</h5>
-        <p class="text-muted mb-3">Add theme/layout options here as needed.</p>
-        
-        <!-- Insights Preview Card -->
-        <div class="card mb-3" style="max-width: 300px;">
-          <div class="card-body p-3">
-            <h6 class="card-title mb-2">
-              <i class="bi bi-graph-up text-primary me-2"></i>
-              Serology Insights
-            </h6>
-            <p class="card-text text-muted small mb-2">
-              Access curated analyses and advanced visualizations for serology data.
-            </p>
-            <a href="#" class="btn btn-outline-primary btn-sm" onclick="event.preventDefault(); document.getElementById('btnInsights').click();">
-              View Insights
-              <i class="bi bi-arrow-right ms-1"></i>
-            </a>
+      <!-- Main Content Area -->
+      <div class="main-content">
+        <!-- KPI Cards Row -->
+        <div class="kpi-row">
+          <div class="kpi-card primary">
+            <div class="kpi-label">Total Rows</div>
+            <div class="kpi-value" id="sumTotalRows">—</div>
           </div>
-        </div>       
-        <div class="resizable-corner"></div>
-      </section>
-
-      <!-- Insights Panel -->
-      <section id="panelInsights" class="panel insights-panel" aria-label="Serology Insights">
-        <div class="insights-header">
-          <h5>Serology Insights</h5>
-          <button id="btnCustomAnalytics" class="btn btn-sm btn-outline-primary" title="Custom analytics">
-            <i class="bi bi-graph-up"></i> Custom Analytics
-          </button>
+          <div class="kpi-card success">
+            <div class="kpi-label">Filtered Rows</div>
+            <div class="kpi-value" id="sumFilteredRows">—</div>
+          </div>
+          <div class="kpi-card info">
+            <div class="kpi-label">Total Columns</div>
+            <div class="kpi-value" id="sumTotalCols">—</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Date Range</div>
+            <div class="kpi-value" id="sumDateRange" style="font-size: 1.2rem;">—</div>
+          </div>
         </div>
-        <p class="text-muted mb-3">Curated analyses and advanced visualizations for serology data.</p>
-        
-        <!-- Insights Grid Container -->
-        <div id="insightsGrid" class="insights-grid-container">
-          <!-- Charts will be dynamically added here -->
-        </div>
-        
-        <div class="resizable-corner"></div>
-      </section>
 
-      <!-- Chart grid -->
-      <section id="grid" aria-label="Charts"></section>
+        <!-- Panels (initially hidden) -->
+        <div class="panels-container">
+          <!-- Filters -->
+          <section id="panelFilters" class="panel" aria-label="Filters">
+            <h5 class="mb-3">Filters</h5>
+            <div id="filter-container"></div>
+            <div class="resizable-corner"></div>
+          </section>
+
+          <!-- Data table -->
+          <section id="panelData" class="panel" aria-label="Data preview">
+            <h5 class="mb-2">Data Preview</h5>
+
+            <div id="dataLayout">
+              <!-- LEFT: data table -->
+              <div class="table-container table-responsive" id="tableWrap"></div>
+
+              <!-- RIGHT: inspector (moved to KPI cards above) -->
+              <aside id="inspector" aria-label="Variable Inspector & Dataset Summary" style="display: none;">
+                <div id="inspectorSummary" class="inspector-block">
+                  <h6 class="inspector-title">Dataset summary</h6>
+                  <div class="inspector-kpis">
+                    <!-- KPI data moved to main KPI cards above -->
+                  </div>
+                </div>
+
+                <div id="inspectorCols" class="inspector-block">
+                  <h6 class="inspector-title">Columns</h6>
+                  <div id="inspectorList" class="inspector-list"></div>
+                </div>
+
+                <div id="inspectorDetails" class="inspector-block">
+                  <h6 class="inspector-title"><span id="fieldName">Select a column</span></h6>
+                  <div id="fieldStats">Choose a column from the list to see statistics.</div>
+                </div>
+              </aside>
+            </div>
+            <div class="resizable-corner"></div>
+          </section>
+
+          <!-- Settings -->
+          <section id="panelSettings" class="panel" aria-label="Settings">
+            <h5>Settings</h5>
+            <p class="text-muted mb-3">Add theme/layout options here as needed.</p>
+            
+            <!-- Insights Preview Card -->
+            <div class="card mb-3" style="max-width: 300px;">
+              <div class="card-body p-3">
+                <h6 class="card-title mb-2">
+                  <i class="bi bi-graph-up text-primary me-2"></i>
+                  Serology Insights
+                </h6>
+                <p class="card-text text-muted small mb-2">
+                  Access curated analyses and advanced visualizations for serology data.
+                </p>
+                <a href="#" class="btn btn-outline-primary btn-sm" onclick="event.preventDefault(); document.getElementById('btnInsights').click();">
+                  View Insights
+                  <i class="bi bi-arrow-right ms-1"></i>
+                </a>
+              </div>
+            </div>       
+            <div class="resizable-corner"></div>
+          </section>
+
+          <!-- Insights Panel -->
+          <section id="panelInsights" class="panel insights-panel" aria-label="Serology Insights">
+            <div class="insights-header">
+              <h5>Serology Insights</h5>
+              <button id="btnCustomAnalytics" class="btn btn-sm btn-outline-primary" title="Custom analytics">
+                <i class="bi bi-graph-up"></i> Custom Analytics
+              </button>
+            </div>
+            <p class="text-muted mb-3">Curated analyses and advanced visualizations for serology data.</p>
+            
+            <!-- Insights Grid Container -->
+            <div id="insightsGrid" class="insights-grid-container">
+              <!-- Charts will be dynamically added here -->
+            </div>
+            
+            <div class="resizable-corner"></div>
+          </section>
+        </div>
+
+        <!-- Chart Grid -->
+        <section id="grid" aria-label="Charts"></section>
+      </div>
     </main>
   </div>
 
@@ -1022,6 +1546,104 @@
 
   <!-- ==================== Main App Script ==================== -->
   <script>
+  // ----------------------------
+  // Sidebar and Navigation Management
+  // ----------------------------
+  
+  // Initialize sidebar state from localStorage
+  let sidebarCollapsed = localStorage.getItem('sidebar-collapsed') === 'true';
+  
+  // Apply initial sidebar state (moved to after DOM load)
+  document.addEventListener('DOMContentLoaded', function() {
+    const sidebar = document.getElementById('sidebar');
+    if (sidebarCollapsed) {
+      sidebar.classList.add('collapsed');
+    }
+    
+    // Initialize navigation after all functions are loaded
+    setTimeout(initNavigation, 100);
+  });
+  
+  // Sidebar toggle functionality
+  function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    sidebar.classList.toggle('collapsed');
+    sidebarCollapsed = !sidebarCollapsed;
+    localStorage.setItem('sidebar-collapsed', sidebarCollapsed.toString());
+  }
+  
+  // Navigation management
+  function initNavigation() {
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    const navItems = document.querySelectorAll('.nav-item');
+    
+    // Sidebar toggle handler
+    if (sidebarToggle) {
+      sidebarToggle.addEventListener('click', toggleSidebar);
+    }
+    
+    // Navigation item handlers
+    navItems.forEach(item => {
+      item.addEventListener('click', function(e) {
+        e.preventDefault();
+        
+        // Remove active from all items
+        navItems.forEach(nav => nav.classList.remove('active'));
+        
+        // Add active to clicked item
+        this.classList.add('active');
+        
+        // Handle different actions
+        const action = this.dataset.action;
+        switch(action) {
+          case 'dashboard':
+            showDashboard();
+            break;
+          case 'filters':
+            // Use existing toggle logic
+            toggle('panelFilters');
+            break;
+          case 'data':
+            // Use existing toggle logic
+            toggle('panelData');
+            break;
+          case 'insights':
+            // Use existing toggle logic
+            toggle('panelInsights');
+            break;
+          case 'add-chart':
+            // Trigger existing add chart functionality
+            if (typeof openModal === 'function') {
+              openModal();
+            }
+            break;
+          case 'settings':
+            // Use existing toggle logic
+            toggle('panelSettings');
+            break;
+        }
+      });
+    });
+  }
+  
+  // Show dashboard (hide all panels, show KPI cards and grid)
+  function showDashboard() {
+    // Hide all panels using the existing show() function
+    if (typeof show === 'function') {
+      show('panelFilters', false);
+      show('panelData', false);
+      show('panelInsights', false);
+      show('panelSettings', false);
+    }
+    
+    // Show KPI cards and grid
+    const kpiRow = document.querySelector('.kpi-row');
+    const grid = document.getElementById('grid');
+    
+    if (kpiRow) kpiRow.style.display = 'grid';
+    if (grid) grid.style.display = 'grid';
+  }
+  
   // ----------------------------
   // Global state
   // ----------------------------
