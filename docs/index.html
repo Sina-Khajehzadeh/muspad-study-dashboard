@@ -421,6 +421,18 @@
     .kpi-card.info .kpi-value {
       color: var(--theme-info, #17a2b8);
     }
+    
+    .kpi-card.warning .kpi-value {
+      color: var(--theme-warning, #ffc107);
+    }
+    
+    .kpi-card.secondary .kpi-value {
+      color: var(--theme-secondary, #6c757d);
+    }
+    
+    .kpi-card.accent .kpi-value {
+      color: var(--theme-accent, #e83e8c);
+    }
 
     /* Modern Panels */
     .panel { 
@@ -1116,6 +1128,10 @@
             <i class="bi bi-table"></i>
             <span class="nav-item-text">Data Preview</span>
           </button>
+          <button class="nav-item" id="btnDataQuality" data-action="data-quality" title="Data Quality">
+            <i class="bi bi-clipboard-data"></i>
+            <span class="nav-item-text">Data Quality</span>
+          </button>
         </div>
         
         <div class="nav-section">
@@ -1198,6 +1214,26 @@
             <div class="kpi-value" id="sumDateRange" style="font-size: 1.2rem;">—</div>
           </div>
         </div>
+        
+        <!-- Enhanced Data Quality Row -->
+        <div class="kpi-row" style="margin-top: 1rem;">
+          <div class="kpi-card warning">
+            <div class="kpi-label">Data Completeness</div>
+            <div class="kpi-value" id="dataCompleteness">—</div>
+          </div>
+          <div class="kpi-card secondary">
+            <div class="kpi-label">Vaccination Rate</div>
+            <div class="kpi-value" id="vaccinationRate">—</div>
+          </div>
+          <div class="kpi-card accent">
+            <div class="kpi-label">Seropositive Rate</div>
+            <div class="kpi-value" id="seropositiveRate">—</div>
+          </div>
+          <div class="kpi-card info">
+            <div class="kpi-label">Study Progress</div>
+            <div class="kpi-value" id="studyProgress" style="font-size: 1.1rem;">—</div>
+          </div>
+        </div>
 
         <!-- Panels (initially hidden) -->
         <div class="panels-container">
@@ -1236,6 +1272,72 @@
                 </div>
               </aside>
             </div>
+            <div class="resizable-corner"></div>
+          </section>
+
+          <!-- Data Quality Panel -->
+          <section id="panelDataQuality" class="panel" aria-label="Data Quality Report">
+            <h5 class="mb-3">
+              <i class="bi bi-clipboard-data text-info me-2"></i>
+              Data Quality Report
+            </h5>
+            
+            <!-- Quality Overview Cards -->
+            <div class="row mb-4">
+              <div class="col-md-6 mb-3">
+                <div class="card h-100">
+                  <div class="card-body">
+                    <h6 class="card-title">
+                      <i class="bi bi-check-circle text-success me-2"></i>
+                      Completeness Overview
+                    </h6>
+                    <div id="completenessChart" style="height: 300px;"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6 mb-3">
+                <div class="card h-100">
+                  <div class="card-body">
+                    <h6 class="card-title">
+                      <i class="bi bi-activity text-primary me-2"></i>
+                      Study Timeline
+                    </h6>
+                    <div id="timelineChart" style="height: 300px;"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Missing Data Analysis -->
+            <div class="card mb-3">
+              <div class="card-body">
+                <h6 class="card-title">
+                  <i class="bi bi-exclamation-triangle text-warning me-2"></i>
+                  Missing Data Analysis
+                </h6>
+                <div id="missingDataTable" class="table-responsive">
+                  <!-- Dynamic table will be inserted here -->
+                </div>
+              </div>
+            </div>
+            
+            <!-- Export Options -->
+            <div class="card">
+              <div class="card-body">
+                <h6 class="card-title">
+                  <i class="bi bi-download text-secondary me-2"></i>
+                  Export Quality Report
+                </h6>
+                <p class="text-muted mb-3">Download comprehensive data quality analysis</p>
+                <button id="btnExportQualityReport" class="btn btn-outline-secondary btn-sm me-2">
+                  <i class="bi bi-file-text"></i> Export Report (CSV)
+                </button>
+                <button id="btnExportQualityChart" class="btn btn-outline-secondary btn-sm">
+                  <i class="bi bi-image"></i> Export Charts (PNG)
+                </button>
+              </div>
+            </div>
+            
             <div class="resizable-corner"></div>
           </section>
 
@@ -1791,6 +1893,15 @@ let inspectorSelectedField = null;
     // Sidebar toggles
     id('btnFilters').addEventListener('click', openFiltersModal);
     id('btnData').addEventListener('click', () => toggle('panelData'));
+    id('btnDataQuality').addEventListener('click', () => {
+      toggle('panelDataQuality');
+      // Initialize data quality analysis when panel is shown
+      setTimeout(() => {
+        if (id('panelDataQuality').classList.contains('active')) {
+          generateDataQualityAnalysis();
+        }
+      }, 100);
+    });
     id('btnInsights').addEventListener('click', () => {
       toggle('panelInsights');
       // Initialize default charts when panel is shown for the first time
@@ -1805,6 +1916,10 @@ let inspectorSelectedField = null;
     id('btnCustomAnalytics')?.addEventListener('click', () => {
       openCustomAnalyticsModal();
     });
+    
+    // Data Quality export buttons
+    id('btnExportQualityReport')?.addEventListener('click', exportDataQualityReport);
+    id('btnExportQualityChart')?.addEventListener('click', exportDataQualityCharts);
     id('btnSettings').addEventListener('click', () => toggle('panelSettings'));
     id('btnAdd').addEventListener('click', () => {
       resetModalToCreateMode();
@@ -4901,34 +5016,133 @@ let inspectorSelectedField = null;
     return filteredRows;
   }
 
-  // ===================== Inspector logic =====================
+  // ===================== Enhanced Inspector logic with Data Quality Metrics =====================
   function updateInspectorSummary(filteredData) {
     const totalRowsEl = id('sumTotalRows');
     const totalColsEl = id('sumTotalCols');
     const filteredRowsEl = id('sumFilteredRows');
     const dateRangeEl = id('sumDateRange');
     
+    // New data quality elements
+    const dataCompletenessEl = id('dataCompleteness');
+    const vaccinationRateEl = id('vaccinationRate');
+    const seropositiveRateEl = id('seropositiveRate');
+    const studyProgressEl = id('studyProgress');
+    
     // Use provided filteredData, fallback to filteredRows
     const filtered = filteredData || filteredRows;
     
+    // Basic metrics
     if (totalRowsEl) totalRowsEl.textContent = rawData?.length ? rawData.length.toLocaleString() : '0';
     if (totalColsEl) totalColsEl.textContent = columns?.length ? columns.length.toLocaleString() : '0';
     if (filteredRowsEl) filteredRowsEl.textContent = filtered?.length ? filtered.length.toLocaleString() : '0';
 
+    // Date range calculation
     if (!dateCol || !dateRangeEl) { 
       if (dateRangeEl) dateRangeEl.textContent = '—'; 
-      return; 
+    } else {
+      const rowsForRange = (filtered && Array.isArray(filtered)) ? filtered : rawData;
+      if (typeof parseValidDate === 'function' && typeof toISO === 'function') {
+        const dates = rowsForRange
+          .map(r => parseValidDate(r[dateCol]))
+          .filter(Boolean)
+          .sort((a,b) => a - b);
+
+        dateRangeEl.textContent =
+          dates.length ? `${toISO(dates[0])} → ${toISO(dates[dates.length-1])}` : '—';
+      }
     }
-
-    const rowsForRange = (filtered && Array.isArray(filtered)) ? filtered : rawData;
-    if (typeof parseValidDate === 'function' && typeof toISO === 'function') {
-      const dates = rowsForRange
-        .map(r => parseValidDate(r[dateCol]))
-        .filter(Boolean)
-        .sort((a,b) => a - b);
-
-      dateRangeEl.textContent =
-        dates.length ? `${toISO(dates[0])} → ${toISO(dates[dates.length-1])}` : '—';
+    
+    // Enhanced data quality calculations
+    if (filtered && filtered.length > 0) {
+      // Data Completeness - average percentage of non-null values across key columns
+      const keyColumns = ['X20_21_serostatus', 'X20_21_kurzfragen_cov19_vaccination_first_yn', 'age_22', 'sex'];
+      let totalCompleteness = 0;
+      let validColumns = 0;
+      
+      keyColumns.forEach(col => {
+        if (columns && columns.includes(col)) {
+          const nonNullCount = filtered.filter(row => 
+            row[col] !== null && row[col] !== undefined && row[col] !== ''
+          ).length;
+          totalCompleteness += (nonNullCount / filtered.length);
+          validColumns++;
+        }
+      });
+      
+      const completenessPercentage = validColumns > 0 ? (totalCompleteness / validColumns * 100).toFixed(1) : 0;
+      if (dataCompletenessEl) dataCompletenessEl.textContent = `${completenessPercentage}%`;
+      
+      // Vaccination Rate
+      if (columns && columns.includes('X20_21_kurzfragen_cov19_vaccination_first_yn')) {
+        const vaccinatedCount = filtered.filter(row => 
+          row['X20_21_kurzfragen_cov19_vaccination_first_yn'] === 1 || 
+          row['X20_21_kurzfragen_cov19_vaccination_first_yn'] === '1' ||
+          row['X20_21_kurzfragen_cov19_vaccination_first_yn'] === 'yes'
+        ).length;
+        const validVaccData = filtered.filter(row => 
+          row['X20_21_kurzfragen_cov19_vaccination_first_yn'] !== null && 
+          row['X20_21_kurzfragen_cov19_vaccination_first_yn'] !== undefined && 
+          row['X20_21_kurzfragen_cov19_vaccination_first_yn'] !== ''
+        ).length;
+        
+        if (validVaccData > 0) {
+          const vaccRate = (vaccinatedCount / validVaccData * 100).toFixed(1);
+          if (vaccinationRateEl) vaccinationRateEl.textContent = `${vaccRate}%`;
+        } else {
+          if (vaccinationRateEl) vaccinationRateEl.textContent = '—';
+        }
+      } else {
+        if (vaccinationRateEl) vaccinationRateEl.textContent = '—';
+      }
+      
+      // Seropositive Rate
+      if (columns && columns.includes('X20_21_serostatus')) {
+        const seroPositiveCount = filtered.filter(row => 
+          row['X20_21_serostatus'] === 'seropositive' ||
+          row['X20_21_serostatus'] === 'positive' ||
+          row['X20_21_serostatus'] === 1 ||
+          row['X20_21_serostatus'] === '1'
+        ).length;
+        const validSeroData = filtered.filter(row => 
+          row['X20_21_serostatus'] !== null && 
+          row['X20_21_serostatus'] !== undefined && 
+          row['X20_21_serostatus'] !== ''
+        ).length;
+        
+        if (validSeroData > 0) {
+          const seroRate = (seroPositiveCount / validSeroData * 100).toFixed(1);
+          if (seropositiveRateEl) seropositiveRateEl.textContent = `${seroRate}%`;
+        } else {
+          if (seropositiveRateEl) seropositiveRateEl.textContent = '—';
+        }
+      } else {
+        if (seropositiveRateEl) seropositiveRateEl.textContent = '—';
+      }
+      
+      // Study Progress - based on multiple time points
+      const timePoints = ['X20_21_user_id', 's22_nc_qualitative', 's23_nc_qualitative'];
+      let progressPoints = 0;
+      timePoints.forEach(col => {
+        if (columns && columns.includes(col)) {
+          const hasData = filtered.filter(row => 
+            row[col] !== null && row[col] !== undefined && row[col] !== ''
+          ).length;
+          if (hasData > filtered.length * 0.1) { // At least 10% have this time point
+            progressPoints++;
+          }
+        }
+      });
+      
+      if (studyProgressEl) {
+        studyProgressEl.textContent = `${progressPoints}/${timePoints.length} waves`;
+      }
+    } else {
+      // No data available
+      if (dataCompletenessEl) dataCompletenessEl.textContent = '—';
+      if (vaccinationRateEl) vaccinationRateEl.textContent = '—';
+      if (seropositiveRateEl) seropositiveRateEl.textContent = '—';
+      if (studyProgressEl) studyProgressEl.textContent = '—';
     }
   }
 
@@ -5897,6 +6111,263 @@ let inspectorSelectedField = null;
     // Small delay to ensure the Global Filters modal is properly initialized
     setTimeout(initFiltersResize, 100);
   });
+
+  // ===================== Data Quality Analysis Functions =====================
+
+  function generateDataQualityAnalysis() {
+    if (!rawData || !columns) {
+      console.warn('No data available for quality analysis');
+      return;
+    }
+
+    // Generate completeness chart
+    generateCompletenessChart();
+    
+    // Generate timeline chart
+    generateTimelineChart();
+    
+    // Generate missing data table
+    generateMissingDataTable();
+  }
+
+  function generateCompletenessChart() {
+    const completenessEl = document.getElementById('completenessChart');
+    if (!completenessEl || !window.Plotly) return;
+
+    // Analyze key medical fields for completeness
+    const keyFields = [
+      'X20_21_serostatus',
+      'X20_21_kurzfragen_cov19_vaccination_first_yn', 
+      'age_22',
+      'sex',
+      'X20_21_kurzfragen_employment_yes_mutated',
+      'X20_21_langfragen_income',
+      'X20_21_kurzfragen_healthstatus_new',
+      'dose_interval_days'
+    ];
+
+    const actualFields = keyFields.filter(field => columns.includes(field));
+    const completenessData = actualFields.map(field => {
+      const nonNullCount = rawData.filter(row => 
+        row[field] !== null && row[field] !== undefined && row[field] !== ''
+      ).length;
+      const percentage = (nonNullCount / rawData.length * 100).toFixed(1);
+      
+      return {
+        field: field.replace(/X20_21_|_new|_mutated/g, '').replace(/_/g, ' '),
+        percentage: parseFloat(percentage),
+        count: nonNullCount,
+        total: rawData.length
+      };
+    });
+
+    const trace = {
+      type: 'bar',
+      x: completenessData.map(d => d.field),
+      y: completenessData.map(d => d.percentage),
+      text: completenessData.map(d => `${d.percentage}%<br>(${d.count}/${d.total})`),
+      textposition: 'outside',
+      marker: {
+        color: completenessData.map(d => 
+          d.percentage >= 90 ? '#28a745' : 
+          d.percentage >= 75 ? '#ffc107' : '#dc3545'
+        )
+      }
+    };
+
+    const layout = {
+      title: 'Data Completeness by Key Fields',
+      xaxis: { title: 'Field' },
+      yaxis: { title: 'Completeness (%)', range: [0, 100] },
+      showlegend: false,
+      margin: { t: 50, r: 20, b: 120, l: 60 }
+    };
+
+    Plotly.newPlot(completenessEl, [trace], layout, { responsive: true, displayModeBar: false });
+  }
+
+  function generateTimelineChart() {
+    const timelineEl = document.getElementById('timelineChart');
+    if (!timelineEl || !window.Plotly) return;
+
+    // Look for date fields
+    const dateFields = columns.filter(col => 
+      col.includes('date') || col.includes('time') || col.includes('submitdate')
+    );
+
+    if (dateFields.length === 0) {
+      timelineEl.innerHTML = '<div class="text-center p-4 text-muted">No date fields found for timeline analysis</div>';
+      return;
+    }
+
+    // Analyze data collection over time
+    const timelineData = [];
+    
+    dateFields.slice(0, 4).forEach(field => { // Limit to 4 fields for readability
+      const dates = rawData
+        .map(row => row[field])
+        .filter(date => date && date !== '')
+        .map(date => {
+          // Try to parse different date formats
+          if (typeof date === 'string') {
+            // Handle formats like "2020-07-16" or "2020-07-16 11:43:00"
+            const parsed = new Date(date);
+            return isNaN(parsed.getTime()) ? null : parsed;
+          }
+          return null;
+        })
+        .filter(date => date !== null);
+
+      if (dates.length > 0) {
+        // Group by month
+        const monthCounts = {};
+        dates.forEach(date => {
+          const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+          monthCounts[monthKey] = (monthCounts[monthKey] || 0) + 1;
+        });
+
+        const sortedMonths = Object.keys(monthCounts).sort();
+        timelineData.push({
+          x: sortedMonths,
+          y: sortedMonths.map(month => monthCounts[month]),
+          name: field.replace(/X20_21_|s22_|s23_|w22_/g, '').replace(/_/g, ' '),
+          type: 'scatter',
+          mode: 'lines+markers'
+        });
+      }
+    });
+
+    if (timelineData.length === 0) {
+      timelineEl.innerHTML = '<div class="text-center p-4 text-muted">No valid date data found for timeline</div>';
+      return;
+    }
+
+    const layout = {
+      title: 'Data Collection Timeline',
+      xaxis: { title: 'Month' },
+      yaxis: { title: 'Records Collected' },
+      margin: { t: 50, r: 20, b: 60, l: 60 }
+    };
+
+    Plotly.newPlot(timelineEl, timelineData, layout, { responsive: true, displayModeBar: false });
+  }
+
+  function generateMissingDataTable() {
+    const tableEl = document.getElementById('missingDataTable');
+    if (!tableEl) return;
+
+    // Analyze missing data patterns
+    const missingAnalysis = columns.map(col => {
+      const totalRows = rawData.length;
+      const missingCount = rawData.filter(row => 
+        row[col] === null || row[col] === undefined || row[col] === ''
+      ).length;
+      
+      return {
+        column: col,
+        missing: missingCount,
+        present: totalRows - missingCount,
+        missingPercentage: (missingCount / totalRows * 100).toFixed(1)
+      };
+    }).filter(analysis => analysis.missing > 0) // Only show columns with missing data
+      .sort((a, b) => b.missingPercentage - a.missingPercentage) // Sort by highest missing percentage
+      .slice(0, 20); // Limit to top 20
+
+    if (missingAnalysis.length === 0) {
+      tableEl.innerHTML = '<div class="text-center p-4 text-success">✓ No missing data detected in any column!</div>';
+      return;
+    }
+
+    const tableHTML = `
+      <table class="table table-sm table-hover">
+        <thead class="table-light">
+          <tr>
+            <th>Column</th>
+            <th>Missing</th>
+            <th>Present</th>
+            <th>Missing %</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${missingAnalysis.map(analysis => `
+            <tr>
+              <td>
+                <code>${analysis.column}</code>
+              </td>
+              <td class="text-danger">${analysis.missing.toLocaleString()}</td>
+              <td class="text-success">${analysis.present.toLocaleString()}</td>
+              <td>
+                <div class="d-flex align-items-center">
+                  <div class="progress me-2" style="width: 60px; height: 16px;">
+                    <div class="progress-bar bg-${analysis.missingPercentage > 50 ? 'danger' : analysis.missingPercentage > 25 ? 'warning' : 'success'}" 
+                         style="width: ${100 - parseFloat(analysis.missingPercentage)}%"></div>
+                  </div>
+                  ${analysis.missingPercentage}%
+                </div>
+              </td>
+              <td>
+                <span class="badge bg-${analysis.missingPercentage > 50 ? 'danger' : analysis.missingPercentage > 25 ? 'warning' : 'success'}">
+                  ${analysis.missingPercentage > 50 ? 'High' : analysis.missingPercentage > 25 ? 'Medium' : 'Low'}
+                </span>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+
+    tableEl.innerHTML = tableHTML;
+  }
+
+  function exportDataQualityReport() {
+    if (!rawData || !columns) {
+      alert('No data available for export');
+      return;
+    }
+
+    // Generate comprehensive quality report
+    const report = [];
+    
+    // Header
+    report.push('MUSPAD Data Quality Report');
+    report.push(`Generated: ${new Date().toISOString()}`);
+    report.push(`Total Records: ${rawData.length.toLocaleString()}`);
+    report.push(`Total Columns: ${columns.length}`);
+    report.push('');
+
+    // Missing data summary
+    report.push('MISSING DATA ANALYSIS');
+    report.push('Column,Missing Count,Missing Percentage,Present Count');
+    
+    columns.forEach(col => {
+      const missingCount = rawData.filter(row => 
+        row[col] === null || row[col] === undefined || row[col] === ''
+      ).length;
+      const missingPercentage = (missingCount / rawData.length * 100).toFixed(2);
+      const presentCount = rawData.length - missingCount;
+      
+      report.push(`"${col}",${missingCount},${missingPercentage}%,${presentCount}`);
+    });
+
+    // Download as CSV
+    const reportContent = report.join('\\n');
+    const blob = new Blob([reportContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `muspad_data_quality_report_${new Date().toISOString().slice(0,10)}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  function exportDataQualityCharts() {
+    // This would export the charts as images - simplified implementation
+    alert('Chart export functionality would be implemented here. For now, you can right-click on charts to save them individually.');
+  }
+
   </script>
 
   <!-- ==================== Global Filters Modal (your inserted block) ==================== -->
