@@ -411,8 +411,8 @@
       </label>
       <div class="wave-tabs" id="wave-tabs">
         <button class="wave-tab active" data-wave="baseline">Baseline (X20_21)</button>
-        <button class="wave-tab" data-wave="w22">W22</button>
         <button class="wave-tab" data-wave="s22">S22</button>
+        <button class="wave-tab" data-wave="w22">W22</button>
         <button class="wave-tab" data-wave="s23">S23</button>
         <button class="wave-tab" data-wave="s24">S24</button>
       </div>
@@ -542,22 +542,25 @@
   <script>
     // Sample data for demonstration
     function createSampleCharts() {
-      // Timeline Chart
+      // Timeline Chart with updated styling
       const timelineData = {
-        x: ['2020-07', '2020-08', '2020-09', '2020-10', '2020-11', '2020-12', '2021-01', '2021-02'],
+        x: ['2020-07-01', '2020-08-01', '2020-09-01', '2020-10-01', '2020-11-01', '2020-12-01', '2021-01-01', '2021-02-01'],
         y: [156, 234, 189, 267, 298, 234, 187, 156],
         type: 'scatter',
         mode: 'lines+markers',
-        line: { color: '#007bff', width: 3 },
-        marker: { size: 8 },
+        line: { color: '#3b82f6', width: 3, shape: 'spline', smoothing: 0.6 },
+        marker: { size: 6, color: '#3b82f6' },
+        fill: 'tozeroy', fillcolor: 'rgba(59,130,246,0.12)',
+        hovertemplate: '%{x|%b %Y}<br>Count: %{y}',
         name: 'Participants'
       };
 
       Plotly.newPlot('timeline-chart', [timelineData], {
-        title: { text: 'Participation Timeline - BASELINE' },
-        xaxis: { title: 'Month' },
-        yaxis: { title: 'Count' },
-        margin: { l: 50, r: 30, t: 50, b: 50 }
+        title: { text: 'Participation Timeline - BASELINE', x: 0.5, xanchor: 'center' },
+        xaxis: { type: 'date', title: 'Month', range: ['2020-01-01','2024-12-31'], tickformat: '%b %Y', showgrid: true, gridcolor: 'rgba(0,0,0,0.08)' },
+        yaxis: { title: 'Count', zeroline: true, gridcolor: 'rgba(0,0,0,0.08)' },
+        margin: { l: 50, r: 30, t: 50, b: 50 },
+        hovermode: 'x unified'
       }, { responsive: true });
 
       // Calendar Chart (simplified as bar chart)
