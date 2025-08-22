@@ -2915,15 +2915,39 @@ let inspectorSelectedField = null;
         X20_21_vacc_second_date = secondVaccDate.toISOString().split('T')[0];
       }
       
+      // Generate serology data with the specified test values for normalization
+      const serologyValues = [0, 1, 'seronegative', 'seropositive', '', null, 'equivocal'];
+      
       sampleData.push({
         id: i + 1,
         category: categories[Math.floor(Math.random() * categories.length)],
         region: regions[Math.floor(Math.random() * regions.length)],
+        standort: regions[Math.floor(Math.random() * regions.length)], // For region filter
         value: Math.floor(Math.random() * 1000) + 100,
         date: dates[Math.floor(Math.random() * dates.length)],
         score: Math.random() * 100,
+        sex: [1, 2, 3][Math.floor(Math.random() * 3)], // For sex filter
+        age_group_23_1: ['18-30', '31-50', '51-70', '70+'][Math.floor(Math.random() * 4)], // For age filter
         X20_21_vacc_first_date: X20_21_vacc_first_date,
-        X20_21_vacc_second_date: X20_21_vacc_second_date
+        X20_21_vacc_second_date: X20_21_vacc_second_date,
+        // Add serology columns from waveConfig
+        X20_21_serostatus: serologyValues[Math.floor(Math.random() * serologyValues.length)],
+        w22_serostatus: serologyValues[Math.floor(Math.random() * serologyValues.length)],
+        s22_nc_qualitative: serologyValues[Math.floor(Math.random() * serologyValues.length)],
+        s23_nc_qualitative: serologyValues[Math.floor(Math.random() * serologyValues.length)],
+        s24_nc_qualitative: serologyValues[Math.floor(Math.random() * serologyValues.length)],
+        // Add date columns for each wave
+        X20_21_blutentnahme_sampling_time_new: dates[Math.floor(Math.random() * dates.length)],
+        w22_submitdate: dates[Math.floor(Math.random() * dates.length)],
+        s22_sampling_date_new: dates[Math.floor(Math.random() * dates.length)],
+        s23_submitdate: dates[Math.floor(Math.random() * dates.length)],
+        s24_submitdate: dates[Math.floor(Math.random() * dates.length)],
+        // Add kids under 14 columns
+        x20_21_kids_under14: Math.floor(Math.random() * 5),
+        w22_kids_under14_count_new: Math.floor(Math.random() * 5),
+        s22_kids_under14: Math.floor(Math.random() * 5),
+        s23_kids_under14_count_new: Math.floor(Math.random() * 5),
+        s24_kids_under14_new: Math.floor(Math.random() * 5)
       });
     }
     
@@ -2947,6 +2971,13 @@ let inspectorSelectedField = null;
     
     autoStarterCharts();
     initGlobalFilters();
+    
+    // Initialize AdminKit Dashboard after data is loaded
+    setTimeout(() => {
+      if (typeof initAdminKitDashboard === 'function') {
+        initAdminKitDashboard();
+      }
+    }, 100);
   }
   
   // Return the direct URL of the first CSV found in docs/data (prefers names like latest/current/full/pivot/final).
@@ -2993,6 +3024,13 @@ let inspectorSelectedField = null;
   }
   
   async function loadCSV() {
+    // Check if Papa Parse is available, if not, use sample data
+    if (typeof Papa === 'undefined') {
+      console.log('Papa Parse not available, using sample data as fallback.');
+      generateSampleData();
+      return;
+    }
+    
     const discovered = await discoverDataUrl();
 
     const urls = [
@@ -4366,6 +4404,12 @@ let inspectorSelectedField = null;
   // Starter charts
   // ----------------------------
   function autoStarterCharts() {
+    // Skip chart generation if Plotly is not available
+    if (typeof Plotly === 'undefined') {
+      console.log('Plotly not available, skipping automatic chart generation');
+      return;
+    }
+    
     const numCols = numericCols;
     const catCols = categoricalCols;
 
@@ -7305,8 +7349,6 @@ let inspectorSelectedField = null;
     
     // Trigger immediate KPI and chart refresh with new configuration
     updateDashboardData();
-  }
-    updateDashboardData(); // Refresh dashboard with new config
   }
 
   // ===== AdminKit Dashboard Implementation END =====
