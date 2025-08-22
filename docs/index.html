@@ -6800,6 +6800,8 @@ let inspectorSelectedField = null;
 
   // Initialize AdminKit Dashboard
   function initAdminKitDashboard() {
+    console.log('Initializing AdminKit Dashboard...');
+    
     // Initialize global filters
     initGlobalFilters();
     
@@ -6817,6 +6819,8 @@ let inspectorSelectedField = null;
     
     // Initial KPI and chart updates
     updateDashboardData();
+    
+    console.log('AdminKit Dashboard initialized successfully');
   }
 
   function initGlobalFilters() {
@@ -6878,15 +6882,22 @@ let inspectorSelectedField = null;
       panel.style.display = 'none';
     });
     
-    document.getElementById('grid').style.display = 'none';
-    document.getElementById('kpi-row').style.display = 'none';
+    const grid = document.getElementById('grid');
+    const legacyKpiRow = document.getElementById('kpi-row');
+    
+    if (grid) grid.style.display = 'none';
+    if (legacyKpiRow) legacyKpiRow.style.display = 'none';
     
     // Show AdminKit components
-    document.getElementById('global-filters-bar').style.display = 'flex';
-    document.getElementById('adminkit-dashboard').style.display = 'flex';
+    const globalFilters = document.getElementById('global-filters-bar');
+    const adminDashboard = document.getElementById('adminkit-dashboard');
+    
+    if (globalFilters) globalFilters.style.display = 'flex';
+    if (adminDashboard) adminDashboard.style.display = 'flex';
     
     // Update title
-    document.getElementById('title').textContent = 'MUSPAD Analytics Dashboard';
+    const titleEl = document.getElementById('title');
+    if (titleEl) titleEl.textContent = 'MUSPAD Analytics Dashboard';
   }
 
   function setupDashboardEventListeners() {
@@ -7005,7 +7016,12 @@ let inspectorSelectedField = null;
       margin: { l: 50, r: 30, t: 50, b: 50 }
     };
 
-    Plotly.newPlot('timeline-chart', [trace], layout, { responsive: true });
+    if (typeof Plotly !== 'undefined') {
+      Plotly.newPlot('timeline-chart', [trace], layout, { responsive: true });
+    } else {
+      document.getElementById('timeline-chart').innerHTML = 
+        '<div style="text-align: center; padding: 2rem; color: #6c757d;">Chart loading...</div>';
+    }
   }
 
   function updateCalendarChart(data) {
@@ -7040,7 +7056,12 @@ let inspectorSelectedField = null;
       margin: { l: 50, r: 30, t: 50, b: 50 }
     };
 
-    Plotly.newPlot('calendar-chart', [trace], layout, { responsive: true });
+    if (typeof Plotly !== 'undefined') {
+      Plotly.newPlot('calendar-chart', [trace], layout, { responsive: true });
+    } else {
+      document.getElementById('calendar-chart').innerHTML = 
+        '<div style="text-align: center; padding: 2rem; color: #6c757d;">Chart loading...</div>';
+    }
   }
 
   function updateRegionalChart(data) {
@@ -7068,7 +7089,12 @@ let inspectorSelectedField = null;
       margin: { l: 100, r: 30, t: 50, b: 50 }
     };
 
-    Plotly.newPlot('regional-chart', [trace], layout, { responsive: true });
+    if (typeof Plotly !== 'undefined') {
+      Plotly.newPlot('regional-chart', [trace], layout, { responsive: true });
+    } else {
+      document.getElementById('regional-chart').innerHTML = 
+        '<div style="text-align: center; padding: 2rem; color: #6c757d;">Chart loading...</div>';
+    }
   }
 
   function updateDonutChart(data) {
@@ -7096,7 +7122,12 @@ let inspectorSelectedField = null;
       margin: { l: 20, r: 20, t: 50, b: 20 }
     };
 
-    Plotly.newPlot('donut-chart', [trace], layout, { responsive: true });
+    if (typeof Plotly !== 'undefined') {
+      Plotly.newPlot('donut-chart', [trace], layout, { responsive: true });
+    } else {
+      document.getElementById('donut-chart').innerHTML = 
+        '<div style="text-align: center; padding: 2rem; color: #6c757d;">Chart loading...</div>';
+    }
   }
 
   function updateMonthlyChart(data) {
@@ -7129,7 +7160,12 @@ let inspectorSelectedField = null;
       margin: { l: 50, r: 30, t: 50, b: 50 }
     };
 
-    Plotly.newPlot('monthly-chart', [trace], layout, { responsive: true });
+    if (typeof Plotly !== 'undefined') {
+      Plotly.newPlot('monthly-chart', [trace], layout, { responsive: true });
+    } else {
+      document.getElementById('monthly-chart').innerHTML = 
+        '<div style="text-align: center; padding: 2rem; color: #6c757d;">Chart loading...</div>';
+    }
   }
 
   // Wave Configuration Modal Functions
