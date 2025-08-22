@@ -2022,37 +2022,37 @@
         <!-- Serology Configuration -->
         <div class="config-section active" id="config-serology">
           <h6>Serology Flag Mapping</h6>
-          <p class="small text-muted">Define how seropositivity is determined for each wave</p>
+          <p class="small text-muted">Select the serology column for each wave. Values will be automatically normalized (0/'seronegative' → Negative, 1/'seropositive' → Positive)</p>
           <div class="config-grid">
             <div class="config-item">
               <label>Baseline (X20_21)</label>
-              <input type="text" class="form-control" id="serology-baseline" 
-                     value="X20_21_serostatus=='seropositive'" 
-                     placeholder="Column expression">
+              <select class="form-select" id="serology-baseline">
+                <option value="">Choose a column...</option>
+              </select>
             </div>
             <div class="config-item">
               <label>S22</label>
-              <input type="text" class="form-control" id="serology-s22" 
-                     value="s22_nc_qualitative==1" 
-                     placeholder="Column expression">
+              <select class="form-select" id="serology-s22">
+                <option value="">Choose a column...</option>
+              </select>
             </div>
             <div class="config-item">
               <label>W22</label>
-              <input type="text" class="form-control" id="serology-w22" 
-                     value="w22_serostatus==1" 
-                     placeholder="Column expression">
+              <select class="form-select" id="serology-w22">
+                <option value="">Choose a column...</option>
+              </select>
             </div>
             <div class="config-item">
               <label>S23</label>
-              <input type="text" class="form-control" id="serology-s23" 
-                     value="s23_nc_qualitative==1" 
-                     placeholder="Column expression">
+              <select class="form-select" id="serology-s23">
+                <option value="">Choose a column...</option>
+              </select>
             </div>
             <div class="config-item">
               <label>S24</label>
-              <input type="text" class="form-control" id="serology-s24" 
-                     value="s24_nc_qualitative==1" 
-                     placeholder="Column expression">
+              <select class="form-select" id="serology-s24">
+                <option value="">Choose a column...</option>
+              </select>
             </div>
           </div>
         </div>
@@ -6769,11 +6769,11 @@ let inspectorSelectedField = null;
   // Wave configuration mappings
   let waveConfig = {
     serology: {
-      baseline: "X20_21_serostatus=='seropositive'",
-      w22: "w22_serostatus==1",
-      s22: "s22_nc_qualitative==1",
-      s23: "s23_nc_qualitative==1",
-      s24: "s24_nc_qualitative==1"
+      baseline: "X20_21_serostatus",
+      w22: "w22_serostatus", 
+      s22: "s22_nc_qualitative",
+      s23: "s23_nc_qualitative",
+      s24: "s24_nc_qualitative"
     },
     dates: {
       baseline: 'X20_21_blutentnahme_sampling_time_new',
@@ -6949,11 +6949,11 @@ let inspectorSelectedField = null;
     const respondentsThisWave = data.filter(row => row[dateCol] && row[dateCol].trim()).length;
     document.getElementById('kpi-respondents-wave').textContent = respondentsThisWave.toLocaleString();
     
-    // Seropositive Rate
-    const serologyExpression = waveConfig.serology[currentWave];
-    const seropositiveCount = data.filter(row => evaluateSerologyExpression(row, serologyExpression)).length;
-    const seropositiveRate = respondentsThisWave > 0 ? (seropositiveCount / respondentsThisWave * 100).toFixed(1) : '0.0';
-    document.getElementById('kpi-seropositive-rate').textContent = seropositiveRate + '%';
+    // Seropositive Rate - use new normalized calculation
+    const serologyCol = waveConfig.serology[currentWave];
+    const seropositiveRate = computeSeropositiveRate(data, serologyCol);
+    const seropositiveDisplay = seropositiveRate !== null ? (seropositiveRate * 100).toFixed(1) + '%' : '—';
+    document.getElementById('kpi-seropositive-rate').textContent = seropositiveDisplay;
     
     // Kids Under 14
     const kidsCol = waveConfig.kids[currentWave];
@@ -6962,6 +6962,26 @@ let inspectorSelectedField = null;
       return sum + val;
     }, 0);
     document.getElementById('kpi-kids-under14').textContent = kidsCount.toLocaleString();
+  }
+
+  // Normalize serology values according to standardized mapping
+  function normalizeSerologyValue(v) {
+    if (v === 1 || v === '1' || String(v).toLowerCase() === 'seropositive') return 'Positive';
+    if (v === 0 || v === '0' || String(v).toLowerCase() === 'seronegative') return 'Negative';
+    return null; // treat everything else as uninterpretable
+  }
+
+  // Compute seropositive rate with normalized values and proper denominator logic
+  function computeSeropositiveRate(rows, serologyCol) {
+    let pos = 0, neg = 0;
+    for (const r of rows) {
+      const label = normalizeSerologyValue(r[serologyCol]);
+      if (label === 'Positive') pos++;
+      else if (label === 'Negative') neg++;
+    }
+    const denom = pos + neg;
+    if (!denom) return null; // display '—'
+    return pos / denom; // return fraction; formatting to % handled by UI
   }
 
   function evaluateSerologyExpression(row, expression) {
@@ -7185,6 +7205,27 @@ let inspectorSelectedField = null;
       });
     });
 
+    // Add change listeners for serology dropdowns for immediate updates
+    const serologyDropdowns = [
+      'serology-baseline', 'serology-s22', 'serology-w22', 
+      'serology-s23', 'serology-s24'
+    ];
+    
+    serologyDropdowns.forEach(id => {
+      const dropdown = document.getElementById(id);
+      if (dropdown) {
+        dropdown.addEventListener('change', (e) => {
+          // Update the config immediately on change
+          const wave = id.split('-')[1]; // extract wave name from id
+          waveConfig.serology[wave] = e.target.value;
+          // Refresh KPIs/charts immediately if the current wave was changed
+          if (wave === currentWave || !currentWave) {
+            updateDashboardData();
+          }
+        });
+      }
+    });
+
     // Close modal handlers
     document.querySelectorAll('[data-dismiss="modal"]').forEach(btn => {
       btn.addEventListener('click', hideWaveConfigModal);
@@ -7209,6 +7250,9 @@ let inspectorSelectedField = null;
   }
 
   function populateWaveConfigModal() {
+    // Populate serology dropdowns with available columns
+    populateSerologyDropdowns();
+    
     // Populate with current configuration values
     Object.keys(waveConfig).forEach(category => {
       Object.keys(waveConfig[category]).forEach(wave => {
@@ -7216,6 +7260,32 @@ let inspectorSelectedField = null;
         if (input) {
           input.value = waveConfig[category][wave];
         }
+      });
+    });
+  }
+
+  function populateSerologyDropdowns() {
+    // Get all serology dropdown elements
+    const serologyDropdowns = [
+      'serology-baseline', 'serology-s22', 'serology-w22', 
+      'serology-s23', 'serology-s24'
+    ];
+    
+    serologyDropdowns.forEach(id => {
+      const dropdown = document.getElementById(id);
+      if (!dropdown || !columns) return;
+      
+      // Clear existing options except the first placeholder
+      while (dropdown.children.length > 1) {
+        dropdown.removeChild(dropdown.lastChild);
+      }
+      
+      // Add column options
+      columns.forEach(col => {
+        const option = document.createElement('option');
+        option.value = col;
+        option.textContent = col;
+        dropdown.appendChild(option);
       });
     });
   }
@@ -7232,6 +7302,10 @@ let inspectorSelectedField = null;
     });
     
     hideWaveConfigModal();
+    
+    // Trigger immediate KPI and chart refresh with new configuration
+    updateDashboardData();
+  }
     updateDashboardData(); // Refresh dashboard with new config
   }
 
