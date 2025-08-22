@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MUSPAD AdminKit Dashboard - Test Version</title>
+  <!-- This is a test file demonstrating the AdminKit dashboard layout with sample data -->
+
+  <!-- Bootstrap CSS + Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+  
+  <!-- Custom Dark Analytics Dashboard -->
+  <link href="assets/muspad-dark.css" rel="stylesheet">
+  
+  <!-- Dashboard Theme -->
+  <link href="theme.css" rel="stylesheet">
+  
+  <!-- Responsive Charts CSS -->
+  <link href="assets/responsive-charts.css" rel="stylesheet">
+
+  <!-- Plotly.js for charts + PapaParse for CSV -->
+  <script src="https://cdn.plot.ly/plotly-2.25.2.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <style>
+    /* AdminKit Dashboard Styles - extracted from main file */
+    :root {
+      --sidebar-w: 280px;
+      --sidebar-collapsed-w: 60px;
+      --header-h: 64px;
+      --card-min: 400px;
+    }
+    
+    * { box-sizing: border-box; }
+    body { 
+      margin: 0; 
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--surface-bg, #f8f9fa);
+      color: var(--text-primary, #2b2f36);
+      padding: 2rem;
+    }
+
+    .global-filters-bar {
+      background: var(--surface-card, #fff);
+      border: 1px solid var(--surface-border, #e1e1e1);
+      border-radius: 12px;
+      padding: 1rem 1.5rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: end;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .filter-label {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-primary, #2b2f36);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .filter-select {
+      min-width: 150px;
+      font-size: 0.875rem;
+    }
+
+    .wave-tabs {
+      display: flex;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--surface-border, #e1e1e1);
+    }
+
+    .wave-tab {
+      background: var(--surface-bg, #f8f9fa);
+      border: none;
+      padding: 0.5rem 1rem;
+      font-size: 0.875rem;
+      cursor: pointer;
+      border-right: 1px solid var(--surface-border, #e1e1e1);
+      transition: all 0.2s;
+    }
+
+    .wave-tab:last-child {
+      border-right: none;
+    }
+
+    .wave-tab.active,
+    .wave-tab:hover {
+      background: var(--theme-primary, #007bff);
+      color: white;
+    }
+
+    .wave-config-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted, #6c757d);
+      cursor: pointer;
+      padding: 0.25rem;
+      border-radius: 4px;
+      transition: all 0.2s;
+    }
+
+    .wave-config-btn:hover {
+      background: var(--surface-hover, #f8f9fa);
+      color: var(--theme-primary, #007bff);
+    }
+
+    .adminkit-dashboard {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .dashboard-section {
+      display: grid;
+      gap: 1.5rem;
+    }
+
+    .kpi-section {
+      grid-template-columns: 1fr 2fr;
+      grid-template-areas: "kpis timeline";
+    }
+
+    .kpi-cards-grid {
+      grid-area: kpis;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+
+    .timeline-chart-container {
+      grid-area: timeline;
+      background: var(--surface-card, #fff);
+      border: 1px solid var(--surface-border, #e1e1e1);
+      border-radius: 12px;
+      overflow: hidden;
+      min-height: 400px;
+    }
+
+    .middle-section {
+      grid-template-columns: 300px 1fr 300px;
+      grid-template-areas: "calendar regional donut";
+    }
+
+    .calendar-block {
+      grid-area: calendar;
+      background: var(--surface-card, #fff);
+      border: 1px solid var(--surface-border, #e1e1e1);
+      border-radius: 12px;
+      overflow: hidden;
+      min-height: 350px;
+    }
+
+    .regional-chart {
+      grid-area: regional;
+      background: var(--surface-card, #fff);
+      border: 1px solid var(--surface-border, #e1e1e1);
+      border-radius: 12px;
+      overflow: hidden;
+      min-height: 350px;
+    }
+
+    .donut-chart {
+      grid-area: donut;
+      background: var(--surface-card, #fff);
+      border: 1px solid var(--surface-border, #e1e1e1);
+      border-radius: 12px;
+      overflow: hidden;
+      min-height: 350px;
+    }
+
+    .bottom-section {
+      grid-template-columns: 1fr;
+    }
+
+    .monthly-chart {
+      background: var(--surface-card, #fff);
+      border: 1px solid var(--surface-border, #e1e1e1);
+      border-radius: 12px;
+      overflow: hidden;
+      min-height: 350px;
+    }
+
+    .chart-header {
+      background: var(--surface-bg, #f8f9fa);
+      border-bottom: 1px solid var(--surface-border, #e1e1e1);
+      padding: 1rem 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .chart-title {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-primary, #2b2f36);
+    }
+
+    .chart-body {
+      padding: 1rem;
+      height: 100%;
+      min-height: 280px;
+    }
+
+    /* Enhanced KPI cards for AdminKit style */
+    .adminkit-dashboard .kpi-card {
+      background: var(--surface-card, #fff);
+      border: 1px solid var(--surface-border, #e1e1e1);
+      border-radius: 12px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.2s, box-shadow 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .adminkit-dashboard .kpi-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: var(--kpi-accent, #007bff);
+    }
+
+    .adminkit-dashboard .kpi-card.primary::before {
+      background: var(--theme-primary, #007bff);
+    }
+
+    .adminkit-dashboard .kpi-card.success::before {
+      background: var(--theme-success, #28a745);
+    }
+
+    .adminkit-dashboard .kpi-card.info::before {
+      background: var(--theme-info, #17a2b8);
+    }
+
+    .adminkit-dashboard .kpi-card.warning::before {
+      background: var(--theme-warning, #ffc107);
+    }
+
+    .adminkit-dashboard .kpi-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .adminkit-dashboard .kpi-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+    }
+
+    .adminkit-dashboard .kpi-title {
+      font-size: 0.875rem;
+      color: var(--text-muted, #6c757d);
+      font-weight: 500;
+      margin: 0;
+    }
+
+    .adminkit-dashboard .kpi-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+      color: white;
+      background: var(--kpi-accent, #007bff);
+    }
+
+    .adminkit-dashboard .kpi-card.primary .kpi-icon {
+      background: var(--theme-primary, #007bff);
+    }
+
+    .adminkit-dashboard .kpi-card.success .kpi-icon {
+      background: var(--theme-success, #28a745);
+    }
+
+    .adminkit-dashboard .kpi-card.info .kpi-icon {
+      background: var(--theme-info, #17a2b8);
+    }
+
+    .adminkit-dashboard .kpi-card.warning .kpi-icon {
+      background: var(--theme-warning, #ffc107);
+    }
+
+    .adminkit-dashboard .kpi-value {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--text-primary, #2b2f36);
+      margin: 0;
+      line-height: 1;
+    }
+
+    .kpi-change {
+      font-size: 0.875rem;
+      margin: 0.5rem 0 0 0;
+      font-weight: 500;
+    }
+
+    .kpi-change.positive {
+      color: var(--theme-success, #28a745);
+    }
+
+    .kpi-change.negative {
+      color: var(--theme-danger, #dc3545);
+    }
+
+    .kpi-change.neutral {
+      color: var(--text-muted, #6c757d);
+    }
+
+    /* Responsive adjustments for AdminKit dashboard */
+    @media (max-width: 1200px) {
+      .kpi-section {
+        grid-template-columns: 1fr;
+        grid-template-areas: 
+          "kpis"
+          "timeline";
+      }
+      
+      .middle-section {
+        grid-template-columns: 1fr 1fr;
+        grid-template-areas: 
+          "calendar regional"
+          "donut donut";
+      }
+    }
+
+    @media (max-width: 768px) {
+      .global-filters-bar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      
+      .filter-group {
+        width: 100%;
+      }
+      
+      .filter-select {
+        min-width: 100%;
+      }
+      
+      .wave-tabs {
+        flex-wrap: wrap;
+      }
+      
+      .middle-section {
+        grid-template-columns: 1fr;
+        grid-template-areas: 
+          "calendar"
+          "regional"
+          "donut";
+      }
+      
+      .kpi-cards-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 480px) {
+      .kpi-cards-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    h1 {
+      margin-bottom: 2rem;
+      color: #2b2f36;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>MUSPAD AdminKit Dashboard</h1>
+  
+  <!-- Global Filters Bar -->
+  <div class="global-filters-bar" id="global-filters-bar">
+    <div class="filter-group">
+      <label class="filter-label">Region (Standort)</label>
+      <select multiple class="form-select filter-select" id="filter-standort" data-filter="standort">
+        <option value="">All Regions</option>
+        <option value="reutlingen">Reutlingen</option>
+        <option value="freiburg">Freiburg</option>
+        <option value="ulm">Ulm</option>
+      </select>
+    </div>
+    
+    <div class="filter-group">
+      <label class="filter-label">
+        Wave 
+        <button class="wave-config-btn" id="wave-config-btn" title="Configure wave mappings">
+          <i class="bi bi-gear"></i>
+        </button>
+      </label>
+      <div class="wave-tabs" id="wave-tabs">
+        <button class="wave-tab active" data-wave="baseline">Baseline (X20_21)</button>
+        <button class="wave-tab" data-wave="w22">W22</button>
+        <button class="wave-tab" data-wave="s22">S22</button>
+        <button class="wave-tab" data-wave="s23">S23</button>
+        <button class="wave-tab" data-wave="s24">S24</button>
+      </div>
+    </div>
+    
+    <div class="filter-group">
+      <label class="filter-label">Age Group</label>
+      <select class="form-select filter-select" id="filter-age-group" data-filter="age-group">
+        <option value="">All Ages</option>
+        <option value="18-29">18-29</option>
+        <option value="30-39">30-39</option>
+        <option value="40-49">40-49</option>
+        <option value="50-59">50-59</option>
+        <option value="60-69">60-69</option>
+        <option value="70-79">70-79</option>
+        <option value="80+">80+</option>
+      </select>
+    </div>
+    
+    <div class="filter-group">
+      <label class="filter-label">Sex</label>
+      <select multiple class="form-select filter-select" id="filter-sex" data-filter="sex">
+        <option value="1">Male</option>
+        <option value="2">Female</option>
+        <option value="3">Diverse</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- AdminKit Dashboard Layout -->
+  <div class="adminkit-dashboard" id="adminkit-dashboard">
+    <!-- Top KPI Cards Row -->
+    <div class="dashboard-section kpi-section">
+      <div class="kpi-cards-grid">
+        <div class="kpi-card primary">
+          <div class="kpi-header">
+            <h6 class="kpi-title">Total Participants</h6>
+            <div class="kpi-icon">
+              <i class="bi bi-people-fill"></i>
+            </div>
+          </div>
+          <h2 class="kpi-value" id="kpi-total-participants">2,547</h2>
+          <p class="kpi-change positive" id="kpi-total-change">+12% from last wave</p>
+        </div>
+        
+        <div class="kpi-card success">
+          <div class="kpi-header">
+            <h6 class="kpi-title">Respondents this Wave</h6>
+            <div class="kpi-icon">
+              <i class="bi bi-person-check-fill"></i>
+            </div>
+          </div>
+          <h2 class="kpi-value" id="kpi-respondents-wave">1,832</h2>
+          <p class="kpi-change positive" id="kpi-respondents-change">+8% response rate</p>
+        </div>
+        
+        <div class="kpi-card info">
+          <div class="kpi-header">
+            <h6 class="kpi-title">Seropositive Rate</h6>
+            <div class="kpi-icon">
+              <i class="bi bi-shield-fill-check"></i>
+            </div>
+          </div>
+          <h2 class="kpi-value" id="kpi-seropositive-rate">23.4%</h2>
+          <p class="kpi-change negative" id="kpi-sero-change">-2.1% from previous</p>
+        </div>
+        
+        <div class="kpi-card warning">
+          <div class="kpi-header">
+            <h6 class="kpi-title">Kids Under 14</h6>
+            <div class="kpi-icon">
+              <i class="bi bi-person-hearts"></i>
+            </div>
+          </div>
+          <h2 class="kpi-value" id="kpi-kids-under14">412</h2>
+          <p class="kpi-change positive" id="kpi-kids-change">+5.2% increase</p>
+        </div>
+      </div>
+      
+      <!-- Wide Timeline Chart -->
+      <div class="timeline-chart-container">
+        <div class="chart-header">
+          <h6 class="chart-title">Participation Timeline</h6>
+        </div>
+        <div class="chart-body" id="timeline-chart"></div>
+      </div>
+    </div>
+
+    <!-- Middle Row -->
+    <div class="dashboard-section middle-section">
+      <!-- Calendar Block -->
+      <div class="calendar-block">
+        <div class="chart-header">
+          <h6 class="chart-title">Calendar View</h6>
+        </div>
+        <div class="chart-body" id="calendar-chart"></div>
+      </div>
+
+      <!-- Regional Distribution -->
+      <div class="regional-chart">
+        <div class="chart-header">
+          <h6 class="chart-title">Regional Distribution</h6>
+        </div>
+        <div class="chart-body" id="regional-chart"></div>
+      </div>
+
+      <!-- Donut Chart -->
+      <div class="donut-chart">
+        <div class="chart-header">
+          <h6 class="chart-title">Age Group Distribution</h6>
+        </div>
+        <div class="chart-body" id="donut-chart"></div>
+      </div>
+    </div>
+
+    <!-- Bottom Row -->
+    <div class="dashboard-section bottom-section">
+      <div class="monthly-chart">
+        <div class="chart-header">
+          <h6 class="chart-title">Monthly Participation Trends</h6>
+        </div>
+        <div class="chart-body" id="monthly-chart"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Sample data for demonstration
+    function createSampleCharts() {
+      // Timeline Chart
+      const timelineData = {
+        x: ['2020-07', '2020-08', '2020-09', '2020-10', '2020-11', '2020-12', '2021-01', '2021-02'],
+        y: [156, 234, 189, 267, 298, 234, 187, 156],
+        type: 'scatter',
+        mode: 'lines+markers',
+        line: { color: '#007bff', width: 3 },
+        marker: { size: 8 },
+        name: 'Participants'
+      };
+
+      Plotly.newPlot('timeline-chart', [timelineData], {
+        title: { text: 'Participation Timeline - BASELINE' },
+        xaxis: { title: 'Month' },
+        yaxis: { title: 'Count' },
+        margin: { l: 50, r: 30, t: 50, b: 50 }
+      }, { responsive: true });
+
+      // Calendar Chart (simplified as bar chart)
+      const calendarData = {
+        x: ['2020-07-15', '2020-07-16', '2020-07-17', '2020-07-18', '2020-07-19', '2020-07-20'],
+        y: [12, 18, 15, 22, 19, 14],
+        type: 'bar',
+        marker: { color: '#28a745' },
+        name: 'Daily Count'
+      };
+
+      Plotly.newPlot('calendar-chart', [calendarData], {
+        title: { text: 'Daily Participation' },
+        xaxis: { title: 'Date' },
+        yaxis: { title: 'Count' },
+        margin: { l: 50, r: 30, t: 50, b: 50 }
+      }, { responsive: true });
+
+      // Regional Chart
+      const regionalData = {
+        y: ['Reutlingen', 'Freiburg', 'Ulm', 'Stuttgart', 'Mannheim'],
+        x: [847, 623, 456, 389, 232],
+        type: 'bar',
+        orientation: 'h',
+        marker: { color: '#17a2b8' }
+      };
+
+      Plotly.newPlot('regional-chart', [regionalData], {
+        title: { text: 'Regional Distribution' },
+        xaxis: { title: 'Participants' },
+        yaxis: { title: 'Region' },
+        margin: { l: 100, r: 30, t: 50, b: 50 }
+      }, { responsive: true });
+
+      // Donut Chart
+      const donutData = {
+        labels: ['18-29', '30-39', '40-49', '50-59', '60-69', '70-79', '80+'],
+        values: [312, 456, 523, 634, 445, 234, 143],
+        type: 'pie',
+        hole: 0.4,
+        marker: {
+          colors: ['#007bff', '#28a745', '#ffc107', '#dc3545', '#6f42c1', '#17a2b8', '#fd7e14']
+        }
+      };
+
+      Plotly.newPlot('donut-chart', [donutData], {
+        title: { text: 'Age Group Distribution' },
+        margin: { l: 20, r: 20, t: 50, b: 20 }
+      }, { responsive: true });
+
+      // Monthly Chart
+      const monthlyData = {
+        x: ['Jul 2020', 'Aug 2020', 'Sep 2020', 'Oct 2020', 'Nov 2020', 'Dec 2020'],
+        y: [423, 567, 634, 723, 598, 456],
+        type: 'bar',
+        marker: { color: '#ffc107' }
+      };
+
+      Plotly.newPlot('monthly-chart', [monthlyData], {
+        title: { text: 'Monthly Trends' },
+        xaxis: { title: 'Month' },
+        yaxis: { title: 'Participants' },
+        margin: { l: 50, r: 30, t: 50, b: 50 }
+      }, { responsive: true });
+    }
+
+    // Add interactivity to wave tabs
+    document.addEventListener('DOMContentLoaded', function() {
+      const waveTabs = document.querySelectorAll('.wave-tab');
+      waveTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          waveTabs.forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+          // Update charts based on selected wave
+          createSampleCharts();
+        });
+      });
+
+      // Initialize sample charts
+      createSampleCharts();
+
+      // Add gear icon functionality
+      document.getElementById('wave-config-btn').addEventListener('click', () => {
+        alert('Wave configuration modal would open here');
+      });
+    });
+  </script>
+</body>
+</html>

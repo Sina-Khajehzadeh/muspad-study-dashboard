@@ -1092,6 +1092,509 @@
       }
     }
     /* ===== Insights panel styles END ===== */
+
+    /* ===== AdminKit Dashboard Styles START ===== */
+    .global-filters-bar {
+      background: var(--surface-card, #fff);
+      border: 1px solid var(--surface-border, #e1e1e1);
+      border-radius: 12px;
+      padding: 1rem 1.5rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: end;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .filter-label {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text-primary, #2b2f36);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .filter-select {
+      min-width: 150px;
+      font-size: 0.875rem;
+    }
+
+    .wave-tabs {
+      display: flex;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--surface-border, #e1e1e1);
+    }
+
+    .wave-tab {
+      background: var(--surface-bg, #f8f9fa);
+      border: none;
+      padding: 0.5rem 1rem;
+      font-size: 0.875rem;
+      cursor: pointer;
+      border-right: 1px solid var(--surface-border, #e1e1e1);
+      transition: all 0.2s;
+    }
+
+    .wave-tab:last-child {
+      border-right: none;
+    }
+
+    .wave-tab.active,
+    .wave-tab:hover {
+      background: var(--theme-primary, #007bff);
+      color: white;
+    }
+
+    .wave-config-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted, #6c757d);
+      cursor: pointer;
+      padding: 0.25rem;
+      border-radius: 4px;
+      transition: all 0.2s;
+    }
+
+    .wave-config-btn:hover {
+      background: var(--surface-hover, #f8f9fa);
+      color: var(--theme-primary, #007bff);
+    }
+
+    .adminkit-dashboard {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .dashboard-section {
+      display: grid;
+      gap: 1.5rem;
+    }
+
+    .kpi-section {
+      grid-template-columns: 1fr 2fr;
+      grid-template-areas: "kpis timeline";
+    }
+
+    .kpi-cards-grid {
+      grid-area: kpis;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+
+    .timeline-chart-container {
+      grid-area: timeline;
+      background: var(--surface-card, #fff);
+      border: 1px solid var(--surface-border, #e1e1e1);
+      border-radius: 12px;
+      overflow: hidden;
+      min-height: 400px;
+    }
+
+    .middle-section {
+      grid-template-columns: 300px 1fr 300px;
+      grid-template-areas: "calendar regional donut";
+    }
+
+    .calendar-block {
+      grid-area: calendar;
+      background: var(--surface-card, #fff);
+      border: 1px solid var(--surface-border, #e1e1e1);
+      border-radius: 12px;
+      overflow: hidden;
+      min-height: 350px;
+    }
+
+    .regional-chart {
+      grid-area: regional;
+      background: var(--surface-card, #fff);
+      border: 1px solid var(--surface-border, #e1e1e1);
+      border-radius: 12px;
+      overflow: hidden;
+      min-height: 350px;
+    }
+
+    .donut-chart {
+      grid-area: donut;
+      background: var(--surface-card, #fff);
+      border: 1px solid var(--surface-border, #e1e1e1);
+      border-radius: 12px;
+      overflow: hidden;
+      min-height: 350px;
+    }
+
+    .bottom-section {
+      grid-template-columns: 1fr;
+    }
+
+    .monthly-chart {
+      background: var(--surface-card, #fff);
+      border: 1px solid var(--surface-border, #e1e1e1);
+      border-radius: 12px;
+      overflow: hidden;
+      min-height: 350px;
+    }
+
+    .chart-header {
+      background: var(--surface-bg, #f8f9fa);
+      border-bottom: 1px solid var(--surface-border, #e1e1e1);
+      padding: 1rem 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: between;
+    }
+
+    .chart-title {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-primary, #2b2f36);
+    }
+
+    .chart-body {
+      padding: 1rem;
+      height: 100%;
+      min-height: 280px;
+    }
+
+    /* Enhanced KPI cards for AdminKit style */
+    .adminkit-dashboard .kpi-card {
+      background: var(--surface-card, #fff);
+      border: 1px solid var(--surface-border, #e1e1e1);
+      border-radius: 12px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.2s, box-shadow 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .adminkit-dashboard .kpi-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: var(--kpi-accent, #007bff);
+    }
+
+    .adminkit-dashboard .kpi-card.primary::before {
+      background: var(--theme-primary, #007bff);
+    }
+
+    .adminkit-dashboard .kpi-card.success::before {
+      background: var(--theme-success, #28a745);
+    }
+
+    .adminkit-dashboard .kpi-card.info::before {
+      background: var(--theme-info, #17a2b8);
+    }
+
+    .adminkit-dashboard .kpi-card.warning::before {
+      background: var(--theme-warning, #ffc107);
+    }
+
+    .adminkit-dashboard .kpi-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .adminkit-dashboard .kpi-header {
+      display: flex;
+      align-items: center;
+      justify-content: between;
+      margin-bottom: 1rem;
+    }
+
+    .adminkit-dashboard .kpi-title {
+      font-size: 0.875rem;
+      color: var(--text-muted, #6c757d);
+      font-weight: 500;
+      margin: 0;
+    }
+
+    .adminkit-dashboard .kpi-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+      color: white;
+      background: var(--kpi-accent, #007bff);
+    }
+
+    .adminkit-dashboard .kpi-card.primary .kpi-icon {
+      background: var(--theme-primary, #007bff);
+    }
+
+    .adminkit-dashboard .kpi-card.success .kpi-icon {
+      background: var(--theme-success, #28a745);
+    }
+
+    .adminkit-dashboard .kpi-card.info .kpi-icon {
+      background: var(--theme-info, #17a2b8);
+    }
+
+    .adminkit-dashboard .kpi-card.warning .kpi-icon {
+      background: var(--theme-warning, #ffc107);
+    }
+
+    .adminkit-dashboard .kpi-value {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--text-primary, #2b2f36);
+      margin: 0;
+      line-height: 1;
+    }
+
+    .kpi-change {
+      font-size: 0.875rem;
+      margin: 0.5rem 0 0 0;
+      font-weight: 500;
+    }
+
+    .kpi-change.positive {
+      color: var(--theme-success, #28a745);
+    }
+
+    .kpi-change.negative {
+      color: var(--theme-danger, #dc3545);
+    }
+
+    .kpi-change.neutral {
+      color: var(--text-muted, #6c757d);
+    }
+
+    /* Responsive adjustments for AdminKit dashboard */
+    @media (max-width: 1200px) {
+      .kpi-section {
+        grid-template-columns: 1fr;
+        grid-template-areas: 
+          "kpis"
+          "timeline";
+      }
+      
+      .middle-section {
+        grid-template-columns: 1fr 1fr;
+        grid-template-areas: 
+          "calendar regional"
+          "donut donut";
+      }
+    }
+
+    @media (max-width: 768px) {
+      .global-filters-bar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      
+      .filter-group {
+        width: 100%;
+      }
+      
+      .filter-select {
+        min-width: 100%;
+      }
+      
+      .wave-tabs {
+        flex-wrap: wrap;
+      }
+      
+      .middle-section {
+        grid-template-columns: 1fr;
+        grid-template-areas: 
+          "calendar"
+          "regional"
+          "donut";
+      }
+      
+      .kpi-cards-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 480px) {
+      .kpi-cards-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    /* ===== AdminKit Dashboard Styles END ===== */
+
+    /* ===== Wave Configuration Modal Styles START ===== */
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+      padding: 1rem;
+    }
+
+    .modal.show {
+      display: flex;
+    }
+
+    .modal-sheet {
+      background: var(--surface-card, #fff);
+      border-radius: 12px;
+      width: min(800px, 100%);
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      overflow: hidden;
+    }
+
+    .modal-header {
+      background: var(--surface-bg, #f8f9fa);
+      border-bottom: 1px solid var(--surface-border, #e1e1e1);
+      padding: 1rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .modal-title {
+      margin: 0;
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--text-primary, #2b2f36);
+    }
+
+    .btn-close {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      color: var(--text-muted, #6c757d);
+      cursor: pointer;
+      padding: 0.25rem;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      transition: all 0.2s;
+    }
+
+    .btn-close:hover {
+      background: var(--surface-hover, #f8f9fa);
+      color: var(--text-primary, #2b2f36);
+    }
+
+    .modal-body {
+      padding: 1.5rem;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .wave-config-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--surface-border, #e1e1e1);
+      margin-bottom: 1.5rem;
+      gap: 0.5rem;
+    }
+
+    .config-tab {
+      background: none;
+      border: none;
+      padding: 0.75rem 1rem;
+      font-size: 0.875rem;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+      color: var(--text-muted, #6c757d);
+    }
+
+    .config-tab.active,
+    .config-tab:hover {
+      color: var(--theme-primary, #007bff);
+      border-bottom-color: var(--theme-primary, #007bff);
+    }
+
+    .config-section {
+      display: none;
+    }
+
+    .config-section.active {
+      display: block;
+    }
+
+    .config-section h6 {
+      margin-bottom: 0.5rem;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-primary, #2b2f36);
+    }
+
+    .config-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .config-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .config-item label {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text-primary, #2b2f36);
+    }
+
+    .modal-footer {
+      background: var(--surface-bg, #f8f9fa);
+      border-top: 1px solid var(--surface-border, #e1e1e1);
+      padding: 1rem 1.5rem;
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.75rem;
+    }
+
+    /* Responsive modal adjustments */
+    @media (max-width: 768px) {
+      .modal-sheet {
+        width: 100%;
+        height: 100%;
+        border-radius: 0;
+        max-height: 100vh;
+      }
+
+      .config-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .wave-config-tabs {
+        flex-wrap: wrap;
+      }
+    }
+    /* ===== Wave Configuration Modal Styles END ===== */
   </style>
 </head>
 <body data-theme="dark" class="theme-dark">
@@ -1212,8 +1715,147 @@
           Download filtered CSV
         </button>
 
-        <!-- KPI Cards Row -->
-        <div class="kpi-row" id="kpi-row">
+        <!-- Global Filters Bar -->
+        <div class="global-filters-bar" id="global-filters-bar">
+          <div class="filter-group">
+            <label class="filter-label">Region (Standort)</label>
+            <select multiple class="form-select filter-select" id="filter-standort" data-filter="standort">
+              <option value="">All Regions</option>
+            </select>
+          </div>
+          
+          <div class="filter-group">
+            <label class="filter-label">
+              Wave 
+              <button class="wave-config-btn" id="wave-config-btn" title="Configure wave mappings">
+                <i class="bi bi-gear"></i>
+              </button>
+            </label>
+            <div class="wave-tabs" id="wave-tabs">
+              <button class="wave-tab active" data-wave="baseline">Baseline (X20_21)</button>
+              <button class="wave-tab" data-wave="w22">W22</button>
+              <button class="wave-tab" data-wave="s22">S22</button>
+              <button class="wave-tab" data-wave="s23">S23</button>
+              <button class="wave-tab" data-wave="s24">S24</button>
+            </div>
+          </div>
+          
+          <div class="filter-group">
+            <label class="filter-label">Age Group</label>
+            <select class="form-select filter-select" id="filter-age-group" data-filter="age-group">
+              <option value="">All Ages</option>
+            </select>
+          </div>
+          
+          <div class="filter-group">
+            <label class="filter-label">Sex</label>
+            <select multiple class="form-select filter-select" id="filter-sex" data-filter="sex">
+              <option value="1">Male</option>
+              <option value="2">Female</option>
+              <option value="3">Diverse</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- AdminKit Dashboard Layout -->
+        <div class="adminkit-dashboard" id="adminkit-dashboard">
+          <!-- Top KPI Cards Row -->
+          <div class="dashboard-section kpi-section">
+            <div class="kpi-cards-grid">
+              <div class="kpi-card primary">
+                <div class="kpi-header">
+                  <h6 class="kpi-title">Total Participants</h6>
+                  <div class="kpi-icon">
+                    <i class="bi bi-people-fill"></i>
+                  </div>
+                </div>
+                <h2 class="kpi-value" id="kpi-total-participants">—</h2>
+                <p class="kpi-change" id="kpi-total-change">—</p>
+              </div>
+              
+              <div class="kpi-card success">
+                <div class="kpi-header">
+                  <h6 class="kpi-title">Respondents this Wave</h6>
+                  <div class="kpi-icon">
+                    <i class="bi bi-person-check-fill"></i>
+                  </div>
+                </div>
+                <h2 class="kpi-value" id="kpi-respondents-wave">—</h2>
+                <p class="kpi-change" id="kpi-respondents-change">—</p>
+              </div>
+              
+              <div class="kpi-card info">
+                <div class="kpi-header">
+                  <h6 class="kpi-title">Seropositive Rate</h6>
+                  <div class="kpi-icon">
+                    <i class="bi bi-shield-fill-check"></i>
+                  </div>
+                </div>
+                <h2 class="kpi-value" id="kpi-seropositive-rate">—</h2>
+                <p class="kpi-change" id="kpi-sero-change">—</p>
+              </div>
+              
+              <div class="kpi-card warning">
+                <div class="kpi-header">
+                  <h6 class="kpi-title">Kids Under 14</h6>
+                  <div class="kpi-icon">
+                    <i class="bi bi-person-hearts"></i>
+                  </div>
+                </div>
+                <h2 class="kpi-value" id="kpi-kids-under14">—</h2>
+                <p class="kpi-change" id="kpi-kids-change">—</p>
+              </div>
+            </div>
+            
+            <!-- Wide Timeline Chart -->
+            <div class="timeline-chart-container">
+              <div class="chart-header">
+                <h6 class="chart-title">Participation Timeline</h6>
+              </div>
+              <div class="chart-body" id="timeline-chart"></div>
+            </div>
+          </div>
+
+          <!-- Middle Row -->
+          <div class="dashboard-section middle-section">
+            <!-- Calendar Block -->
+            <div class="calendar-block">
+              <div class="chart-header">
+                <h6 class="chart-title">Calendar View</h6>
+              </div>
+              <div class="chart-body" id="calendar-chart"></div>
+            </div>
+
+            <!-- Regional Distribution -->
+            <div class="regional-chart">
+              <div class="chart-header">
+                <h6 class="chart-title">Regional Distribution</h6>
+              </div>
+              <div class="chart-body" id="regional-chart"></div>
+            </div>
+
+            <!-- Donut Chart -->
+            <div class="donut-chart">
+              <div class="chart-header">
+                <h6 class="chart-title">Age Group Distribution</h6>
+              </div>
+              <div class="chart-body" id="donut-chart"></div>
+            </div>
+          </div>
+
+          <!-- Bottom Row -->
+          <div class="dashboard-section bottom-section">
+            <div class="monthly-chart">
+              <div class="chart-header">
+                <h6 class="chart-title">Monthly Participation Trends</h6>
+              </div>
+              <div class="chart-body" id="monthly-chart"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Legacy KPI Cards Row (hidden but kept for compatibility) -->
+        <div class="kpi-row" id="kpi-row" style="display: none;">
           <div class="kpi-card">
             <div class="kpi-header">
               <h6 class="kpi-title">Total Rows</h6>
@@ -1354,6 +1996,187 @@
         <div class="chart-grid" id="grid" aria-label="Charts">
           <!-- Chart cards will be dynamically added here -->
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Wave Configuration Modal -->
+  <div id="waveConfigModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="waveConfigTitle">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <h5 id="waveConfigTitle" class="modal-title">Wave Configuration</h5>
+        <button type="button" class="btn-close" data-dismiss="modal" aria-label="Close">
+          <i class="bi bi-x"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted mb-3">Configure column mappings for each wave. These settings determine which columns are used for calculating KPIs and charts.</p>
+        
+        <div class="wave-config-tabs">
+          <button class="config-tab active" data-tab="serology">Serology Flag</button>
+          <button class="config-tab" data-tab="dates">Primary Dates</button>
+          <button class="config-tab" data-tab="kids">Kids Under 14</button>
+          <button class="config-tab" data-tab="chronic">Chronic Diseases</button>
+        </div>
+        
+        <!-- Serology Configuration -->
+        <div class="config-section active" id="config-serology">
+          <h6>Serology Flag Mapping</h6>
+          <p class="small text-muted">Define how seropositivity is determined for each wave</p>
+          <div class="config-grid">
+            <div class="config-item">
+              <label>Baseline (X20_21)</label>
+              <input type="text" class="form-control" id="serology-baseline" 
+                     value="X20_21_serostatus=='seropositive'" 
+                     placeholder="Column expression">
+            </div>
+            <div class="config-item">
+              <label>W22</label>
+              <input type="text" class="form-control" id="serology-w22" 
+                     value="w22_serostatus==1" 
+                     placeholder="Column expression">
+            </div>
+            <div class="config-item">
+              <label>S22</label>
+              <input type="text" class="form-control" id="serology-s22" 
+                     value="s22_nc_qualitative==1" 
+                     placeholder="Column expression">
+            </div>
+            <div class="config-item">
+              <label>S23</label>
+              <input type="text" class="form-control" id="serology-s23" 
+                     value="s23_nc_qualitative==1" 
+                     placeholder="Column expression">
+            </div>
+            <div class="config-item">
+              <label>S24</label>
+              <input type="text" class="form-control" id="serology-s24" 
+                     value="s24_nc_qualitative==1" 
+                     placeholder="Column expression">
+            </div>
+          </div>
+        </div>
+        
+        <!-- Primary Dates Configuration -->
+        <div class="config-section" id="config-dates">
+          <h6>Primary Date Mapping</h6>
+          <p class="small text-muted">Select the primary date column for submissions/sampling for each wave</p>
+          <div class="config-grid">
+            <div class="config-item">
+              <label>Baseline (X20_21)</label>
+              <select class="form-select" id="dates-baseline">
+                <option value="X20_21_blutentnahme_sampling_time_new" selected>X20_21_blutentnahme_sampling_time_new</option>
+                <option value="X20_21_check_in_time">X20_21_check_in_time</option>
+              </select>
+            </div>
+            <div class="config-item">
+              <label>W22</label>
+              <select class="form-select" id="dates-w22">
+                <option value="w22_submitdate" selected>w22_submitdate</option>
+              </select>
+            </div>
+            <div class="config-item">
+              <label>S22</label>
+              <select class="form-select" id="dates-s22">
+                <option value="s22_sampling_date_new" selected>s22_sampling_date_new</option>
+                <option value="s22_submitdate">s22_submitdate</option>
+              </select>
+            </div>
+            <div class="config-item">
+              <label>S23</label>
+              <select class="form-select" id="dates-s23">
+                <option value="s23_submitdate" selected>s23_submitdate</option>
+                <option value="s23_sampling_date_new">s23_sampling_date_new</option>
+              </select>
+            </div>
+            <div class="config-item">
+              <label>S24</label>
+              <select class="form-select" id="dates-s24">
+                <option value="s24_submitdate" selected>s24_submitdate</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Kids Under 14 Configuration -->
+        <div class="config-section" id="config-kids">
+          <h6>Kids Under 14 Mapping</h6>
+          <p class="small text-muted">Select the column tracking children under 14 for each wave</p>
+          <div class="config-grid">
+            <div class="config-item">
+              <label>Baseline (X20_21)</label>
+              <input type="text" class="form-control" id="kids-baseline" 
+                     value="x20_21_kids_under14" 
+                     placeholder="Column name">
+            </div>
+            <div class="config-item">
+              <label>W22</label>
+              <select class="form-select" id="kids-w22">
+                <option value="w22_kids_under14_count_new" selected>w22_kids_under14_count_new</option>
+              </select>
+            </div>
+            <div class="config-item">
+              <label>S22</label>
+              <input type="text" class="form-control" id="kids-s22" 
+                     value="s22_kids_under14" 
+                     placeholder="Column name">
+            </div>
+            <div class="config-item">
+              <label>S23</label>
+              <select class="form-select" id="kids-s23">
+                <option value="s23_kids_under14_count_new" selected>s23_kids_under14_count_new</option>
+              </select>
+            </div>
+            <div class="config-item">
+              <label>S24</label>
+              <select class="form-select" id="kids-s24">
+                <option value="s24_kids_under14_new" selected>s24_kids_under14_new</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Chronic Diseases Configuration -->
+        <div class="config-section" id="config-chronic">
+          <h6>New Chronic Diseases Mapping</h6>
+          <p class="small text-muted">Select the flag indicating new chronic diseases for each wave</p>
+          <div class="config-grid">
+            <div class="config-item">
+              <label>Baseline (X20_21)</label>
+              <input type="text" class="form-control" id="chronic-baseline" 
+                     value="x20_21_new_conditions" 
+                     placeholder="Column name">
+            </div>
+            <div class="config-item">
+              <label>W22</label>
+              <select class="form-select" id="chronic-w22">
+                <option value="w22_new_chronic_diseases" selected>w22_new_chronic_diseases</option>
+              </select>
+            </div>
+            <div class="config-item">
+              <label>S22</label>
+              <input type="text" class="form-control" id="chronic-s22" 
+                     value="s22_new_chronic_diseases" 
+                     placeholder="Column name">
+            </div>
+            <div class="config-item">
+              <label>S23</label>
+              <select class="form-select" id="chronic-s23">
+                <option value="s23_new_chronic_diseases" selected>s23_new_chronic_diseases</option>
+              </select>
+            </div>
+            <div class="config-item">
+              <label>S24</label>
+              <select class="form-select" id="chronic-s24">
+                <option value="s24_new_chronic_diseases" selected>s24_new_chronic_diseases</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="save-wave-config">Save Configuration</button>
       </div>
     </div>
   </div>
@@ -2227,6 +3050,13 @@ let inspectorSelectedField = null;
 
           if (typeof autoStarterCharts === 'function') autoStarterCharts();
           if (typeof initGlobalFilters === 'function') initGlobalFilters();
+          
+          // Initialize AdminKit Dashboard after data is loaded
+          setTimeout(() => {
+            if (typeof initAdminKitDashboard === 'function') {
+              initAdminKitDashboard();
+            }
+          }, 100);
         },
         error: (err) => {
           console.error('Papa error:', err);
@@ -5924,6 +6754,486 @@ let inspectorSelectedField = null;
     // Small delay to ensure the Global Filters modal is properly initialized
     setTimeout(initFiltersResize, 100);
   });
+
+  // ===== AdminKit Dashboard Implementation START =====
+  
+  // Global state for AdminKit dashboard
+  let currentWave = 'baseline';
+  let dashboardFilters = {
+    standort: [],
+    wave: 'baseline',
+    ageGroup: '',
+    sex: []
+  };
+
+  // Wave configuration mappings
+  let waveConfig = {
+    serology: {
+      baseline: "X20_21_serostatus=='seropositive'",
+      w22: "w22_serostatus==1",
+      s22: "s22_nc_qualitative==1",
+      s23: "s23_nc_qualitative==1",
+      s24: "s24_nc_qualitative==1"
+    },
+    dates: {
+      baseline: 'X20_21_blutentnahme_sampling_time_new',
+      w22: 'w22_submitdate',
+      s22: 's22_sampling_date_new',
+      s23: 's23_submitdate',
+      s24: 's24_submitdate'
+    },
+    kids: {
+      baseline: 'x20_21_kids_under14',
+      w22: 'w22_kids_under14_count_new',
+      s22: 's22_kids_under14',
+      s23: 's23_kids_under14_count_new',
+      s24: 's24_kids_under14_new'
+    },
+    chronic: {
+      baseline: 'x20_21_new_conditions',
+      w22: 'w22_new_chronic_diseases',
+      s22: 's22_new_chronic_diseases',
+      s23: 's23_new_chronic_diseases',
+      s24: 's24_new_chronic_diseases'
+    }
+  };
+
+  // Initialize AdminKit Dashboard
+  function initAdminKitDashboard() {
+    console.log('Initializing AdminKit Dashboard...');
+    
+    // Initialize global filters
+    initGlobalFilters();
+    
+    // Initialize wave configuration modal
+    initWaveConfigModal();
+    
+    // Show the AdminKit dashboard by default
+    showAdminKitDashboard();
+    
+    // Populate filter dropdowns
+    populateFilterDropdowns();
+    
+    // Set up event listeners
+    setupDashboardEventListeners();
+    
+    // Initial KPI and chart updates
+    updateDashboardData();
+    
+    console.log('AdminKit Dashboard initialized successfully');
+  }
+
+  function initGlobalFilters() {
+    // Wave tabs
+    const waveTabs = document.querySelectorAll('.wave-tab');
+    waveTabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        waveTabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        currentWave = tab.dataset.wave;
+        dashboardFilters.wave = currentWave;
+        updateDashboardData();
+      });
+    });
+
+    // Filter dropdowns
+    document.getElementById('filter-standort').addEventListener('change', (e) => {
+      dashboardFilters.standort = Array.from(e.target.selectedOptions).map(o => o.value).filter(v => v);
+      updateDashboardData();
+    });
+
+    document.getElementById('filter-age-group').addEventListener('change', (e) => {
+      dashboardFilters.ageGroup = e.target.value;
+      updateDashboardData();
+    });
+
+    document.getElementById('filter-sex').addEventListener('change', (e) => {
+      dashboardFilters.sex = Array.from(e.target.selectedOptions).map(o => o.value).filter(v => v);
+      updateDashboardData();
+    });
+
+    // Wave config button
+    document.getElementById('wave-config-btn').addEventListener('click', () => {
+      showWaveConfigModal();
+    });
+  }
+
+  function populateFilterDropdowns() {
+    if (!rawData || rawData.length === 0) return;
+
+    // Populate standort options
+    const standortSelect = document.getElementById('filter-standort');
+    const standortValues = [...new Set(rawData.map(row => row.standort).filter(v => v))].sort();
+    standortSelect.innerHTML = '<option value="">All Regions</option>' +
+      standortValues.map(v => `<option value="${v}">${v}</option>`).join('');
+
+    // Populate age group options
+    const ageSelect = document.getElementById('filter-age-group');
+    const ageValues = [...new Set(rawData.map(row => 
+      row.age_group_23_1 || row.age_group_22_1
+    ).filter(v => v))].sort();
+    ageSelect.innerHTML = '<option value="">All Ages</option>' +
+      ageValues.map(v => `<option value="${v}">${v}</option>`).join('');
+  }
+
+  function showAdminKitDashboard() {
+    // Hide other panels and show AdminKit dashboard
+    document.querySelectorAll('.panel').forEach(panel => {
+      panel.style.display = 'none';
+    });
+    
+    const grid = document.getElementById('grid');
+    const legacyKpiRow = document.getElementById('kpi-row');
+    
+    if (grid) grid.style.display = 'none';
+    if (legacyKpiRow) legacyKpiRow.style.display = 'none';
+    
+    // Show AdminKit components
+    const globalFilters = document.getElementById('global-filters-bar');
+    const adminDashboard = document.getElementById('adminkit-dashboard');
+    
+    if (globalFilters) globalFilters.style.display = 'flex';
+    if (adminDashboard) adminDashboard.style.display = 'flex';
+    
+    // Update title
+    const titleEl = document.getElementById('title');
+    if (titleEl) titleEl.textContent = 'MUSPAD Analytics Dashboard';
+  }
+
+  function setupDashboardEventListeners() {
+    // Set up any additional event listeners needed for dashboard interaction
+  }
+
+  function getFilteredData() {
+    if (!rawData || rawData.length === 0) return [];
+
+    return rawData.filter(row => {
+      // Region filter
+      if (dashboardFilters.standort.length > 0 && 
+          !dashboardFilters.standort.includes(row.standort)) {
+        return false;
+      }
+
+      // Age group filter
+      if (dashboardFilters.ageGroup && 
+          (row.age_group_23_1 || row.age_group_22_1) !== dashboardFilters.ageGroup) {
+        return false;
+      }
+
+      // Sex filter
+      if (dashboardFilters.sex.length > 0 && 
+          !dashboardFilters.sex.includes(String(row.sex))) {
+        return false;
+      }
+
+      return true;
+    });
+  }
+
+  function updateDashboardData() {
+    const filteredData = getFilteredData();
+    updateKPICards(filteredData);
+    updateTimelineChart(filteredData);
+    updateCalendarChart(filteredData);
+    updateRegionalChart(filteredData);
+    updateDonutChart(filteredData);
+    updateMonthlyChart(filteredData);
+  }
+
+  function updateKPICards(data) {
+    // Total Participants
+    document.getElementById('kpi-total-participants').textContent = data.length.toLocaleString();
+    
+    // Respondents this Wave - count rows with data for current wave
+    const dateCol = waveConfig.dates[currentWave];
+    const respondentsThisWave = data.filter(row => row[dateCol] && row[dateCol].trim()).length;
+    document.getElementById('kpi-respondents-wave').textContent = respondentsThisWave.toLocaleString();
+    
+    // Seropositive Rate
+    const serologyExpression = waveConfig.serology[currentWave];
+    const seropositiveCount = data.filter(row => evaluateSerologyExpression(row, serologyExpression)).length;
+    const seropositiveRate = respondentsThisWave > 0 ? (seropositiveCount / respondentsThisWave * 100).toFixed(1) : '0.0';
+    document.getElementById('kpi-seropositive-rate').textContent = seropositiveRate + '%';
+    
+    // Kids Under 14
+    const kidsCol = waveConfig.kids[currentWave];
+    const kidsCount = data.reduce((sum, row) => {
+      const val = parseInt(row[kidsCol]) || 0;
+      return sum + val;
+    }, 0);
+    document.getElementById('kpi-kids-under14').textContent = kidsCount.toLocaleString();
+  }
+
+  function evaluateSerologyExpression(row, expression) {
+    if (!expression) return false;
+    
+    try {
+      // Simple evaluation for common patterns
+      if (expression.includes("=='seropositive'")) {
+        const col = expression.split("=='seropositive'")[0];
+        return row[col] === 'seropositive';
+      } else if (expression.includes("==1")) {
+        const col = expression.split("==1")[0];
+        return row[col] == 1;
+      }
+    } catch (e) {
+      console.warn('Error evaluating serology expression:', expression, e);
+    }
+    return false;
+  }
+
+  function updateTimelineChart(data) {
+    const dateCol = waveConfig.dates[currentWave];
+    const validData = data.filter(row => row[dateCol] && row[dateCol].trim());
+    
+    // Group by month
+    const monthGroups = {};
+    validData.forEach(row => {
+      const date = new Date(row[dateCol]);
+      if (!isNaN(date.getTime())) {
+        const monthKey = date.toISOString().substring(0, 7); // YYYY-MM
+        monthGroups[monthKey] = (monthGroups[monthKey] || 0) + 1;
+      }
+    });
+
+    const sortedMonths = Object.keys(monthGroups).sort();
+    const counts = sortedMonths.map(m => monthGroups[m]);
+
+    const trace = {
+      x: sortedMonths,
+      y: counts,
+      type: 'scatter',
+      mode: 'lines+markers',
+      line: { color: '#007bff', width: 3 },
+      marker: { size: 8 },
+      name: 'Participants'
+    };
+
+    const layout = {
+      title: { text: `Participation Timeline - ${currentWave.toUpperCase()}` },
+      xaxis: { title: 'Month' },
+      yaxis: { title: 'Count' },
+      margin: { l: 50, r: 30, t: 50, b: 50 }
+    };
+
+    if (typeof Plotly !== 'undefined') {
+      Plotly.newPlot('timeline-chart', [trace], layout, { responsive: true });
+    } else {
+      document.getElementById('timeline-chart').innerHTML = 
+        '<div style="text-align: center; padding: 2rem; color: #6c757d;">Chart loading...</div>';
+    }
+  }
+
+  function updateCalendarChart(data) {
+    // Simple calendar heatmap showing daily participation
+    const dateCol = waveConfig.dates[currentWave];
+    const validData = data.filter(row => row[dateCol] && row[dateCol].trim());
+    
+    const dailyGroups = {};
+    validData.forEach(row => {
+      const date = new Date(row[dateCol]);
+      if (!isNaN(date.getTime())) {
+        const dayKey = date.toISOString().substring(0, 10); // YYYY-MM-DD
+        dailyGroups[dayKey] = (dailyGroups[dayKey] || 0) + 1;
+      }
+    });
+
+    const dates = Object.keys(dailyGroups);
+    const counts = dates.map(d => dailyGroups[d]);
+
+    const trace = {
+      x: dates,
+      y: counts,
+      type: 'bar',
+      marker: { color: '#28a745' },
+      name: 'Daily Count'
+    };
+
+    const layout = {
+      title: { text: 'Daily Participation' },
+      xaxis: { title: 'Date' },
+      yaxis: { title: 'Count' },
+      margin: { l: 50, r: 30, t: 50, b: 50 }
+    };
+
+    if (typeof Plotly !== 'undefined') {
+      Plotly.newPlot('calendar-chart', [trace], layout, { responsive: true });
+    } else {
+      document.getElementById('calendar-chart').innerHTML = 
+        '<div style="text-align: center; padding: 2rem; color: #6c757d;">Chart loading...</div>';
+    }
+  }
+
+  function updateRegionalChart(data) {
+    const regionGroups = {};
+    data.forEach(row => {
+      const region = row.standort || 'Unknown';
+      regionGroups[region] = (regionGroups[region] || 0) + 1;
+    });
+
+    const regions = Object.keys(regionGroups);
+    const counts = regions.map(r => regionGroups[r]);
+
+    const trace = {
+      y: regions,
+      x: counts,
+      type: 'bar',
+      orientation: 'h',
+      marker: { color: '#17a2b8' }
+    };
+
+    const layout = {
+      title: { text: 'Regional Distribution' },
+      xaxis: { title: 'Participants' },
+      yaxis: { title: 'Region' },
+      margin: { l: 100, r: 30, t: 50, b: 50 }
+    };
+
+    if (typeof Plotly !== 'undefined') {
+      Plotly.newPlot('regional-chart', [trace], layout, { responsive: true });
+    } else {
+      document.getElementById('regional-chart').innerHTML = 
+        '<div style="text-align: center; padding: 2rem; color: #6c757d;">Chart loading...</div>';
+    }
+  }
+
+  function updateDonutChart(data) {
+    const ageGroups = {};
+    data.forEach(row => {
+      const ageGroup = row.age_group_23_1 || row.age_group_22_1 || 'Unknown';
+      ageGroups[ageGroup] = (ageGroups[ageGroup] || 0) + 1;
+    });
+
+    const labels = Object.keys(ageGroups);
+    const values = labels.map(l => ageGroups[l]);
+
+    const trace = {
+      labels: labels,
+      values: values,
+      type: 'pie',
+      hole: 0.4,
+      marker: {
+        colors: ['#007bff', '#28a745', '#ffc107', '#dc3545', '#6f42c1', '#17a2b8', '#fd7e14']
+      }
+    };
+
+    const layout = {
+      title: { text: 'Age Group Distribution' },
+      margin: { l: 20, r: 20, t: 50, b: 20 }
+    };
+
+    if (typeof Plotly !== 'undefined') {
+      Plotly.newPlot('donut-chart', [trace], layout, { responsive: true });
+    } else {
+      document.getElementById('donut-chart').innerHTML = 
+        '<div style="text-align: center; padding: 2rem; color: #6c757d;">Chart loading...</div>';
+    }
+  }
+
+  function updateMonthlyChart(data) {
+    const dateCol = waveConfig.dates[currentWave];
+    const validData = data.filter(row => row[dateCol] && row[dateCol].trim());
+    
+    const monthGroups = {};
+    validData.forEach(row => {
+      const date = new Date(row[dateCol]);
+      if (!isNaN(date.getTime())) {
+        const monthKey = date.toISOString().substring(0, 7);
+        monthGroups[monthKey] = (monthGroups[monthKey] || 0) + 1;
+      }
+    });
+
+    const sortedMonths = Object.keys(monthGroups).sort();
+    const counts = sortedMonths.map(m => monthGroups[m]);
+
+    const trace = {
+      x: sortedMonths,
+      y: counts,
+      type: 'bar',
+      marker: { color: '#ffc107' }
+    };
+
+    const layout = {
+      title: { text: 'Monthly Trends' },
+      xaxis: { title: 'Month' },
+      yaxis: { title: 'Participants' },
+      margin: { l: 50, r: 30, t: 50, b: 50 }
+    };
+
+    if (typeof Plotly !== 'undefined') {
+      Plotly.newPlot('monthly-chart', [trace], layout, { responsive: true });
+    } else {
+      document.getElementById('monthly-chart').innerHTML = 
+        '<div style="text-align: center; padding: 2rem; color: #6c757d;">Chart loading...</div>';
+    }
+  }
+
+  // Wave Configuration Modal Functions
+  function initWaveConfigModal() {
+    const modal = document.getElementById('waveConfigModal');
+    
+    // Tab switching
+    document.querySelectorAll('.config-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.config-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.config-section').forEach(s => s.classList.remove('active'));
+        
+        tab.classList.add('active');
+        document.getElementById(`config-${tab.dataset.tab}`).classList.add('active');
+      });
+    });
+
+    // Close modal handlers
+    document.querySelectorAll('[data-dismiss="modal"]').forEach(btn => {
+      btn.addEventListener('click', hideWaveConfigModal);
+    });
+
+    // Save configuration
+    document.getElementById('save-wave-config').addEventListener('click', saveWaveConfiguration);
+    
+    // Close modal on backdrop click
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) hideWaveConfigModal();
+    });
+  }
+
+  function showWaveConfigModal() {
+    document.getElementById('waveConfigModal').classList.add('show');
+    populateWaveConfigModal();
+  }
+
+  function hideWaveConfigModal() {
+    document.getElementById('waveConfigModal').classList.remove('show');
+  }
+
+  function populateWaveConfigModal() {
+    // Populate with current configuration values
+    Object.keys(waveConfig).forEach(category => {
+      Object.keys(waveConfig[category]).forEach(wave => {
+        const input = document.getElementById(`${category}-${wave}`);
+        if (input) {
+          input.value = waveConfig[category][wave];
+        }
+      });
+    });
+  }
+
+  function saveWaveConfiguration() {
+    // Update waveConfig with values from form
+    Object.keys(waveConfig).forEach(category => {
+      Object.keys(waveConfig[category]).forEach(wave => {
+        const input = document.getElementById(`${category}-${wave}`);
+        if (input) {
+          waveConfig[category][wave] = input.value;
+        }
+      });
+    });
+    
+    hideWaveConfigModal();
+    updateDashboardData(); // Refresh dashboard with new config
+  }
+
+  // ===== AdminKit Dashboard Implementation END =====
   </script>
 
   <!-- ==================== Global Filters Modal (your inserted block) ==================== -->
