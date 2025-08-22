@@ -1733,8 +1733,8 @@
             </label>
             <div class="wave-tabs" id="wave-tabs">
               <button class="wave-tab active" data-wave="baseline">Baseline (X20_21)</button>
-              <button class="wave-tab" data-wave="w22">W22</button>
               <button class="wave-tab" data-wave="s22">S22</button>
+              <button class="wave-tab" data-wave="w22">W22</button>
               <button class="wave-tab" data-wave="s23">S23</button>
               <button class="wave-tab" data-wave="s24">S24</button>
             </div>
@@ -2031,15 +2031,15 @@
                      placeholder="Column expression">
             </div>
             <div class="config-item">
-              <label>W22</label>
-              <input type="text" class="form-control" id="serology-w22" 
-                     value="w22_serostatus==1" 
-                     placeholder="Column expression">
-            </div>
-            <div class="config-item">
               <label>S22</label>
               <input type="text" class="form-control" id="serology-s22" 
                      value="s22_nc_qualitative==1" 
+                     placeholder="Column expression">
+            </div>
+            <div class="config-item">
+              <label>W22</label>
+              <input type="text" class="form-control" id="serology-w22" 
+                     value="w22_serostatus==1" 
                      placeholder="Column expression">
             </div>
             <div class="config-item">
@@ -2070,16 +2070,16 @@
               </select>
             </div>
             <div class="config-item">
-              <label>W22</label>
-              <select class="form-select" id="dates-w22">
-                <option value="w22_submitdate" selected>w22_submitdate</option>
-              </select>
-            </div>
-            <div class="config-item">
               <label>S22</label>
               <select class="form-select" id="dates-s22">
                 <option value="s22_sampling_date_new" selected>s22_sampling_date_new</option>
                 <option value="s22_submitdate">s22_submitdate</option>
+              </select>
+            </div>
+            <div class="config-item">
+              <label>W22</label>
+              <select class="form-select" id="dates-w22">
+                <option value="w22_submitdate" selected>w22_submitdate</option>
               </select>
             </div>
             <div class="config-item">
@@ -2110,16 +2110,16 @@
                      placeholder="Column name">
             </div>
             <div class="config-item">
-              <label>W22</label>
-              <select class="form-select" id="kids-w22">
-                <option value="w22_kids_under14_count_new" selected>w22_kids_under14_count_new</option>
-              </select>
-            </div>
-            <div class="config-item">
               <label>S22</label>
               <input type="text" class="form-control" id="kids-s22" 
                      value="s22_kids_under14" 
                      placeholder="Column name">
+            </div>
+            <div class="config-item">
+              <label>W22</label>
+              <select class="form-select" id="kids-w22">
+                <option value="w22_kids_under14_count_new" selected>w22_kids_under14_count_new</option>
+              </select>
             </div>
             <div class="config-item">
               <label>S23</label>
@@ -2148,16 +2148,16 @@
                      placeholder="Column name">
             </div>
             <div class="config-item">
-              <label>W22</label>
-              <select class="form-select" id="chronic-w22">
-                <option value="w22_new_chronic_diseases" selected>w22_new_chronic_diseases</option>
-              </select>
-            </div>
-            <div class="config-item">
               <label>S22</label>
               <input type="text" class="form-control" id="chronic-s22" 
                      value="s22_new_chronic_diseases" 
                      placeholder="Column name">
+            </div>
+            <div class="config-item">
+              <label>W22</label>
+              <select class="form-select" id="chronic-w22">
+                <option value="w22_new_chronic_diseases" selected>w22_new_chronic_diseases</option>
+              </select>
             </div>
             <div class="config-item">
               <label>S23</label>
@@ -6986,34 +6986,36 @@ let inspectorSelectedField = null;
     const dateCol = waveConfig.dates[currentWave];
     const validData = data.filter(row => row[dateCol] && row[dateCol].trim());
     
-    // Group by month
-    const monthGroups = {};
-    validData.forEach(row => {
-      const date = new Date(row[dateCol]);
-      if (!isNaN(date.getTime())) {
-        const monthKey = date.toISOString().substring(0, 7); // YYYY-MM
-        monthGroups[monthKey] = (monthGroups[monthKey] || 0) + 1;
+    // Group by month with date filtering
+    const monthCounts = new Map();
+    
+    for (const row of validData) {
+      const d = new Date(row[dateCol]);
+      if (!isNaN(d.getTime()) && d >= new Date('2020-01-01') && d <= new Date('2024-12-31')) {
+        const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`;
+        monthCounts.set(key, (monthCounts.get(key) || 0) + 1);
       }
-    });
+    }
 
-    const sortedMonths = Object.keys(monthGroups).sort();
-    const counts = sortedMonths.map(m => monthGroups[m]);
+    const x = Array.from(monthCounts.keys()).sort((a,b)=> new Date(a)-new Date(b));
+    const y = x.map(k => monthCounts.get(k));
 
     const trace = {
-      x: sortedMonths,
-      y: counts,
-      type: 'scatter',
-      mode: 'lines+markers',
-      line: { color: '#007bff', width: 3 },
-      marker: { size: 8 },
+      x, y, type: 'scatter', mode: 'lines+markers',
+      line: { color: '#3b82f6', width: 3, shape: 'spline', smoothing: 0.6 },
+      marker: { size: 6, color: '#3b82f6' },
+      fill: 'tozeroy', fillcolor: 'rgba(59,130,246,0.12)',
+      hovertemplate: '%{x|%b %Y}<br>Count: %{y}',
       name: 'Participants'
     };
 
+    const waveLabel = (currentWave === 'baseline') ? 'BASELINE' : currentWave.toUpperCase();
     const layout = {
-      title: { text: `Participation Timeline - ${currentWave.toUpperCase()}` },
-      xaxis: { title: 'Month' },
-      yaxis: { title: 'Count' },
-      margin: { l: 50, r: 30, t: 50, b: 50 }
+      title: { text: `Participation Timeline - ${waveLabel}`, x: 0.5, xanchor: 'center' },
+      xaxis: { type: 'date', title: 'Month', range: ['2020-01-01','2024-12-31'], tickformat: '%b %Y', showgrid: true, gridcolor: 'rgba(0,0,0,0.08)' },
+      yaxis: { title: 'Count', zeroline: true, gridcolor: 'rgba(0,0,0,0.08)' },
+      margin: { l: 50, r: 30, t: 50, b: 50 },
+      hovermode: 'x unified'
     };
 
     if (typeof Plotly !== 'undefined') {
