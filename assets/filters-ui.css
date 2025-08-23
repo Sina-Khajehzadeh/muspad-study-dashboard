@@ -1,0 +1,86 @@
+/* Dashboard Filters UI Styling */
+
+.sidebar-filters {
+  background: #181a1b;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  color: #eaeaea;
+  font-family: inherit;
+  min-width: 260px;
+}
+
+.sidebar-filters h4 {
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+  color: #7cd1f9;
+  font-size: 1.05rem;
+  border-bottom: 1px solid #2c2f31;
+  padding-bottom: 0.2rem;
+}
+
+.filter-section {
+  margin-bottom: 1.5rem;
+}
+
+.filter-control {
+  margin-bottom: 0.7rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.filter-control label {
+  color: #eaeaea;
+  font-size: 0.99rem;
+}
+
+.filter-control select,
+.filter-control input[type="search"] {
+  background: #232527;
+  color: #eaeaea;
+  border: 1px solid #3a3e41;
+  border-radius: 4px;
+  padding: 0.28rem 0.54rem;
+  font-size: 0.97rem;
+  margin-top: 0.15rem;
+}
+
+.filter-control input[type="range"] {
+  width: 100%;
+  accent-color: #7cd1f9;
+  margin-top: 0.15rem;
+}
+
+.filter-control input[type="checkbox"] {
+  accent-color: #7cd1f9;
+  margin-right: 0.2rem;
+  scale: 1.1;
+}
+
+#clear-filters-btn {
+  background: #7cd1f9;
+  color: #232527;
+  border: none;
+  border-radius: 4px;
+  padding: 0.4rem 1.1rem;
+  font-weight: bold;
+  cursor: pointer;
+  margin-top: 1rem;
+  transition: background 0.2s;
+}
+
+#clear-filters-btn:hover {
+  background: #45b0eb;
+}
+
+@media (max-width: 900px) {
+  .sidebar-filters {
+    min-width: unset;
+    font-size: 0.97rem;
+    padding: 0.6rem;
+  }
+  .sidebar-filters h4 {
+    font-size: 0.98rem;
+  }
+}
