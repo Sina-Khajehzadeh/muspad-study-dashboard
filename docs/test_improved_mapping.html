@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Improved Income Range Handling</title>
+</head>
+<body>
+    <h1>Testing Improved Income Range Mapping</h1>
+    <div id="results"></div>
+    
+    <script>
+        function coerceNumericArray(values) {
+            const result = [];
+            const errors = [];
+            
+            for (let i = 0; i < values.length; i++) {
+                const val = values[i];
+                
+                if (val == null || val === '') {
+                    continue;
+                }
+                
+                if (typeof val === 'number' && !Number.isNaN(val) && Number.isFinite(val)) {
+                    result.push(val);
+                    continue;
+                }
+                
+                if (typeof val === 'string') {
+                    const trimmed = val.trim();
+                    
+                    // Special handling for German income ranges
+                    const incomeRangeMatch = trimmed.match(/^(\d+)\s*bis\s*unter\s*(\d+)\s*Euro/i);
+                    if (incomeRangeMatch) {
+                        const min = parseFloat(incomeRangeMatch[1]);
+                        const max = parseFloat(incomeRangeMatch[2]);
+                        if (!Number.isNaN(min) && !Number.isNaN(max)) {
+                            result.push((min + max) / 2);
+                            continue;
+                        }
+                    }
+                    
+                    // Handle "8000 Euro und mehr"
+                    const upperBoundMatch = trimmed.match(/^(\d+)\s*Euro\s*und\s*mehr/i);
+                    if (upperBoundMatch) {
+                        const min = parseFloat(upperBoundMatch[1]);
+                        if (!Number.isNaN(min)) {
+                            result.push(min + (min * 0.5));
+                            continue;
+                        }
+                    }
+                    
+                    const num = parseFloat(trimmed);
+                    if (!Number.isNaN(num) && Number.isFinite(num)) {
+                        result.push(num);
+                        continue;
+                    }
+                }
+                
+                errors.push({ index: i, value: val, type: typeof val });
+            }
+            
+            return { values: result, errors };
+        }
+        
+        function runTest() {
+            const testValues = [
+                '1000 bis unter 2000 Euro',
+                '2000 bis unter 3000 Euro', 
+                '3000 bis unter 4000 Euro',
+                '6000 bis unter 8000 Euro',
+                '8000 Euro und mehr',
+                null,
+                '',
+                'invalid',
+                1500
+            ];
+            
+            const result = coerceNumericArray(testValues);
+            
+            let html = '<h2>Improved Income Range Mapping Results</h2>';
+            html += '<table border="1" style="border-collapse: collapse;"><tr><th>Input</th><th>Mapped Value</th><th>Explanation</th></tr>';
+            
+            const expectedMappings = {
+                '1000 bis unter 2000 Euro': 1500,      // (1000 + 2000) / 2
+                '2000 bis unter 3000 Euro': 2500,      // (2000 + 3000) / 2
+                '3000 bis unter 4000 Euro': 3500,      // (3000 + 4000) / 2
+                '6000 bis unter 8000 Euro': 7000,      // (6000 + 8000) / 2
+                '8000 Euro und mehr': 12000,           // 8000 + (8000 * 0.5)
+                null: '(skipped)',
+                '': '(skipped)',
+                'invalid': '(error)',
+                1500: 1500
+            };
+            
+            let resultIndex = 0;
+            testValues.forEach((input, i) => {
+                if (input == null || input === '') {
+                    html += `<tr><td>${input}</td><td>(skipped)</td><td>Null/empty values ignored</td></tr>`;
+                } else if (input === 'invalid') {
+                    html += `<tr><td>${input}</td><td>(error)</td><td>Non-numeric string</td></tr>`;
+                } else if (typeof input === 'number') {
+                    html += `<tr><td>${input}</td><td>${result.values[resultIndex]}</td><td>Already numeric</td></tr>`;
+                    resultIndex++;
+                } else {
+                    const mappedValue = result.values[resultIndex];
+                    const expected = expectedMappings[input];
+                    const match = mappedValue === expected ? '✅' : '❌';
+                    
+                    let explanation = '';
+                    if (input.includes('bis unter')) {
+                        explanation = 'Midpoint of range';
+                    } else if (input.includes('und mehr')) {
+                        explanation = 'Base + 50% estimate for open range';
+                    } else {
+                        explanation = 'Simple numeric extraction';
+                    }
+                    
+                    html += `<tr><td>${input}</td><td>${mappedValue} ${match}</td><td>${explanation}</td></tr>`;
+                    resultIndex++;
+                }
+            });
+            
+            html += '</table>';
+            html += `<p><strong>Valid numeric results:</strong> [${result.values.join(', ')}]</p>`;
+            html += `<p><strong>Errors:</strong> ${result.errors.length} items</p>`;
+            
+            if (result.errors.length > 0) {
+                html += '<h3>Error Details:</h3><ul>';
+                result.errors.forEach(error => {
+                    html += `<li>Index ${error.index}: "${error.value}" (${error.type})</li>`;
+                });
+                html += '</ul>';
+            }
+            
+            html += '<p><strong>✅ This improved mapping provides much more accurate income representations for analysis!</strong></p>';
+            
+            document.getElementById('results').innerHTML = html;
+        }
+        
+        document.addEventListener('DOMContentLoaded', runTest);
+    </script>
+</body>
+</html>

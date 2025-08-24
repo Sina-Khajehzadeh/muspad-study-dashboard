@@ -4457,6 +4457,254 @@ let inspectorSelectedField = null;
     return !mostlyNums && uniq.size >= 2 && uniq.size <= 20;
   }
 
+  // ===== IMPROVED CHARTING UTILITIES =====
+  
+  function isNumericColumn(values) {
+    // Robust detection of numeric columns, including strings that represent numbers
+    if (!Array.isArray(values) || values.length === 0) return false;
+    
+    let numericCount = 0;
+    let validCount = 0;
+    
+    for (const val of values) {
+      // Skip null, undefined, empty string
+      if (val == null || val === '') continue;
+      
+      validCount++;
+      
+      // Check if it's already a number
+      if (typeof val === 'number' && !Number.isNaN(val)) {
+        numericCount++;
+        continue;
+      }
+      
+      // Check if string can be coerced to number
+      if (typeof val === 'string') {
+        const trimmed = val.trim();
+        
+        // If string contains non-numeric characters other than decimal point, minus, plus, e/E (scientific notation)
+        // then it's likely categorical even if it starts with numbers
+        const numericPattern = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
+        
+        if (numericPattern.test(trimmed)) {
+          const num = parseFloat(trimmed);
+          if (!Number.isNaN(num) && Number.isFinite(num)) {
+            numericCount++;
+            continue;
+          }
+        }
+        
+        // Special case: if string starts with digits but contains letters or special chars
+        // (like "1000 bis unter 2000 Euro"), it's categorical
+        if (/^\d/.test(trimmed) && /[a-zA-Z]/.test(trimmed)) {
+          // This is likely a categorical value that starts with a number
+          continue; // Don't count as numeric
+        }
+      }
+    }
+    
+    // Consider column numeric if at least 70% of valid values are numeric
+    return validCount > 0 && (numericCount / validCount) >= 0.7;
+  }
+  
+  function coerceNumericArray(values) {
+    // Convert array of mixed values to numeric, filtering out NaN/invalid values
+    const result = [];
+    const errors = [];
+    
+    for (let i = 0; i < values.length; i++) {
+      const val = values[i];
+      
+      // Handle null, undefined, empty string
+      if (val == null || val === '') {
+        continue; // Skip entirely, don't push null
+      }
+      
+      // Already a valid number
+      if (typeof val === 'number' && !Number.isNaN(val) && Number.isFinite(val)) {
+        result.push(val);
+        continue;
+      }
+      
+      // Try to parse string
+      if (typeof val === 'string') {
+        const trimmed = val.trim();
+        
+        // Special handling for German income ranges common in surveys
+        const incomeRangeMatch = trimmed.match(/^(\d+)\s*bis\s*unter\s*(\d+)\s*Euro/i);
+        if (incomeRangeMatch) {
+          const min = parseFloat(incomeRangeMatch[1]);
+          const max = parseFloat(incomeRangeMatch[2]);
+          if (!Number.isNaN(min) && !Number.isNaN(max)) {
+            // Use midpoint of range for better accuracy
+            result.push((min + max) / 2);
+            continue;
+          }
+        }
+        
+        // Handle "8000 Euro und mehr" or similar upper-bound expressions
+        const upperBoundMatch = trimmed.match(/^(\d+)\s*Euro\s*und\s*mehr/i);
+        if (upperBoundMatch) {
+          const min = parseFloat(upperBoundMatch[1]);
+          if (!Number.isNaN(min)) {
+            // Use min + reasonable margin for open-ended ranges
+            result.push(min + (min * 0.5)); // Add 50% as estimate
+            continue;
+          }
+        }
+        
+        // Standard numeric parsing
+        const num = parseFloat(trimmed);
+        if (!Number.isNaN(num) && Number.isFinite(num)) {
+          result.push(num);
+          continue;
+        }
+      }
+      
+      // Invalid value
+      errors.push({ index: i, value: val, type: typeof val });
+    }
+    
+    return { values: result, errors };
+  }
+  
+  function groupAggregate(rows, groupKey, valueKey, aggregatorType = 'mean') {
+    // Robust grouping and aggregation with proper error handling
+    const groups = new Map();
+    const warnings = [];
+    
+    // Group rows by the groupKey
+    for (const row of rows) {
+      const groupVal = row[groupKey];
+      const key = String(groupVal == null ? '(null)' : groupVal);
+      
+      if (!groups.has(key)) {
+        groups.set(key, []);
+      }
+      groups.get(key).push(row);
+    }
+    
+    // Aggregate each group
+    const result = new Map();
+    
+    for (const [groupName, groupRows] of groups) {
+      let aggregateValue;
+      
+      if (aggregatorType === 'count') {
+        aggregateValue = groupRows.length;
+      } else {
+        // Extract values for aggregation
+        const rawValues = groupRows.map(row => row[valueKey]);
+        const { values: numericValues, errors } = coerceNumericArray(rawValues);
+        
+        if (errors.length > 0 && numericValues.length === 0) {
+          warnings.push(`Group '${groupName}': No valid numeric values found for '${valueKey}' (${errors.length} invalid values)`);
+          aggregateValue = 0; // or null/NaN depending on preference
+        } else if (errors.length > 0) {
+          warnings.push(`Group '${groupName}': ${errors.length} invalid values ignored for '${valueKey}'`);
+        }
+        
+        if (numericValues.length === 0) {
+          aggregateValue = 0;
+        } else {
+          switch (aggregatorType) {
+            case 'mean':
+              aggregateValue = numericValues.reduce((a, b) => a + b, 0) / numericValues.length;
+              break;
+            case 'sum':
+              aggregateValue = numericValues.reduce((a, b) => a + b, 0);
+              break;
+            case 'median':
+              const sorted = numericValues.slice().sort((a, b) => a - b);
+              const mid = Math.floor(sorted.length / 2);
+              aggregateValue = sorted.length % 2 === 0 
+                ? (sorted[mid - 1] + sorted[mid]) / 2 
+                : sorted[mid];
+              break;
+            case 'std':
+              const mean = numericValues.reduce((a, b) => a + b, 0) / numericValues.length;
+              const variance = numericValues.reduce((a, b) => a + (b - mean) ** 2, 0) / numericValues.length;
+              aggregateValue = Math.sqrt(variance);
+              break;
+            default:
+              aggregateValue = numericValues.reduce((a, b) => a + b, 0) / numericValues.length;
+          }
+        }
+      }
+      
+      result.set(groupName, {
+        value: aggregateValue,
+        count: groupRows.length,
+        validNumericCount: aggregatorType === 'count' ? null : 
+          coerceNumericArray(groupRows.map(row => row[valueKey])).values.length
+      });
+    }
+    
+    return { groups: result, warnings };
+  }
+  
+  function computeBoxStats(values) {
+    // Compute box plot statistics: quartiles, whiskers, outliers
+    const { values: numericValues } = coerceNumericArray(values);
+    
+    if (numericValues.length === 0) {
+      return { q1: 0, median: 0, q3: 0, lower: 0, upper: 0, outliers: [] };
+    }
+    
+    const sorted = numericValues.slice().sort((a, b) => a - b);
+    const n = sorted.length;
+    
+    // Calculate quartiles
+    const q1 = sorted[Math.floor((n - 1) * 0.25)];
+    const median = sorted[Math.floor((n - 1) * 0.5)];
+    const q3 = sorted[Math.floor((n - 1) * 0.75)];
+    
+    // Calculate whiskers (1.5 * IQR)
+    const iqr = q3 - q1;
+    const lower = q1 - 1.5 * iqr;
+    const upper = q3 + 1.5 * iqr;
+    
+    // Find outliers
+    const outliers = sorted.filter(v => v < lower || v > upper);
+    
+    return { q1, median, q3, lower, upper, outliers };
+  }
+  
+  function computeMeanSemCI(values, confidenceLevel = 0.95) {
+    // Compute mean, standard error of mean, and confidence interval
+    const { values: numericValues } = coerceNumericArray(values);
+    
+    if (numericValues.length === 0) {
+      return { mean: 0, sem: 0, ci: [0, 0], n: 0 };
+    }
+    
+    const n = numericValues.length;
+    const mean = numericValues.reduce((a, b) => a + b, 0) / n;
+    
+    if (n === 1) {
+      return { mean, sem: 0, ci: [mean, mean], n };
+    }
+    
+    // Calculate standard deviation
+    const variance = numericValues.reduce((a, b) => a + (b - mean) ** 2, 0) / (n - 1);
+    const std = Math.sqrt(variance);
+    const sem = std / Math.sqrt(n);
+    
+    // Calculate confidence interval (using t-distribution approximation)
+    // For large n, t ~ 1.96 for 95% CI
+    const tValue = n > 30 ? 1.96 : [0, 0, 12.706, 4.303, 3.182, 2.776, 2.571, 2.447, 2.365, 2.306][Math.min(n - 1, 9)] || 2.0;
+    const margin = tValue * sem;
+    
+    return {
+      mean,
+      sem,
+      ci: [mean - margin, mean + margin],
+      n
+    };
+  }
+  
+  // ===== END IMPROVED UTILITIES =====
+
   function makePivotMatrix(rows, rowKey, colKey, valKey, aggName='count') {
     const rset = new Set(), cset = new Set();
     const map = new Map(); // key = r¦c -> array of rows
@@ -4778,6 +5026,28 @@ let inspectorSelectedField = null;
     // Get data for the chart
     const data = filteredRows;
     
+    // Validate chart configuration and add warnings
+    if (cfg.y && cfg.agg && ['mean', 'sum', 'median'].includes(cfg.agg)) {
+      const yValues = data.map(r => r[cfg.y]).slice(0, 200); // Sample for validation
+      if (!isNumericColumn(yValues)) {
+        console.warn(`Warning: Column '${cfg.y}' does not appear to be numeric but is being used for ${cfg.agg} aggregation. This may produce incorrect results.`);
+        
+        // Try to show user-friendly warning in the chart
+        const el = cfg._el;
+        const warningDiv = document.createElement('div');
+        warningDiv.className = 'alert alert-warning alert-sm mb-2';
+        warningDiv.innerHTML = `<small><i class="bi bi-exclamation-triangle"></i> Warning: Column '${cfg.y}' may not be numeric for ${cfg.agg} aggregation</small>`;
+        el.parentElement.insertBefore(warningDiv, el);
+        
+        // Remove warning after 5 seconds
+        setTimeout(() => {
+          if (warningDiv.parentElement) {
+            warningDiv.parentElement.removeChild(warningDiv);
+          }
+        }, 5000);
+      }
+    }
+    
     // Initialize Plotly figure with theme-based layout
     let fig = { 
       data: [], 
@@ -5047,10 +5317,30 @@ let inspectorSelectedField = null;
     const agg = (rows) => {
       if (cfg.agg === 'count') return rows.length;
       if (!cfg.y) return rows.length;
-      const vals = rows.map(r => +r[cfg.y]).filter(v => !Number.isNaN(v));
-      if (!vals.length) return 0;
-      if (cfg.agg === 'sum') return vals.reduce((a,b)=>a+b,0);
-      return vals.reduce((a,b)=>a+b,0) / vals.length; // mean
+      
+      // Use robust numeric coercion
+      const rawValues = rows.map(r => r[cfg.y]);
+      const { values: numericValues, errors } = coerceNumericArray(rawValues);
+      
+      // Log warnings for debugging if there are coercion errors
+      if (errors.length > 0 && numericValues.length === 0) {
+        console.warn(`Aggregation for '${cfg.y}': No valid numeric values found (${errors.length} invalid values)`);
+      }
+      
+      if (numericValues.length === 0) return 0;
+      
+      switch (cfg.agg) {
+        case 'sum':
+          return numericValues.reduce((a, b) => a + b, 0);
+        case 'mean':
+          return numericValues.reduce((a, b) => a + b, 0) / numericValues.length;
+        case 'median':
+          const sorted = numericValues.slice().sort((a, b) => a - b);
+          const mid = Math.floor(sorted.length / 2);
+          return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+        default:
+          return numericValues.reduce((a, b) => a + b, 0) / numericValues.length; // default to mean
+      }
     };
     
     if (xType === 'categorical') {
@@ -5200,10 +5490,30 @@ let inspectorSelectedField = null;
     const agg = (rows) => {
       if (cfg.agg === 'count') return rows.length;
       if (!cfg.y) return rows.length;
-      const vals = rows.map(r => +r[cfg.y]).filter(v => !Number.isNaN(v));
-      if (!vals.length) return 0;
-      if (cfg.agg === 'sum') return vals.reduce((a,b)=>a+b,0);
-      return vals.reduce((a,b)=>a+b,0) / vals.length;
+      
+      // Use robust numeric coercion
+      const rawValues = rows.map(r => r[cfg.y]);
+      const { values: numericValues, errors } = coerceNumericArray(rawValues);
+      
+      // Log warnings for debugging if there are coercion errors
+      if (errors.length > 0 && numericValues.length === 0) {
+        console.warn(`Line chart aggregation for '${cfg.y}': No valid numeric values found (${errors.length} invalid values)`);
+      }
+      
+      if (numericValues.length === 0) return 0;
+      
+      switch (cfg.agg) {
+        case 'sum':
+          return numericValues.reduce((a, b) => a + b, 0);
+        case 'mean':
+          return numericValues.reduce((a, b) => a + b, 0) / numericValues.length;
+        case 'median':
+          const sorted = numericValues.slice().sort((a, b) => a - b);
+          const mid = Math.floor(sorted.length / 2);
+          return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+        default:
+          return numericValues.reduce((a, b) => a + b, 0) / numericValues.length; // default to mean
+      }
     };
     
     if (colorField && colorType === 'categorical') {
@@ -5624,11 +5934,21 @@ let inspectorSelectedField = null;
     const aggSeries = (yField) => xs.map(xv => {
       const rows = g.map.get(String(xv)) || g.map.get(xv) || [];
       if (!yField) return 0;
-      const vals = rows.map(r => +r[yField]).filter(v => !Number.isNaN(v));
-      if (!vals.length) return 0;
-      if (cfg.agg === 'sum') return vals.reduce((a,b)=>a+b,0);
-      if (cfg.agg === 'mean') return vals.reduce((a,b)=>a+b,0)/vals.length;
-      return rows.length;
+      
+      // Use robust numeric coercion
+      const rawValues = rows.map(r => r[yField]);
+      const { values: numericValues, errors } = coerceNumericArray(rawValues);
+      
+      if (numericValues.length === 0) return 0;
+      
+      switch (cfg.agg) {
+        case 'sum':
+          return numericValues.reduce((a, b) => a + b, 0);
+        case 'mean':
+          return numericValues.reduce((a, b) => a + b, 0) / numericValues.length;
+        default:
+          return rows.length; // count
+      }
     });
     const yBar = aggSeries(cfg.y);
     const yLine = aggSeries(cfg.y2);
