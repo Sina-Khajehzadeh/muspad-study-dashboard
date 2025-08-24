@@ -248,4 +248,43 @@ document.addEventListener('DOMContentLoaded', function () {
     setTimeout(buildSidebarFilters, 2000);
   })();
 
+  // List of your section/group names:
+const sectionOrder = [
+  "All", "Identifiers", "Demographics", "Household", "Health/Conditions",
+  "Behaviors", "Classification/Status", "Vaccination", "Serology", "Dates/Times"
+];
+
+// This function renders the group buttons in the modal.
+function renderGroupButtons(activeSection = "All") {
+  const groupsContainer = document.getElementById("gf-groups");
+  if (!groupsContainer) return;
+  groupsContainer.innerHTML = "";
+  sectionOrder.forEach(section => {
+    const btn = document.createElement("button");
+    btn.textContent = section;
+    btn.className = "btn btn-xs btn-outline-secondary" + (section === activeSection ? " active" : "");
+    btn.dataset.group = section;
+    btn.onclick = () => {
+      groupsContainer.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      renderFieldList(section); // Call your field filtering here
+    };
+    groupsContainer.appendChild(btn);
+  });
+}
+
+// Example placeholder for field list rendering
+function renderFieldList(section = "All") {
+  const fieldListContainer = document.getElementById("gf-field-list");
+  if (!fieldListContainer) return;
+  // Replace this with your real filtering logic
+  fieldListContainer.innerHTML = `<div>Fields for: ${section}</div>`;
+}
+
+// Call these functions when your modal opens
+renderGroupButtons("All");
+renderFieldList("All");
+
 });
+
+
