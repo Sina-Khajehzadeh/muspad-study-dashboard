@@ -284,7 +284,6 @@ function renderFieldList(section = "All") {
 // Call these functions when your modal opens
 renderGroupButtons("All");
 renderFieldList("All");
-
 });
 
 
