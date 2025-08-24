@@ -131,11 +131,12 @@ const sectionOrder = [
   "Identifiers", "Demographics", "Household", "Health/Conditions", "Behaviors", "Classification/Status", "Vaccination", "Serology", "Dates/Times"
 ];
 
+// Generate filter sidebar HTML and inject into sidebar-filters-dropdown
 function generateFilters() {
-  const sidebar = document.getElementById("sidebar-filters") || document.createElement("div");
-  sidebar.id = "sidebar-filters";
-  sidebar.className = "sidebar-filters";
-  sidebar.innerHTML = "";
+  // Build HTML in memory
+  const wrapper = document.createElement('div');
+  wrapper.id = 'sidebar-filters';
+  wrapper.className = 'sidebar-filters';
 
   sectionOrder.forEach(section => {
     const sectionFields = dataCatalog.filter(f => f.section === section);
@@ -185,31 +186,45 @@ function generateFilters() {
         default:
           filterControl = `<span><!-- Unknown filter type --></span>`;
       }
-      const wrapper = document.createElement("div");
-      wrapper.className = "filter-control";
-      wrapper.innerHTML = filterControl;
-      sectionDiv.appendChild(wrapper);
+      const wrapperDiv = document.createElement("div");
+      wrapperDiv.className = "filter-control";
+      wrapperDiv.innerHTML = filterControl;
+      sectionDiv.appendChild(wrapperDiv);
     });
-    sidebar.appendChild(sectionDiv);
+    wrapper.appendChild(sectionDiv);
   });
 
+  // Clear filters button
   const clearBtn = document.createElement("button");
   clearBtn.innerText = "Clear all filters";
   clearBtn.id = "clear-filters-btn";
+  clearBtn.className = "btn btn-sm btn-outline-secondary";
   clearBtn.onclick = function() {
-    document.querySelectorAll('.sidebar-filters select, .sidebar-filters input').forEach(el => {
+    wrapper.querySelectorAll('select, input').forEach(el => {
       if (el.type === "checkbox") el.checked = false;
       else if (el.type === "range") el.value = el.min;
       else el.value = "";
     });
-    // Optionally trigger dashboard refresh here
+    window.dispatchEvent(new CustomEvent('filters:cleared'));
   };
-  sidebar.appendChild(clearBtn);
+  wrapper.appendChild(clearBtn);
 
-  const sidebarWrapper = document.querySelector(".sidebar") || document.body;
-  sidebarWrapper.appendChild(sidebar);
+  // Inject into sidebar-filters-dropdown if present
+  const dropdownTarget = document.getElementById('sidebar-filters-dropdown');
+  if (dropdownTarget) {
+    dropdownTarget.innerHTML = '';
+    while (wrapper.firstChild) {
+      dropdownTarget.appendChild(wrapper.firstChild);
+    }
+    window.dispatchEvent(new CustomEvent('filters:generated'));
+  } else {
+    // Fallback for legacy or debugging
+    const sidebar = document.querySelector('.sidebar') || document.body;
+    sidebar.appendChild(wrapper);
+  }
 }
 
+// Call on page load
 if (document.readyState === "complete" || document.readyState === "interactive") {
   generateFilters();
 } else {
