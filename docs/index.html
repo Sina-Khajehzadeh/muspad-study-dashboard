@@ -1670,8 +1670,26 @@
           </div>
         </div>
       </div>
-       <!-- Add this to your sidebar (index.html), e.g. after other sidebar sections -->
-      <div id="sidebar-filters"></div>    
+      
+    <!-- Filters Section: Expandable with child items -->
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Filters</div>
+      <div class="sidebar-nav-item sidebar-filters-parent">
+        <button class="sidebar-nav-link filter-toggle" id="sidebar-filter-toggle" aria-expanded="false" aria-controls="sidebar-filters-dropdown" type="button">
+          <i class="bi bi-funnel-fill"></i>
+          <span class="nav-text">Filters</span>
+          <i class="bi bi-chevron-down chevron" aria-hidden="true"></i>
+        </button>
+        <!-- Expandable child filter list -->
+        <div class="sidebar-filters-dropdown" id="sidebar-filters-dropdown" aria-hidden="true">
+          <!-- Example filter child items; replace or generate these as needed -->
+          <button class="sidebar-filter-item" data-field="standort">Region (standort)</button>
+          <button class="sidebar-filter-item" data-field="age_group_23_1">Age Group</button>
+          <button class="sidebar-filter-item" data-field="sex">Sex</button>
+          <!-- Add more filter items as needed -->
+        </div>
+      </div>
+    </div>
     </nav>
 
     <!-- Main Content Area -->
