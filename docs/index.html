@@ -7576,6 +7576,54 @@ let inspectorSelectedField = null;
   margin-right: 4px;
 }
 
+  /* Darker modal & high-contrast controls for the dashboard */
+  #filters-panel {
+    background: #0b1220; /* dark panel */
+    color: #e6eef6;
+    border-color: rgba(255,255,255,0.06);
+  }
+  /* Adapt inner header and small text */
+  #filters-panel h3, #filters-panel .form-label, #gf-field-list .gf-name {
+    color: #e6eef6;
+  }
+  #filters-panel .gf-field-item {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.04);
+    color: #e6eef6;
+  }
+  #filters-panel .gf-field-item:hover { background: rgba(255,255,255,0.03); }
+
+  /* Group buttons style */
+  #gf-groups { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px; }
+  #gf-groups .gf-group-btn {
+    color: #dbe9ff;
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: none;
+  }
+  #gf-groups .gf-group-btn:hover {
+    background: rgba(255,255,255,0.02);
+  }
+  #gf-groups .gf-group-btn.active {
+    color: #0b1220;
+    background: #8fbcff; /* highlight color */
+    border-color: #7fb0ff;
+  }
+
+  /* Adjust chips and small badges for high contrast */
+  .gf-chip, .gf-selected-chip {
+    background: rgba(255,255,255,0.02);
+    border-color: rgba(255,255,255,0.04);
+    color: #e6eef6;
+  }
+  .gf-chip.active {
+    background: rgba(127,176,255,0.12);
+    border-color: rgba(127,176,255,0.22);
+    color: #e6eef6;
+  }
+  /* keep the right-panel help text readable */
+  #gf-help { color: #b9c8d8; }
+
 .gf-constraint-text {
   color: var(--gf-muted, #6b7280);
   font-weight: 400;
