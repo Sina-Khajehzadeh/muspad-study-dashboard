@@ -2988,9 +2988,10 @@ let inspectorSelectedField = null;
 
     show('panelData', true);
     applyFilters();
-    
-    autoStarterCharts();
-    initGlobalFilters();
+    if (typeof autoStarterCharts === 'function') autoStarterCharts();
+
+    // ADD THIS LINE BELOW:
+    if (typeof initGlobalFilters === 'function') initGlobalFilters();
     
     // Initialize AdminKit Dashboard after data is loaded
     setTimeout(() => {
@@ -2999,6 +3000,7 @@ let inspectorSelectedField = null;
       }
     }, 100);
   }
+
   
   // Return the direct URL of the first CSV found in docs/data (prefers names like latest/current/full/pivot/final).
   // Optional overrides:
