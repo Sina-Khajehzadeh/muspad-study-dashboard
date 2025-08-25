@@ -2995,7 +2995,7 @@ let inspectorSelectedField = null;
     
     // Initialize AdminKit Dashboard after data is loaded
     setTimeout(() => {
-      if (typeof initAdminKitDashboard === 'function') {
+      if (typeof initGlobalFilters === 'function') {
         initAdminKitDashboard();
       }
     }, 100);
