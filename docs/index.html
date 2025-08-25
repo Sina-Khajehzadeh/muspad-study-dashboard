@@ -7576,39 +7576,63 @@ let inspectorSelectedField = null;
   margin-right: 4px;
 }
 
-  /* Darker modal & high-contrast controls for the dashboard */
-  #filters-panel {
-    background: #0b1220; /* dark panel */
-    color: #e6eef6;
-    border-color: rgba(255,255,255,0.06);
-  }
-  /* Adapt inner header and small text */
-  #filters-panel h3, #filters-panel .form-label, #gf-field-list .gf-name {
-    color: #e6eef6;
-  }
-  #filters-panel .gf-field-item {
-    background: rgba(255,255,255,0.02);
-    border: 1px solid rgba(255,255,255,0.04);
-    color: #e6eef6;
-  }
-  #filters-panel .gf-field-item:hover { background: rgba(255,255,255,0.03); }
+    /* Make the filters modal background dark and text light */
+    #filters-panel {
+      background: #0b1220 !important;   /* dark background */
+      color: #e6eef6 !important;        /* light text */
+      border-color: rgba(255,255,255,0.08) !important;
+    }
+    
+    /* Make all text inside the panel light */
+    #filters-panel h3,
+    #filters-panel .form-label,
+    #filters-panel .form-control,
+    #filters-panel .form-select,
+    #gf-field-list .gf-name,
+    #gf-field-list .gf-count {
+      color: #e6eef6 !important;
+      background: transparent !important;
+    }
+    
+    /* Left panel field items */
+    #filters-panel .gf-field-item {
+      background: rgba(255,255,255,0.04) !important;
+      color: #e6eef6 !important;
+      border: 1px solid rgba(255,255,255,0.08) !important;
+    }
+    #filters-panel .gf-field-item:hover {
+      background: rgba(255,255,255,0.09) !important;
+    }
+    
+    /* Right panel area */
+    #filters-panel > div > div:last-child {
+      background: rgba(255,255,255,0.02) !important;
+    }
+    
+    /* Make input and select backgrounds dark */
+    #filters-panel input,
+    #filters-panel select {
+      background: #19213a !important;
+      color: #e6eef6 !important;
+      border: 1px solid rgba(255,255,255,0.15) !important;
+    }
+    
+    /* Chips and badges */
+    .gf-chip, .gf-selected-chip {
+      background: rgba(255,255,255,0.08) !important;
+      color: #e6eef6 !important;
+      border-color: rgba(255,255,255,0.18) !important;
+    }
+    .gf-chip.active {
+      background: #2a4fa7 !important;
+      border-color: #8fbcff !important;
+      color: #fff !important;
+    }
+    #gf-help { color: #b9c8d8 !important; }
 
-  /* Group buttons style */
-  #gf-groups { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px; }
-  #gf-groups .gf-group-btn {
-    color: #dbe9ff;
-    background: transparent;
-    border: 1px solid rgba(255,255,255,0.08);
-    box-shadow: none;
-  }
-  #gf-groups .gf-group-btn:hover {
-    background: rgba(255,255,255,0.02);
-  }
-  #gf-groups .gf-group-btn.active {
-    color: #0b1220;
-    background: #8fbcff; /* highlight color */
-    border-color: #7fb0ff;
-  }
+
+
+    
 
   /* Adjust chips and small badges for high contrast */
   .gf-chip, .gf-selected-chip {
